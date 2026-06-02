@@ -1,0 +1,454 @@
+/**
+ * RepositoryPage — thesis repository list with semantic similarity threshold.
+ *
+ * Authenticated route. Lists approved theses (students see approved only;
+ * faculty/admin see all). Supports basic search, year/program filters,
+ * a similarity threshold slider, and pagination.
+ */
+
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import client from '../api/client';
+import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
+import AppNavbar from '../components/layout/AppNavbar';
+import SimilaritySlider from '../components/ui/SimilaritySlider';
+import { Badge } from '../components/shadcn/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+
+const PROGRAMS = [
+  'BS Information System',
+  'BS Information Technology',
+  'BS Computer Science',
+  'Associate in Computer Technology',
+];
+
+const YEARS = [2025, 2024, 2023, 2022, 2021];
+
+const DEFAULT_THRESHOLD = 60; // 60 % — maps to 0.60 cosine score
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function statusVariantClass(status, isDark) {
+  const map = {
+    approved: isDark
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50',
+    pending_review: isDark
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
+      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50',
+    rejected: isDark
+      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/15'
+      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50',
+  };
+  return map[status] || map.pending_review;
+}
+
+function semanticBadgeClass(score, isDark) {
+  if (score >= 0.80) {
+    return isDark
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+  }
+  if (score >= 0.60) {
+    return isDark
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
+      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50';
+  }
+  return isDark
+    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/15'
+    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50';
+}
+
+function semanticDotColor(score) {
+  if (score >= 0.80) return '#10b981';
+  if (score >= 0.60) return '#f59e0b';
+  return '#3b82f6';
+}
+
+// ---------------------------------------------------------------------------
+// ThesisCard
+// ---------------------------------------------------------------------------
+
+function ThesisCard({ thesis, isDark }) {
+  const score = thesis.similarity_score;
+  const showScore = typeof score === 'number';
+  const pct = showScore ? Math.round(score * 100) : null;
+
+  return (
+    <Link
+      to={`/repository/${thesis.id}`}
+      className="block thesys-card thesys-card-lift p-5"
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <h3
+          className={`font-semibold text-base leading-snug line-clamp-2 ${
+            isDark ? 'text-white' : 'text-gray-900'
+          }`}
+        >
+          {thesis.title}
+        </h3>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {showScore && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className={`gap-1 text-xs px-2 py-0.5 h-auto cursor-default ${semanticBadgeClass(score, isDark)}`}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: semanticDotColor(score) }}
+                    aria-hidden="true"
+                  />
+                  {pct}% Semantic Match
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Cosine similarity score: {score.toFixed(3)}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Badge
+            variant="outline"
+            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${statusVariantClass(thesis.status, isDark)}`}
+          >
+            {thesis.status.replace('_', ' ')}
+          </Badge>
+        </div>
+      </div>
+
+      <div className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        {thesis.program} · {thesis.year}
+      </div>
+
+      <div className={`text-sm mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+        {thesis.authors.slice(0, 3).join(', ')}
+        {thesis.authors.length > 3 && ` +${thesis.authors.length - 3} more`}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {thesis.keywords.slice(0, 4).map((kw) => (
+          <Badge
+            key={kw}
+            variant="outline"
+            className={`text-xs px-2 py-0.5 h-auto ${
+              isDark
+                ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/10'
+                : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50'
+            }`}
+          >
+            {kw}
+          </Badge>
+        ))}
+        {thesis.keywords.length > 4 && (
+          <Badge
+            variant="outline"
+            className={`text-xs px-2 py-0.5 h-auto ${
+              isDark
+                ? 'bg-white/[0.05] text-gray-400 border-white/10 hover:bg-white/[0.05]'
+                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            +{thesis.keywords.length - 4} more
+          </Badge>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default function RepositoryPage() {
+  const { theme } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDark = theme === 'dark';
+
+  const initialQ = searchParams.get('q') || '';
+
+  const [theses, setTheses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Committed search term (triggers fetch)
+  const [search, setSearch] = useState(initialQ);
+  // Controlled input value (not committed until form submit)
+  const [searchInput, setSearchInput] = useState(initialQ);
+
+  const [year, setYear] = useState('');
+  const [program, setProgram] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Similarity threshold (integer percent, 30–95, default 60).
+  // Persisted in component state — resets to default on page reload (intentional).
+  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+
+  const PAGE_SIZE = 20;
+
+  const loadTheses = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (search) {
+        params.set('q', search);
+        // Pass threshold as a decimal (0.60, 0.80…).
+        params.set('min_score', (threshold / 100).toFixed(2));
+      }
+      if (year) params.set('year', year);
+      if (program) params.set('program', program);
+      params.set('page', String(page));
+      params.set('page_size', String(PAGE_SIZE));
+
+      const res = await client.get(`/theses/?${params.toString()}`);
+      setTheses(res.data.results || []);
+      setTotalCount(res.data.count || 0);
+    } catch {
+      setError('Failed to load theses. Please try again.');
+      setTheses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, year, program, page, threshold]);
+
+  useEffect(() => {
+    if (isAuthenticated) loadTheses();
+  }, [isAuthenticated, loadTheses]);  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setPage(1);
+    setSearch(searchInput.trim());
+  };
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  return (
+    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+      <AppNavbar activePage="repository" breadcrumb="Repository" />
+
+      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+
+        {/* Page heading */}
+        <div className="mb-6">
+          <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Research Repository
+          </h1>
+          <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <span>
+              {search
+                ? <>Semantic search results for: <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>{search}</strong></>
+                : <>Browsing all approved theses from PampangaStateU CCS</>
+              }
+            </span>
+            {!search && (
+              <>
+                <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
+                <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>{totalCount} indexed</span>
+              </>
+            )}
+            <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
+            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              Semantic Search Enabled
+            </span>
+          </p>
+        </div>
+
+        {/* ── Filter bar ────────────────────────────────────────────────── */}
+        <div className="thesys-card p-4 mb-6">
+          <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3">
+
+            {/* Row 1: search input + year/program selects + submit */}
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3">
+              <input
+                type="text"
+                placeholder="Search title, abstract, authors, keywords..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+                  isDark
+                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40'
+                    : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+                }`}
+              />
+
+              <select
+                value={year}
+                onChange={(e) => { setPage(1); setYear(e.target.value); }}
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+                  isDark
+                    ? 'bg-white/[0.04] border-white/10 text-gray-200'
+                    : 'bg-white border-gray-200 text-gray-700'
+                }`}
+              >
+                <option value="">All years</option>
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+
+              <select
+                value={program}
+                onChange={(e) => { setPage(1); setProgram(e.target.value); }}
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+                  isDark
+                    ? 'bg-white/[0.04] border-white/10 text-gray-200'
+                    : 'bg-white border-gray-200 text-gray-700'
+                }`}
+              >
+                <option value="">All programs</option>
+                {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                {searchInput.trim() ? 'Semantic Search' : 'Search'}
+              </button>
+            </div>
+
+            {/* Row 2: similarity threshold — always visible */}
+            <div
+              className={`pt-3 mt-1 border-t ${
+                isDark ? 'border-white/[0.06]' : 'border-gray-100'
+              }`}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* The SimilaritySlider owns its own label; wrapping the whole
+                      control lets the tooltip fire when hovering anywhere on it */}
+                  <div>
+                    <SimilaritySlider
+                      value={threshold}
+                      onChange={(v) => { setThreshold(v); setPage(1); }}
+                      isDark={isDark}
+                      disabled={false}
+                      helperText="Similarity threshold applies only when using Semantic Search. Set your preferred strictness before searching."
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  Controls the minimum cosine similarity score (0–1) that results must meet. 60% is the recommended default for balanced results.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </form>
+        </div>
+
+        {/* ── Results ───────────────────────────────────────────────────── */}
+        {loading ? (
+          <>
+            <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              {search ? 'Searching semantically…' : 'Loading repository…'}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="thesys-card p-5">
+                  <div className="thesys-skeleton h-5 w-3/4 mb-3" />
+                  <div className="thesys-skeleton h-3 w-1/3 mb-3" />
+                  <div className="thesys-skeleton h-3 w-1/2 mb-4" />
+                  <div className="flex gap-1.5">
+                    <div className="thesys-skeleton h-4 w-14 rounded-full" />
+                    <div className="thesys-skeleton h-4 w-18 rounded-full" />
+                    <div className="thesys-skeleton h-4 w-12 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : error ? (
+          <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+            {error}
+          </div>
+        ) : theses.length === 0 ? (
+          <div className="thesys-empty">
+            <div className="text-4xl">📚</div>
+            <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              {search && threshold >= 70
+                ? 'No related theses found at the current threshold.'
+                : search
+                ? 'No related theses found.'
+                : 'No theses in repository yet.'}
+            </p>
+            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              {search && threshold >= 70
+                ? 'Try lowering the similarity threshold or using broader keywords.'
+                : search
+                ? 'No related theses found. Try lowering the similarity threshold or using broader keywords.'
+                : 'Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-powered search.'}
+            </p>
+            {/* Suggestion badge */}
+            {search && threshold >= 70 && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                  isDark
+                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                Current threshold: {threshold}%
+              </span>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Result count summary */}
+            {search && (
+              <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                {totalCount} result{totalCount !== 1 ? 's' : ''} above {threshold}% similarity
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {theses.map((t) => (
+                <ThesisCard key={t.id} thesis={t} isDark={isDark} />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Previous
+                </button>
+                <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+      </main>
+    </div>
+  );
+}

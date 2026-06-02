@@ -1,0 +1,20 @@
+/*
+ * THESYS+ Design Tokens — Foundation Phase
+ *
+ * These are PLACEHOLDER values pending the final Figma palette.
+ * Downstream phases should swap the hex values below without
+ * restructuring this file, the @import wiring, or the Tailwind
+ * config keys.
+ */
+
+:root {
+  --color-background: #ffffff; /* PLACEHOLDER pending Figma palette — white */
+  --color-primary: #2563eb;    /* PLACEHOLDER pending Figma palette — Tailwind blue-600 */
+  --color-accent: #7c3aed;    /* PLACEHOLDER pending Figma palette — Tailwind violet-600 */
+}
+
+.dark {
+  --color-background: #0b1437; /* PLACEHOLDER pending Figma palette — navy */
+  --color-primary: #60a5fa;    /* PLACEHOLDER pending Figma palette — Tailwind blue-400 (lighter for dark bg) */
+  --color-accent: #7c3aed;    /* PLACEHOLDER pending Figma palette — Tailwind violet-600 */
+}

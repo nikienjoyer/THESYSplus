@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Node / Vite
+node_modules/
+.npm/
+.pnpm-store/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Coverage / logs
+coverage/
+*.log
+htmlcov/
+.coverage
+.coverage.*
+
+# Private media (verification documents)
+backend/private_media/
+
+# Django media/static output
+backend/media/
+backend/staticfiles/
+
+# Database/backups
+*.sqlite3
+*.sql
+*.dump
+# Hypothesis test cache
+backend/.hypothesis/
+
+# Private uploaded verification files
+backend/private/
+
+# Kiro temp file
+.kiro_tmp_path.ps1
+# Local cookie/session files
+cookies.txt
+backend/cookies.txt

@@ -1,0 +1,264 @@
+/**
+ * ThesisDetailPage — Phase 1 thesis detail view with download.
+ *
+ * Saved theses are persisted in user-scoped localStorage:
+ * "thesys.savedTheses.<userId>" or "thesys.savedTheses.<email>"
+ *
+ * TODO: For production, saved theses should be persisted in the backend per user.
+ */
+
+import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import client from '../api/client';
+import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
+import Spinner from '../components/ui/Spinner';
+import AppNavbar from '../components/layout/AppNavbar';
+import { getUserData, setUserData } from '../utils/userStorage';
+
+function isSaved(id, user) {
+  const arr = getUserData('savedTheses', user, []);
+  return arr.some((t) => t.id === id);
+}
+
+function toggleSaved(thesis, user) {
+  const arr = getUserData('savedTheses', user, []);
+  const exists = arr.some((t) => t.id === thesis.id);
+  const next = exists
+    ? arr.filter((t) => t.id !== thesis.id)
+    : [...arr, { ...thesis, savedAt: new Date().toISOString() }];
+  setUserData('savedTheses', user, next);
+  return !exists;
+}
+
+export default function ThesisDetailPage() {
+  const { id } = useParams();
+  const { theme } = useTheme();
+  const { isAuthenticated, user } = useAuth();
+  const isDark = theme === 'dark';
+
+  const [thesis, setThesis] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [saved, setSaved] = useState(() => isSaved(id, user));
+
+  useEffect(() => {
+    if (!isAuthenticated || !id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await client.get(`/theses/${id}/`);
+        if (!cancelled) setThesis(res.data);
+      } catch (err) {
+        if (!cancelled) {
+          if (err?.response?.status === 404) {
+            setError('Thesis not found.');
+          } else {
+            setError('Failed to load thesis.');
+          }
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, id]);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await client.get(`/theses/${id}/download/`, { responseType: 'blob' });
+      const blob = new Blob([res.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = (thesis?.title || 'thesis').replace(/[^a-z0-9]+/gi, '_').slice(0, 60);
+      link.download = `${safeTitle}.${thesis?.file_type || 'pdf'}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      // best-effort: silent fail
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+      <AppNavbar activePage="repository" breadcrumb="Repository" />
+
+      <main className="max-w-3xl mx-auto px-5 sm:px-10 py-8">
+        {loading ? (
+          <div className="flex justify-center py-16"><Spinner /></div>
+        ) : error ? (
+          <div
+            className={`rounded-xl p-8 text-center ${
+              isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'
+            }`}
+          >
+            {error}
+          </div>
+        ) : thesis ? (
+          <>
+            {/* Back to Repository link */}
+            <Link
+              to="/repository"
+              className={`inline-flex items-center gap-1.5 text-sm font-medium mb-4 transition-colors ${
+                isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
+              </svg>
+              Back to Repository
+            </Link>
+
+            <article
+              className="thesys-card p-6 sm:p-8"
+            >
+            {/* Status + program tags */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span
+                className={`text-xs px-2 py-0.5 rounded-md ${
+                  isDark ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' : 'bg-blue-50 text-blue-700 border border-blue-100'
+                }`}
+              >
+                {thesis.program}
+              </span>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-md ${
+                  isDark ? 'bg-white/[0.05] text-gray-300 border border-white/10' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                }`}
+              >
+                {thesis.year}
+              </span>
+              <span
+                className={`text-xs uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold border ${
+                  thesis.status === 'approved'
+                    ? isDark
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : thesis.status === 'rejected'
+                    ? isDark
+                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                    : isDark
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                {thesis.status.replace('_', ' ')}
+              </span>
+            </div>
+
+            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {thesis.title}
+            </h1>
+
+            <div className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <strong>Authors:</strong> {thesis.authors.join(', ')}
+            </div>
+            {thesis.adviser && (
+              <div className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <strong>Adviser:</strong> {thesis.adviser}
+              </div>
+            )}
+
+            <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
+
+            <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Abstract
+            </h2>
+            <p className={`text-sm leading-relaxed mb-6 whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              {thesis.abstract}
+            </p>
+
+            <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Keywords
+            </h2>
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              {thesis.keywords && thesis.keywords.length > 0 ? (
+                <>
+                  {thesis.keywords.slice(0, 8).map((kw) => (
+                    <span
+                      key={kw}
+                      className={`text-xs px-2 py-1 rounded-md ${
+                        isDark
+                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                          : 'bg-blue-50 text-blue-700 border border-blue-100'
+                      }`}
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                  {thesis.keywords.length > 8 && (
+                    <span
+                      className={`text-xs px-2 py-1 rounded-md ${
+                        isDark
+                          ? 'bg-white/[0.05] text-gray-400 border border-white/10'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200'
+                      }`}
+                    >
+                      +{thesis.keywords.length - 8} more
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                  No keywords available
+                </span>
+              )}
+            </div>
+
+            <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
+
+            <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <div>
+                Uploaded by <strong className={isDark ? 'text-gray-300' : 'text-gray-700'}>{thesis.uploaded_by_name}</strong>
+                {' · '}
+                {new Date(thesis.created_at).toLocaleDateString()}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSaved(toggleSaved(thesis, user))}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 ${
+                    saved
+                      ? isDark
+                        ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                      : isDark
+                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title={saved ? 'Remove from saved theses' : 'Save to your profile'}
+                >
+                  {saved ? '🔖 Saved' : '🔖 Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {downloading ? (
+                    <><Spinner /> Downloading...</>
+                  ) : (
+                    <>📄 Download {(thesis.file_type || 'pdf').toUpperCase()}</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </article>
+          </>
+        ) : null}
+      </main>
+    </div>
+  );
+}
