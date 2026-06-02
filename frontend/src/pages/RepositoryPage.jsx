@@ -23,7 +23,9 @@ const PROGRAMS = [
   'Associate in Computer Technology',
 ];
 
-const YEARS = [2025, 2024, 2023, 2022, 2021];
+// Dynamically generate years from current year back 10 years
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
 
 const DEFAULT_THRESHOLD = 60; // 60 % — maps to 0.60 cosine score
 

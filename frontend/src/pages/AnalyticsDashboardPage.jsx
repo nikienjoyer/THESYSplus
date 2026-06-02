@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -397,12 +397,12 @@ export default function AnalyticsDashboardPage() {
               <p className={sectionTitle}>Topic Trend Summary</p>
               <p className={`text-xs mb-4 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                 Derived from TF-IDF + K-Means clustering.{' '}
-                <a
-                  href="/trend-analysis"
+                <Link
+                  to="/trend-analysis"
                   className={`underline ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
                 >
                   View full Trend Analysis →
-                </a>
+                </Link>
               </p>
               <TrendSummary summary={data.topic_summary} isDark={isDark} />
             </div>

@@ -292,10 +292,10 @@ export default function SettingsPage() {
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
-                Change Password
+                Reset Password via Email
               </Link>
               <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                You will receive a reset link at your institutional email.
+                A password reset link will be sent to your institutional email.
               </p>
             </div>
           </section>

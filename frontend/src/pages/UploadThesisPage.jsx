@@ -255,7 +255,7 @@ export default function UploadThesisPage() {
   if (success) {
     return (
       <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-        <AppNavbar activePage="upload" breadcrumb="Upload" />
+        <AppNavbar activePage="" breadcrumb="Upload" />
         <main className="max-w-2xl mx-auto px-5 py-12">
           <div className={`rounded-xl border p-8 text-center ${
             success.status === 'approved'
@@ -321,7 +321,7 @@ export default function UploadThesisPage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="upload" breadcrumb="Upload" />
+      <AppNavbar activePage="" breadcrumb="Upload" />
 
       <main className="max-w-2xl mx-auto px-5 py-8">
         <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
