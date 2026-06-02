@@ -1,6 +1,6 @@
 # THESYS+
 
-AI-Powered Semantic-Based Thesis Retrieval and Topic Trend Analysis System — capstone project for Pampanga State University, College of Computing Studies.
+An AI-Assisted Semantic-Based Thesis Retrieval and Topic Trend Analysis System — capstone project for Pampanga State University, College of Computing Studies.
 
 This repository contains the **Authentication Module** (the first module of THESYS+). Subsequent modules — Semantic Search, Thesis Upload, Title Similarity, Topic Trend Analysis, Repository, Analytics, Researcher Directory, Saved Collections, and Settings — are out of scope here and will live in their own specs.
 
