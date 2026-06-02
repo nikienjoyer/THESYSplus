@@ -4,9 +4,13 @@
  * Used by: Repository, ThesisDetail, Upload, TitleSimilarity,
  *          TrendAnalysis, Profile, Settings.
  *
- * Layout:
- *   LEFT:  Logo · Home · Repository · Title Similarity · Trend Analysis · Analytics
- *   RIGHT: Upload Thesis (CTA) · Profile Avatar Dropdown · Theme Toggle (FAR RIGHT)
+ * Layout (desktop):
+ *   LEFT  (flex-1): hamburger (mobile) · THESYS+ logo
+ *   CENTER (auto):  Home · Repository · Title Similarity · Trend Analysis · Analytics
+ *   RIGHT (flex-1): Upload Thesis (CTA) · Profile Avatar Dropdown · Theme Toggle
+ *
+ * Active state: pill-style background highlight — immediately visible in
+ * both light and dark mode.
  *
  * Profile dropdown: My Profile · Settings · Divider · Sign Out
  *
@@ -28,7 +32,7 @@ const NAV_LINKS = [
   { label: 'Repository',       to: '/repository',       key: 'repository' },
   { label: 'Title Similarity', to: '/title-similarity', key: 'similarity' },
   { label: 'Trend Analysis',   to: '/trend-analysis',   key: 'trends'     },
-  { label: 'Analytics',        to: '/analytics',      key: 'analytics'               },
+  { label: 'Analytics',        to: '/analytics',        key: 'analytics'  },
 ];
 
 
@@ -78,10 +82,6 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
     setShowLogoutModal(false);
     onSignOut();
   };
-
-  const avatarBg = isDark
-    ? 'bg-blue-600/30 text-blue-200 ring-1 ring-blue-500/40'
-    : 'bg-blue-100 text-blue-700 ring-1 ring-blue-200';
 
   return (
     <>
@@ -247,22 +247,21 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
     ? 'border-white/[0.06] bg-[#080d24]/75 backdrop-blur-md'
     : 'border-gray-200/80 bg-white/75 backdrop-blur-md';
 
-  const linkActiveCls = isDark ? 'text-white' : 'text-gray-900';
-  const linkIdleCls = isDark
-    ? 'text-gray-400 hover:text-white'
-    : 'text-gray-500 hover:text-gray-900';
-  const linkSoonCls = isDark
-    ? 'text-gray-600 pointer-events-none cursor-default'
-    : 'text-gray-300 pointer-events-none cursor-default';
-
   return (
     <>
+      {/*
+       * Three-column grid:
+       *   col 1 (flex-1): hamburger + logo — left-aligned
+       *   col 2 (auto):   nav links — truly centered
+       *   col 3 (flex-1): actions — right-aligned
+       * On screens < lg the center column is hidden; hamburger reveals drawer.
+       */}
       <nav
-        className={`flex items-center justify-between px-5 sm:px-10 py-4 border-b sticky top-0 z-30 ${navBorderCls}`}
+        className={`grid grid-cols-[1fr_auto_1fr] items-center px-5 sm:px-10 py-3 border-b sticky top-0 z-30 ${navBorderCls}`}
       >
-        {/* ── LEFT ─────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 sm:gap-5">
-          {/* Hamburger button — visible on mobile, hidden on lg+ */}
+        {/* ── COL 1 — Logo ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3">
+          {/* Hamburger — mobile only */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
@@ -278,7 +277,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
             </svg>
           </button>
 
-          {/* Logo */}
+          {/* Logo + optional breadcrumb */}
           <div className="flex items-center gap-2 select-none">
             <Link to="/" className="flex items-center gap-2">
               <div
@@ -303,49 +302,58 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
               </>
             )}
           </div>
-
-          {/* Nav links — hidden below lg */}
-          <ul className="hidden lg:flex items-center gap-4">
-            {NAV_LINKS.map(({ label, to, key, soon }) => {
-              const isActive = activePage === key;
-              return (
-                <li key={key}>
-                  <Link
-                    to={soon ? '#' : to}
-                    onClick={soon ? (e) => e.preventDefault() : undefined}
-                    aria-disabled={soon}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`thesys-nav-link ${isActive ? 'active' : ''} ${
-                      soon
-                        ? isDark ? 'text-gray-600 pointer-events-none cursor-default' : 'text-gray-300 pointer-events-none cursor-default'
-                        : isActive
-                        ? isDark ? 'text-white' : 'text-gray-900'
-                        : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    {label}
-                    {soon && (
-                      <span
-                        className={`ml-1 text-[9px] uppercase tracking-wider align-middle ${
-                          isDark ? 'text-gray-600' : 'text-gray-400'
-                        }`}
-                      >
-                        soon
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
         </div>
 
-        {/* ── RIGHT ────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2">
+        {/* ── COL 2 — Centered nav links (desktop only) ────────────── */}
+        <ul className="hidden lg:flex items-center gap-1">
+          {NAV_LINKS.map(({ label, to, key, soon }) => {
+            const isActive = activePage === key;
+            return (
+              <li key={key}>
+                <Link
+                  to={soon ? '#' : to}
+                  onClick={soon ? (e) => e.preventDefault() : undefined}
+                  aria-disabled={soon}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`
+                    relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
+                    ${soon
+                      ? isDark
+                        ? 'text-gray-600 pointer-events-none cursor-default'
+                        : 'text-gray-300 pointer-events-none cursor-default'
+                      : isActive
+                      ? isDark
+                        ? 'bg-white/10 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                      : isDark
+                      ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
+                    }
+                  `}
+                >
+                  {label}
+                  {soon && (
+                    <span
+                      className={`ml-1 text-[9px] uppercase tracking-wider align-middle ${
+                        isDark ? 'text-gray-600' : 'text-gray-400'
+                      }`}
+                    >
+                      soon
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* ── COL 3 — Actions (right-aligned) ─────────────────────── */}
+        <div className="flex items-center gap-2 justify-end">
           {/* Upload CTA */}
           <Link
             to="/upload"
-            className="hidden sm:inline-flex px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             Upload Thesis
           </Link>
@@ -439,7 +447,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                         }}
                         aria-disabled={soon}
                         aria-current={isActive ? 'page' : undefined}
-                        className={`block px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                        className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                           soon
                             ? isDark
                               ? 'text-gray-600 cursor-default'
@@ -447,7 +455,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                             : isActive
                             ? isDark
                               ? 'bg-blue-500/15 text-white'
-                              : 'bg-blue-50 text-blue-700'
+                              : 'bg-blue-50 text-blue-700 font-semibold'
                             : isDark
                             ? 'text-gray-300 hover:bg-white/[0.07] hover:text-white'
                             : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
@@ -473,7 +481,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
               <Link
                 to="/upload"
                 onClick={() => setMobileMenuOpen(false)}
-                className="mt-4 block w-full px-4 py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors"
+                className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors"
               >
                 Upload Thesis
               </Link>
@@ -503,3 +511,5 @@ function DropItem({ to, label, isDark, onClose, children }) {
     </Link>
   );
 }
+
+

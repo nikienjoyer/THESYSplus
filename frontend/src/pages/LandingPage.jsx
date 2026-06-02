@@ -79,10 +79,6 @@ export default function LandingPage() {
     navigate(q ? `/repository?q=${encodeURIComponent(q)}` : '/repository');
   };
 
-  // Shared nav button styles
-  const navLinkBase =
-    'text-sm font-medium transition-colors focus-visible:outline-none focus-visible:text-blue-500';
-
   return (
     <div
       className={`relative min-h-screen flex flex-col overflow-hidden transition-colors duration-300 ${
@@ -122,19 +118,26 @@ export default function LandingPage() {
       )}
 
       {/* ── Navbar ─────────────────────────────────────────────────── */}
+      {/*
+       * Three-column grid mirrors AppNavbar:
+       *   col 1 (flex-1): logo — left
+       *   col 2 (auto):   nav links — centered
+       *   col 3 (flex-1): actions — right
+       * Center column is hidden on < lg; nav is not shown on mobile here
+       * because authenticated users get AppNavbar on interior pages.
+       */}
       <nav
-        className={`relative z-20 flex items-center justify-between px-5 sm:px-8 lg:px-14 py-4 border-b ${
+        className={`relative z-20 grid grid-cols-[1fr_auto_1fr] items-center px-5 sm:px-8 lg:px-14 py-3 border-b ${
           isDark
             ? 'border-white/[0.06] bg-[#080d24]/75 backdrop-blur-md'
             : 'border-gray-200/80 bg-white/75 backdrop-blur-md'
         }`}
       >
-        {/* LEFT — logo + core module links */}
-        <div className="flex items-center gap-6">
-          {/* Logo */}
+        {/* COL 1 — Logo */}
+        <div className="flex items-center">
           <Link to="/" className="flex items-center gap-2 select-none">
             <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 ${
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
                 isDark
                   ? 'bg-blue-600/20 ring-1 ring-blue-500/30'
                   : 'bg-blue-100 ring-1 ring-blue-200'
@@ -143,60 +146,62 @@ export default function LandingPage() {
               🎓
             </div>
             <span
-              className={`text-base font-bold tracking-wide ${
+              className={`text-sm font-bold tracking-wide ${
                 isDark ? 'text-white' : 'text-gray-900'
               }`}
             >
               THESYS+
             </span>
           </Link>
-
-          {/* Core module nav — hidden on small screens */}
-          <ul className="hidden lg:flex items-center gap-5">
-            {CORE_NAV.map(({ label, to, implemented }) => (
-              <li key={label}>
-                <Link
-                  to={to}
-                  title={implemented ? label : `${label} — coming soon`}
-                  className={`${navLinkBase} ${
-                    implemented
-                      ? isDark
-                        ? 'text-gray-400 hover:text-white'
-                        : 'text-gray-500 hover:text-gray-900'
-                      : isDark
-                        ? 'text-gray-600 cursor-default pointer-events-none'
-                        : 'text-gray-300 cursor-default pointer-events-none'
-                  }`}
-                  onClick={implemented ? undefined : (e) => e.preventDefault()}
-                  aria-disabled={!implemented}
-                >
-                  {label}
-                  {!implemented && (
-                    <span
-                      className={`ml-1 text-[9px] font-semibold uppercase tracking-wider align-middle ${
-                        isDark ? 'text-gray-600' : 'text-gray-400'
-                      }`}
-                    >
-                      soon
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
         </div>
 
-        {/* RIGHT — Upload Thesis · Sign In/Out · Theme Toggle (FAR RIGHT) */}
-        <div className="flex items-center gap-2">
+        {/* COL 2 — Centered nav links (desktop only) */}
+        <ul className="hidden lg:flex items-center gap-1">
+          {CORE_NAV.map(({ label, to, implemented }) => (
+            <li key={label}>
+              <Link
+                to={to}
+                title={implemented ? label : `${label} — coming soon`}
+                onClick={implemented ? undefined : (e) => e.preventDefault()}
+                aria-disabled={!implemented}
+                className={`
+                  px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
+                  ${implemented
+                    ? isDark
+                      ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
+                    : isDark
+                      ? 'text-gray-600 cursor-default pointer-events-none'
+                      : 'text-gray-300 cursor-default pointer-events-none'
+                  }
+                `}
+              >
+                {label}
+                {!implemented && (
+                  <span
+                    className={`ml-1 text-[9px] font-semibold uppercase tracking-wider align-middle ${
+                      isDark ? 'text-gray-600' : 'text-gray-400'
+                    }`}
+                  >
+                    soon
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        {/* COL 3 — Actions (right-aligned) */}
+        <div className="flex items-center gap-2 justify-end">
           {!isInitializing && isAuthenticated && (
             <>
               <Link
                 to="/upload"
-                className="hidden sm:inline-flex px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 Upload Thesis
               </Link>
-              {/* Avatar dropdown — same component as AppNavbar */}
               <AvatarDropdown
                 user={user}
                 isDark={isDark}
@@ -207,7 +212,7 @@ export default function LandingPage() {
           {!isInitializing && !isAuthenticated && (
             <Link
               to="/sign-in"
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               Sign In
             </Link>

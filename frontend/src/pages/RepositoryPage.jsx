@@ -4,9 +4,18 @@
  * Authenticated route. Lists approved theses (students see approved only;
  * faculty/admin see all). Supports basic search, year/program filters,
  * a similarity threshold slider, and pagination.
+ *
+ * Performance notes:
+ *   - Threshold changes are debounced (500ms) so dragging the slider does
+ *     not fire a new API request on every tick.
+ *   - While a debounced threshold update is in flight the existing results
+ *     stay visible; only a small "Updating results…" badge appears.
+ *   - Filter / search / page changes use a module-level memory cache keyed
+ *     on the full query string. Cache entries expire after 2 minutes so
+ *     returning to a prior search is instant while stale data is avoided.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +37,26 @@ const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
 
 const DEFAULT_THRESHOLD = 60; // 60 % — maps to 0.60 cosine score
+const PAGE_SIZE = 20;
+const DEBOUNCE_MS = 500;   // threshold debounce window
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2-minute memory cache
+
+// ---------------------------------------------------------------------------
+// Module-level memory cache — survives re-renders, cleared on page unload.
+// Keys are the full query string; values are { data, ts }.
+// ---------------------------------------------------------------------------
+const repoCache = new Map();
+
+function getCached(key) {
+  const entry = repoCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) { repoCache.delete(key); return null; }
+  return entry.data;
+}
+
+function setCache(key, data) {
+  repoCache.set(key, { data, ts: Date.now() });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -177,7 +206,10 @@ export default function RepositoryPage() {
   const initialQ = searchParams.get('q') || '';
 
   const [theses, setTheses] = useState([]);
+  // loading: true only when no results are currently displayed (first load / hard filter change)
   const [loading, setLoading] = useState(true);
+  // softLoading: true when results are visible but a background refresh is happening
+  const [softLoading, setSoftLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Committed search term (triggers fetch)
@@ -190,28 +222,59 @@ export default function RepositoryPage() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Similarity threshold (integer percent, 30–95, default 60).
-  // Persisted in component state — resets to default on page reload (intentional).
-  const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
+  // sliderThreshold: live value shown in the slider UI (updates on every drag tick)
+  const [sliderThreshold, setSliderThreshold] = useState(DEFAULT_THRESHOLD);
+  // committedThreshold: debounced value actually used in API calls
+  const [committedThreshold, setCommittedThreshold] = useState(DEFAULT_THRESHOLD);
 
-  const PAGE_SIZE = 20;
+  // Debounce threshold changes: update committedThreshold 500ms after dragging stops
+  const debounceRef = useRef(null);
+  const handleThresholdChange = useCallback((v) => {
+    setSliderThreshold(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setCommittedThreshold(v);
+      setPage(1);
+    }, DEBOUNCE_MS);
+  }, []);
+
+  // Clean up debounce timer on unmount
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   const loadTheses = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams();
-      if (search) {
-        params.set('q', search);
-        // Pass threshold as a decimal (0.60, 0.80…).
-        params.set('min_score', (threshold / 100).toFixed(2));
-      }
-      if (year) params.set('year', year);
-      if (program) params.set('program', program);
-      params.set('page', String(page));
-      params.set('page_size', String(PAGE_SIZE));
+    const params = new URLSearchParams();
+    if (search) {
+      params.set('q', search);
+      params.set('min_score', (committedThreshold / 100).toFixed(2));
+    }
+    if (year) params.set('year', year);
+    if (program) params.set('program', program);
+    params.set('page', String(page));
+    params.set('page_size', String(PAGE_SIZE));
 
-      const res = await client.get(`/theses/?${params.toString()}`);
+    const cacheKey = params.toString();
+    const cached = getCached(cacheKey);
+
+    if (cached) {
+      // Instant render from cache — no skeleton shown
+      setTheses(cached.results || []);
+      setTotalCount(cached.count || 0);
+      setLoading(false);
+      setSoftLoading(false);
+      return;
+    }
+
+    // No cache: show skeleton only if we have no results yet, otherwise use soft indicator
+    if (theses.length === 0) {
+      setLoading(true);
+    } else {
+      setSoftLoading(true);
+    }
+    setError('');
+
+    try {
+      const res = await client.get(`/theses/?${cacheKey}`);
+      setCache(cacheKey, res.data);
       setTheses(res.data.results || []);
       setTotalCount(res.data.count || 0);
     } catch {
@@ -219,12 +282,18 @@ export default function RepositoryPage() {
       setTheses([]);
     } finally {
       setLoading(false);
+      setSoftLoading(false);
     }
-  }, [search, year, program, page, threshold]);
+  }, [search, year, program, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: `theses` is intentionally excluded from deps — it's read only to
+  // decide skeleton vs soft-indicator, and including it would cause an extra
+  // render cycle after every fetch.
 
   useEffect(() => {
     if (isAuthenticated) loadTheses();
-  }, [isAuthenticated, loadTheses]);  const handleSearchSubmit = (e) => {
+  }, [isAuthenticated, loadTheses]);
+
+  const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
@@ -263,6 +332,16 @@ export default function RepositoryPage() {
               </svg>
               Semantic Search Enabled
             </span>
+            {/* Soft-loading indicator — appears beside the heading during background refreshes */}
+            {softLoading && (
+              <span className={`inline-flex items-center gap-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" className="opacity-20"/>
+                  <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                Updating results…
+              </span>
+            )}
           </p>
         </div>
 
@@ -326,12 +405,10 @@ export default function RepositoryPage() {
             >
               <Tooltip>
                 <TooltipTrigger asChild>
-                  {/* The SimilaritySlider owns its own label; wrapping the whole
-                      control lets the tooltip fire when hovering anywhere on it */}
                   <div>
                     <SimilaritySlider
-                      value={threshold}
-                      onChange={(v) => { setThreshold(v); setPage(1); }}
+                      value={sliderThreshold}
+                      onChange={handleThresholdChange}
                       isDark={isDark}
                       disabled={false}
                       helperText="Similarity threshold applies only when using Semantic Search. Set your preferred strictness before searching."
@@ -375,21 +452,20 @@ export default function RepositoryPage() {
           <div className="thesys-empty">
             <div className="text-4xl">📚</div>
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              {search && threshold >= 70
+              {search && committedThreshold >= 70
                 ? 'No related theses found at the current threshold.'
                 : search
                 ? 'No related theses found.'
                 : 'No theses in repository yet.'}
             </p>
             <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-              {search && threshold >= 70
+              {search && committedThreshold >= 70
                 ? 'Try lowering the similarity threshold or using broader keywords.'
                 : search
                 ? 'No related theses found. Try lowering the similarity threshold or using broader keywords.'
                 : 'Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-powered search.'}
             </p>
-            {/* Suggestion badge */}
-            {search && threshold >= 70 && (
+            {search && committedThreshold >= 70 && (
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
                   isDark
@@ -400,7 +476,7 @@ export default function RepositoryPage() {
                 <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
                 </svg>
-                Current threshold: {threshold}%
+                Current threshold: {committedThreshold}%
               </span>
             )}
           </div>
@@ -409,7 +485,7 @@ export default function RepositoryPage() {
             {/* Result count summary */}
             {search && (
               <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                {totalCount} result{totalCount !== 1 ? 's' : ''} above {threshold}% similarity
+                {totalCount} result{totalCount !== 1 ? 's' : ''} above {committedThreshold}% similarity
               </p>
             )}
 

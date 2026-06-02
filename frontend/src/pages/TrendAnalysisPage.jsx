@@ -12,6 +12,12 @@
  *      sample thesis titles)
  *
  * Visual language matches Repository / Title Similarity / Upload pages.
+ *
+ * Performance:
+ *   - Module-level memory cache with a 5-minute TTL.
+ *   - On mount, cached data is rendered immediately (no skeleton on revisit).
+ *   - Background refresh runs silently; state updates when it completes.
+ *   - Full skeleton shown only on first load with no cached data.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -21,6 +27,22 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import { Badge } from '../components/shadcn/badge';
+
+// ---------------------------------------------------------------------------
+// Module-level memory cache — 5-minute TTL, single slot for topic trends
+// ---------------------------------------------------------------------------
+const TRENDS_CACHE_TTL = 5 * 60 * 1000;
+let trendsCache = null; // { data, ts }
+
+function getTrendsCached() {
+  if (!trendsCache) return null;
+  if (Date.now() - trendsCache.ts > TRENDS_CACHE_TTL) { trendsCache = null; return null; }
+  return trendsCache.data;
+}
+
+function setTrendsCache(data) {
+  trendsCache = { data, ts: Date.now() };
+}
 
 // Trend classifications (mirror backend constants)
 const TREND_SATURATED = 'SATURATED';
@@ -312,27 +334,39 @@ export default function TrendAnalysisPage() {
   const { isAuthenticated } = useAuth();
   const isDark = theme === 'dark';
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Seed state from cache immediately — avoids blank flash on revisit
+  const [data, setData] = useState(() => getTrendsCached());
+  const [loading, setLoading] = useState(() => !getTrendsCached());
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
+
     (async () => {
-      setLoading(true);
-      setError('');
+      // If we already have cached data, keep it visible and refresh in background
+      const cached = getTrendsCached();
+      if (!cached) {
+        setLoading(true);
+        setError('');
+      }
+
       try {
         const res = await client.get('/theses/topic-trends/');
-        if (!cancelled) setData(res.data);
-      } catch (err) {
         if (!cancelled) {
+          setTrendsCache(res.data);
+          setData(res.data);
+        }
+      } catch (err) {
+        // Only show error if we have nothing to display
+        if (!cancelled && !cached) {
           setError('Failed to load topic trends. Please try again.');
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 

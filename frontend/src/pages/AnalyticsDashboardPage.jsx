@@ -16,6 +16,12 @@
  *   Analytics      = Repository intelligence (counts, distributions, growth)
  *
  * Charts are inline SVG — no external chart library, consistent with TrendAnalysisPage.
+ *
+ * Performance:
+ *   - Module-level memory cache with a 5-minute TTL.
+ *   - On mount, cached data is rendered immediately (no skeleton on revisit).
+ *   - A background refresh runs silently and updates state when it completes.
+ *   - Full skeleton is shown only on the very first load with no cached data.
  */
 
 import { useEffect, useState } from 'react';
@@ -25,6 +31,23 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+
+
+// ---------------------------------------------------------------------------
+// Module-level memory cache — 5-minute TTL, single slot for analytics
+// ---------------------------------------------------------------------------
+const ANALYTICS_CACHE_TTL = 5 * 60 * 1000;
+let analyticsCache = null; // { data, ts }
+
+function getAnalyticsCached() {
+  if (!analyticsCache) return null;
+  if (Date.now() - analyticsCache.ts > ANALYTICS_CACHE_TTL) { analyticsCache = null; return null; }
+  return analyticsCache.data;
+}
+
+function setAnalyticsCache(data) {
+  analyticsCache = { data, ts: Date.now() };
+}
 
 
 // ---------------------------------------------------------------------------
@@ -206,25 +229,37 @@ export default function AnalyticsDashboardPage() {
   const navigate = useNavigate();
   const isDark = theme === 'dark';
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Seed state from cache immediately — avoids blank flash on revisit
+  const [data, setData] = useState(() => getAnalyticsCached());
+  const [loading, setLoading] = useState(() => !getAnalyticsCached());
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
+
     (async () => {
-      setLoading(true);
-      setError('');
+      // If we already have cached data, keep it visible and refresh in background
+      const cached = getAnalyticsCached();
+      if (!cached) {
+        setLoading(true);
+        setError('');
+      }
+
       try {
         const res = await client.get('/theses/analytics/');
-        if (!cancelled) setData(res.data);
+        if (!cancelled) {
+          setAnalyticsCache(res.data);
+          setData(res.data);
+        }
       } catch (err) {
-        if (!cancelled) setError('Failed to load analytics. Please try again.');
+        // Only show error if we have nothing to display
+        if (!cancelled && !cached) setError('Failed to load analytics. Please try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 
