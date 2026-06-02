@@ -300,7 +300,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                   : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
         </div>
@@ -386,7 +386,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                   : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
         </div>

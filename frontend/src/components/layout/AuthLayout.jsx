@@ -17,6 +17,7 @@
 
 import { Link, Outlet } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 
 export default function AuthLayout() {
   const { theme, toggleTheme } = useTheme();
@@ -93,7 +94,7 @@ export default function AuthLayout() {
               : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
           }`}
         >
-          {isDark ? '☀️' : '🌙'}
+          {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
         </button>
       </header>
 

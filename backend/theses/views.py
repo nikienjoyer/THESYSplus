@@ -1025,3 +1025,32 @@ class ThesisAnalyticsView(APIView):
             # Role-gated
             'pending_review_count': pending_review_count,
         })
+
+
+# ---------------------------------------------------------------------------
+# GET /theses/public-stats/  — unauthenticated public summary statistics
+# ---------------------------------------------------------------------------
+
+class ThesisPublicStatsView(APIView):
+    """Return a minimal public summary for the LandingPage stats row.
+
+    This endpoint requires NO authentication by design.
+
+    What it exposes:
+        indexed_theses_count — number of approved theses (integer)
+
+    What it does NOT expose:
+        thesis titles, abstracts, authors, keywords, documents, file paths,
+        user accounts, pending/rejected records, admin-only analytics, or
+        any PII.
+
+    The thesis count is treated as public marketing information — it
+    signals the size of the repository without revealing any private content.
+    """
+
+    permission_classes = []   # No authentication required
+    authentication_classes = []  # Skip auth middleware entirely for speed
+
+    def get(self, request, *args, **kwargs):
+        count = Thesis.objects.filter(status=ThesisStatus.APPROVED).count()
+        return Response({'indexed_theses_count': count})

@@ -57,29 +57,27 @@ export default function LandingPage() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [mobileMenuOpen]);
 
-  // Fetch real thesis count when the user is authenticated.
-  // The /theses/ endpoint requires auth; if not logged in we show '—'.
+  // Fetch the public thesis count on every mount.
+  // Uses the unauthenticated /theses/public-stats/ endpoint — returns only
+  // { indexed_theses_count: number }, no thesis content or private data.
   useEffect(() => {
-    if (!isAuthenticated) return;
     let cancelled = false;
-    client.get('/theses/?page_size=1')
+    client.get('/theses/public-stats/')
       .then((res) => {
-        if (!cancelled && typeof res.data.count === 'number') {
-          setThesisCount(res.data.count);
+        if (!cancelled && typeof res.data.indexed_theses_count === 'number') {
+          setThesisCount(res.data.indexed_theses_count);
         }
       })
       .catch(() => { /* silently ignore — stat is best-effort */ });
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, []); // runs once on mount, no auth dependency
 
   // Build the stats array with the live thesis count filled in
   const stats = STATIC_STATS.map((s) => {
     if (s.key === 'theses') {
       return {
         ...s,
-        value: thesisCount !== null
-          ? String(thesisCount)
-          : isAuthenticated ? '…' : '—',
+        value: thesisCount !== null ? String(thesisCount) : '…',
       };
     }
     return s;
@@ -199,7 +197,7 @@ export default function LandingPage() {
                   : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
         </div>
@@ -286,7 +284,7 @@ export default function LandingPage() {
                   : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
         </div>
@@ -386,6 +384,7 @@ export default function LandingPage() {
 
         {/* Search bar */}
         <form
+          id="hero-search-form"
           onSubmit={handleSearchSubmit}
           className={`w-full max-w-xl flex items-center rounded-xl px-4 py-3 mb-8 border transition-all duration-200 ${
             isDark
@@ -424,22 +423,23 @@ export default function LandingPage() {
 
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-3 mb-16 sm:mb-24">
-          {/* Check Title Similarity → Phase 2B */}
-          <Link
-            to="/title-similarity"
+          {/* Primary: Search Semantically — submits the hero search form */}
+          <button
+            type="submit"
+            form="hero-search-form"
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-all duration-150 hover:shadow-lg hover:shadow-blue-600/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round"
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
-            Check Title Similarity
-          </Link>
+            Search Semantically
+          </button>
 
-          {/* Explore Topic Trends → Phase 3 */}
+          {/* Secondary: Check Title Similarity */}
           <Link
-            to="/trend-analysis"
+            to="/title-similarity"
             className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
               isDark
                 ? 'border-white/20 text-gray-200 hover:bg-white/[0.07] hover:border-white/30'
@@ -448,9 +448,10 @@ export default function LandingPage() {
           >
             <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
             </svg>
-            Explore Topic Trends
+            Check Title Similarity
           </Link>
         </div>
 

@@ -63,7 +63,7 @@ export default function SignInPage() {
     setError('');
     try {
       await signIn(email, password, rememberMe);
-      navigate('/repository');
+      navigate('/');
     } catch (err) {
       setError(mapErrorMessage(err));
     } finally {

@@ -190,7 +190,6 @@ export default function TitleSimilarityPage() {
 
   const visuals = result ? statusVisuals(result.classification, isDark) : null;
   const pct = result ? Math.round((result.similarity_score ?? 0) * 100) : 0;
-  const labelCls = `block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
   const { common: commonTerms, distinctive: distinctiveTerms } =
     result ? splitTerms(result.query || title, result.matches || []) : { common: [], distinctive: [] };
 
@@ -232,17 +231,20 @@ export default function TitleSimilarityPage() {
         {/* ── Input form ──────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          className="thesys-card p-6 mb-6"
+          className="space-y-3 mb-6"
         >
           {/* Option 1: Manual title input */}
-          <div className="mb-5">
-            <label htmlFor="proposed-title" className={`${labelCls} flex items-center gap-2`}>
-              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+          <div className="thesys-card p-5">
+            <label
+              htmlFor="proposed-title"
+              className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+            >
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0 ${
                 isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
               }`}>1</span>
               Enter Title Manually
             </label>
-            <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               Use this if you already know your proposed thesis title.
             </p>
             <input
@@ -263,10 +265,10 @@ export default function TitleSimilarityPage() {
             />
           </div>
 
-          {/* ── Option 2: Upload proposal document ─────────── */}
-          <div className="thesys-panel">
-            <p className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+          {/* Option 2: Upload proposal document */}
+          <div className="thesys-card p-5">
+            <p className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0 ${
                 isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
               }`}>2</span>
               Upload Proposal Document
@@ -346,7 +348,6 @@ export default function TitleSimilarityPage() {
                   : 'bg-rose-50 border-rose-200 text-rose-700'
               }`}>
                 {extractConf === 'low' ? (
-                  /* Stacked layout for low-confidence to avoid one long line */
                   <>
                     <p className="font-semibold mb-1">⚠ Low Confidence Detection</p>
                     <p className="mb-0.5">This file may not contain a title page.</p>
@@ -354,13 +355,11 @@ export default function TitleSimilarityPage() {
                     <p className={isDark ? 'text-rose-400' : 'text-rose-600'}>Please review and edit manually.</p>
                   </>
                 ) : extractConf === 'medium' ? (
-                  /* Two-line layout for medium */
                   <>
                     <p className="font-semibold mb-0.5">⚠ Possible title detected</p>
                     <p>Please review and edit the detected title if needed.</p>
                   </>
                 ) : (
-                  /* Single line for high */
                   <>
                     <span className="font-semibold mr-1">✓</span>
                     Title detected successfully.
@@ -377,7 +376,7 @@ export default function TitleSimilarityPage() {
 
           {/* Validation error */}
           {error && (
-            <div className={`rounded-lg p-3 text-sm mb-3 ${
+            <div className={`rounded-lg p-3 text-sm ${
               isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}>
               {error}
@@ -385,7 +384,7 @@ export default function TitleSimilarityPage() {
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 mt-6">
+          <div className="flex items-center gap-2 pt-1">
             <button
               type="submit"
               disabled={submitting || title.trim().length < 5}
