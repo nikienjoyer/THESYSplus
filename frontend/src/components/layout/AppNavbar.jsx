@@ -22,6 +22,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
+import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
@@ -257,39 +258,62 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
        * On screens < lg the center column is hidden; hamburger reveals drawer.
        */}
       <nav
-        className={`grid grid-cols-[1fr_auto_1fr] items-center px-5 sm:px-10 py-3 border-b sticky top-0 z-30 ${navBorderCls}`}
+        className={`px-5 sm:px-10 py-3 border-b sticky top-0 z-30 ${navBorderCls}`}
       >
-        {/* ── COL 1 — Logo ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3">
-          {/* Hamburger — mobile only */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-            className={`lg:hidden w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 flex-shrink-0 ${
-              isDark
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
-            }`}
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-          </button>
+        {/* ── MOBILE row (< lg): hamburger·logo LEFT, avatar·theme RIGHT ── */}
+        <div className="flex items-center justify-between lg:hidden">
+          {/* Left group */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 flex-shrink-0 ${
+                isDark
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <Link to="/" className="flex items-center gap-2 select-none">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
+              }`}>🎓</div>
+              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                THESYS+
+              </span>
+            </Link>
+          </div>
+          {/* Right group */}
+          <div className="flex items-center gap-2">
+            <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                isDark
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
 
-          {/* Logo + optional breadcrumb */}
+        {/* ── DESKTOP row (≥ lg): 3-column grid, nav centered ─────────── */}
+        <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
+          {/* COL 1 — Logo + breadcrumb */}
           <div className="flex items-center gap-2 select-none">
             <Link to="/" className="flex items-center gap-2">
-              <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
-                  isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-                }`}
-              >
-                🎓
-              </div>
-              <span
-                className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}
-              >
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
+              }`}>🎓</div>
+              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 THESYS+
               </span>
             </Link>
@@ -302,78 +326,69 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
               </>
             )}
           </div>
-        </div>
 
-        {/* ── COL 2 — Centered nav links (desktop only) ────────────── */}
-        <ul className="hidden lg:flex items-center gap-1">
-          {NAV_LINKS.map(({ label, to, key, soon }) => {
-            const isActive = activePage === key;
-            return (
-              <li key={key}>
-                <Link
-                  to={soon ? '#' : to}
-                  onClick={soon ? (e) => e.preventDefault() : undefined}
-                  aria-disabled={soon}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`
-                    relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
-                    ${soon
-                      ? isDark
-                        ? 'text-gray-600 pointer-events-none cursor-default'
-                        : 'text-gray-300 pointer-events-none cursor-default'
-                      : isActive
-                      ? isDark
-                        ? 'bg-white/10 text-white'
-                        : 'bg-gray-100 text-gray-900'
-                      : isDark
-                      ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
-                    }
-                  `}
-                >
-                  {label}
-                  {soon && (
-                    <span
-                      className={`ml-1 text-[9px] uppercase tracking-wider align-middle ${
+          {/* COL 2 — Centered nav links */}
+          <ul className="flex items-center gap-1">
+            {NAV_LINKS.map(({ label, to, key, soon }) => {
+              const isActive = activePage === key;
+              return (
+                <li key={key}>
+                  <Link
+                    to={soon ? '#' : to}
+                    onClick={soon ? (e) => e.preventDefault() : undefined}
+                    aria-disabled={soon}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`
+                      relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
+                      ${soon
+                        ? isDark
+                          ? 'text-gray-600 pointer-events-none cursor-default'
+                          : 'text-gray-300 pointer-events-none cursor-default'
+                        : isActive
+                        ? isDark
+                          ? 'bg-white/10 text-white'
+                          : 'bg-gray-100 text-gray-900'
+                        : isDark
+                        ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
+                      }
+                    `}
+                  >
+                    {label}
+                    {soon && (
+                      <span className={`ml-1 text-[9px] uppercase tracking-wider align-middle ${
                         isDark ? 'text-gray-600' : 'text-gray-400'
-                      }`}
-                    >
-                      soon
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                      }`}>soon</span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
 
-        {/* ── COL 3 — Actions (right-aligned) ─────────────────────── */}
-        <div className="flex items-center gap-2 justify-end">
-          {/* Upload CTA */}
-          <Link
-            to="/upload"
-            className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          >
-            Upload Thesis
-          </Link>
-
-          {/* Profile avatar dropdown */}
-          <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
-
-          {/* Theme toggle — ALWAYS FAR RIGHT */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-              isDark
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
-            }`}
-          >
-            {isDark ? '☀️' : '🌙'}
-          </button>
+          {/* COL 3 — Actions */}
+          <div className="flex items-center gap-2 justify-end">
+            <Link
+              to="/upload"
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Upload Thesis
+            </Link>
+            <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                isDark
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </nav>
 

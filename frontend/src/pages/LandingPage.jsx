@@ -11,6 +11,8 @@
 
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
@@ -43,7 +45,17 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [thesisCount, setThesisCount] = useState(null);
   const [legalModal, setLegalModal] = useState(null); // 'privacy' | 'terms' | 'help' | null
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDark = theme === 'dark';
+
+  // Close mobile menu on Escape key
+  useEffect(() => {
+    function handleEscape(e) {
+      if (e.key === 'Escape' && mobileMenuOpen) setMobileMenuOpen(false);
+    }
+    if (mobileMenuOpen) document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [mobileMenuOpen]);
 
   // Fetch real thesis count when the user is authenticated.
   // The /theses/ endpoint requires auth; if not logged in we show '—'.
@@ -127,112 +139,215 @@ export default function LandingPage() {
        * because authenticated users get AppNavbar on interior pages.
        */}
       <nav
-        className={`relative z-20 grid grid-cols-[1fr_auto_1fr] items-center px-5 sm:px-8 lg:px-14 py-3 border-b ${
+        className={`relative z-20 px-5 sm:px-8 lg:px-14 py-3 border-b ${
           isDark
             ? 'border-white/[0.06] bg-[#080d24]/75 backdrop-blur-md'
             : 'border-gray-200/80 bg-white/75 backdrop-blur-md'
         }`}
       >
-        {/* COL 1 — Logo */}
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center gap-2 select-none">
-            <div
-              className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+        {/* ── MOBILE row (< lg): hamburger·logo LEFT, actions RIGHT ─── */}
+        <div className="flex items-center justify-between lg:hidden">
+          {/* Left group */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 flex-shrink-0 ${
                 isDark
-                  ? 'bg-blue-600/20 ring-1 ring-blue-500/30'
-                  : 'bg-blue-100 ring-1 ring-blue-200'
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              🎓
-            </div>
-            <span
-              className={`text-sm font-bold tracking-wide ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}
-            >
-              THESYS+
-            </span>
-          </Link>
-        </div>
-
-        {/* COL 2 — Centered nav links (desktop only) */}
-        <ul className="hidden lg:flex items-center gap-1">
-          {CORE_NAV.map(({ label, to, implemented }) => (
-            <li key={label}>
-              <Link
-                to={to}
-                title={implemented ? label : `${label} — coming soon`}
-                onClick={implemented ? undefined : (e) => e.preventDefault()}
-                aria-disabled={!implemented}
-                className={`
-                  px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
-                  ${implemented
-                    ? isDark
-                      ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
-                    : isDark
-                      ? 'text-gray-600 cursor-default pointer-events-none'
-                      : 'text-gray-300 cursor-default pointer-events-none'
-                  }
-                `}
-              >
-                {label}
-                {!implemented && (
-                  <span
-                    className={`ml-1 text-[9px] font-semibold uppercase tracking-wider align-middle ${
-                      isDark ? 'text-gray-600' : 'text-gray-400'
-                    }`}
-                  >
-                    soon
-                  </span>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-
-        {/* COL 3 — Actions (right-aligned) */}
-        <div className="flex items-center gap-2 justify-end">
-          {!isInitializing && isAuthenticated && (
-            <>
-              <Link
-                to="/upload"
-                className="hidden sm:inline-flex px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              >
-                Upload Thesis
-              </Link>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <Link to="/" className="flex items-center gap-2 select-none">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
+              }`}>🎓</div>
+              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                THESYS+
+              </span>
+            </Link>
+          </div>
+          {/* Right group */}
+          <div className="flex items-center gap-2">
+            {!isInitializing && isAuthenticated && (
               <AvatarDropdown
                 user={user}
                 isDark={isDark}
                 onSignOut={async () => { await signOut(); navigate('/'); }}
               />
-            </>
-          )}
-          {!isInitializing && !isAuthenticated && (
-            <Link
-              to="/sign-in"
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            )}
+            {!isInitializing && !isAuthenticated && (
+              <Link
+                to="/sign-in"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                Sign In
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                isDark
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}
             >
-              Sign In
-            </Link>
-          )}
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
 
-          {/* Theme toggle — ALWAYS FAR RIGHT */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-              isDark
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
-            }`}
-          >
-            {isDark ? '☀️' : '🌙'}
-          </button>
+        {/* ── DESKTOP row (≥ lg): 3-column grid, nav centered ──────── */}
+        <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
+          {/* COL 1 — Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="flex items-center gap-2 select-none">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
+              }`}>🎓</div>
+              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                THESYS+
+              </span>
+            </Link>
+          </div>
+
+          {/* COL 2 — Centered nav links */}
+          <ul className="flex items-center gap-1">
+            {CORE_NAV.map(({ label, to, implemented }) => (
+              <li key={label}>
+                <Link
+                  to={to}
+                  title={implemented ? label : `${label} — coming soon`}
+                  onClick={implemented ? undefined : (e) => e.preventDefault()}
+                  aria-disabled={!implemented}
+                  className={`
+                    px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
+                    ${implemented
+                      ? isDark
+                        ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/70'
+                      : isDark
+                        ? 'text-gray-600 cursor-default pointer-events-none'
+                        : 'text-gray-300 cursor-default pointer-events-none'
+                    }
+                  `}
+                >
+                  {label}
+                  {!implemented && (
+                    <span className={`ml-1 text-[9px] font-semibold uppercase tracking-wider align-middle ${
+                      isDark ? 'text-gray-600' : 'text-gray-400'
+                    }`}>soon</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* COL 3 — Actions */}
+          <div className="flex items-center gap-2 justify-end">
+            {!isInitializing && isAuthenticated && (
+              <>
+                <Link
+                  to="/upload"
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  Upload Thesis
+                </Link>
+                <AvatarDropdown
+                  user={user}
+                  isDark={isDark}
+                  onSignOut={async () => { await signOut(); navigate('/'); }}
+                />
+              </>
+            )}
+            {!isInitializing && !isAuthenticated && (
+              <Link
+                to="/sign-in"
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                Sign In
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                isDark
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </nav>
+
+      {/* Landing page mobile menu drawer */}
+      {mobileMenuOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
+          <div className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl ${
+            isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'
+          }`}>
+            <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className="flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
+                  isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
+                }`}>🎓</div>
+                <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>THESYS+</span>
+              </div>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+                }`}>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <nav className="p-4">
+              <ul className="space-y-1">
+                {CORE_NAV.map(({ label, to, implemented }) => (
+                  <li key={label}>
+                    <Link to={to} onClick={(e) => { if (!implemented) e.preventDefault(); else setMobileMenuOpen(false); }}
+                      aria-disabled={!implemented}
+                      className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        !implemented
+                          ? isDark ? 'text-gray-600 cursor-default' : 'text-gray-300 cursor-default'
+                          : isDark ? 'text-gray-300 hover:bg-white/[0.07] hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      }`}>
+                      {label}
+                      {!implemented && <span className={`ml-1.5 text-[9px] uppercase tracking-wider ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>soon</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {!isInitializing && isAuthenticated ? (
+                <Link to="/upload" onClick={() => setMobileMenuOpen(false)}
+                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors">
+                  Upload Thesis
+                </Link>
+              ) : (
+                <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)}
+                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors">
+                  Sign In
+                </Link>
+              )}
+            </nav>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ── Hero ───────────────────────────────────────────────────── */}
       <main className="relative z-10 flex flex-col items-center flex-1 justify-center px-4 py-12 sm:py-20 text-center">
