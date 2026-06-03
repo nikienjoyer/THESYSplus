@@ -29,6 +29,10 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const photoInputRef = useRef(null);
+  const saveRedirectTimerRef = useRef(null);
+
+  // Clean up the post-save redirect timer if the component unmounts before it fires
+  useEffect(() => () => { if (saveRedirectTimerRef.current) clearTimeout(saveRedirectTimerRef.current); }, []);
 
   const { dataUrl: savedAvatarUrl, save: saveAvatar, clear: clearAvatar } = useProfilePicture();
 
@@ -114,7 +118,7 @@ export default function SettingsPage() {
 
     setSaved(true);
     // Redirect to /profile after 1000 ms so the user sees the updated info
-    setTimeout(() => {
+    saveRedirectTimerRef.current = setTimeout(() => {
       navigate('/profile');
     }, 1000);
   };

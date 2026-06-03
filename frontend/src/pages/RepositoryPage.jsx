@@ -19,6 +19,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import client from '../api/client';
+import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -58,6 +59,9 @@ function getCached(key) {
 function setCache(key, data) {
   repoCache.set(key, { data, ts: Date.now() });
 }
+
+// Register cache clearer so logout wipes stale data across user sessions
+registerCacheClearer(() => repoCache.clear());
 
 // ---------------------------------------------------------------------------
 // Helpers

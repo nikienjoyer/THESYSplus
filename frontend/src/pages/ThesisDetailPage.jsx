@@ -42,7 +42,12 @@ export default function ThesisDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const [saved, setSaved] = useState(() => isSaved(id, user));
+  const [saved, setSaved] = useState(false);
+
+  // Re-read saved status once user is available (user may be null during auth init)
+  useEffect(() => {
+    if (user && id) setSaved(isSaved(id, user));
+  }, [user, id]);
 
   useEffect(() => {
     if (!isAuthenticated || !id) return;

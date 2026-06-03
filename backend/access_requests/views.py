@@ -11,6 +11,7 @@ Administrator surface (gated by ``IsAdministrator``):
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from django.db import IntegrityError
@@ -28,6 +29,8 @@ from common.audit_logger import write as audit_write
 from common.csrf import require_origin_match
 from common.errors import make_error_response
 from common.ratelimit import rate_limit_per_email, rate_limit_per_ip
+
+logger = logging.getLogger(__name__)
 
 from .email_verification import (
     EmailVerificationTokenInvalid,

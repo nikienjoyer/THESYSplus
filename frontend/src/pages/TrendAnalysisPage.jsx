@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
+import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -44,6 +45,9 @@ function getTrendsCached() {
 function setTrendsCache(data) {
   trendsCache = { data, ts: Date.now() };
 }
+
+// Register cache clearer so logout wipes stale data across user sessions
+registerCacheClearer(() => { trendsCache = null; });
 
 // Trend classifications (mirror backend constants)
 const TREND_SATURATED = 'SATURATED';

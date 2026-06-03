@@ -10,6 +10,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import client, { configureAuthCallbacks } from '../api/client';
+import { clearAllCaches } from '../utils/appCaches';
 
 const AuthContext = createContext(undefined);
 
@@ -117,6 +118,9 @@ export function AuthProvider({ children }) {
       // Log but don't throw - we want to clear state regardless
       console.error('Logout request failed:', error);
     } finally {
+      // Clear all module-level page caches so the next user never sees
+      // stale data (analytics, trend analysis, repository) from this session.
+      clearAllCaches();
       setAccessToken(null);
       setUser(null);
     }

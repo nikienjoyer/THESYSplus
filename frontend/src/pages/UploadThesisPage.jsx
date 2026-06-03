@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Clock, Lock } from 'lucide-react';
 import client from '../api/client';
+import { clearAllCaches } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
@@ -208,6 +209,8 @@ export default function UploadThesisPage() {
       // Show "Submission complete" stage briefly before showing success
       clearTimeout(stageTimerRef.current);
       setStageIndex(UPLOAD_STAGES.length - 1);
+      // Clear repo cache so the new thesis appears immediately on next visit
+      clearAllCaches();
       setTimeout(() => setSuccess(res.data), 600);
     } catch (err) {
       clearTimeout(stageTimerRef.current);
