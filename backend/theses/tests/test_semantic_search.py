@@ -383,6 +383,109 @@ class TestSearchEndpoint:
         assert body['results'][0]['id'] == str(face.id)
         assert 'similarity_score' in body['results'][0]
 
+    def test_exact_name_query_returns_matching_thesis_via_title_boost(self, client, faculty_user, make_thesis):
+        """A short brand-name / acronym query that SBERT scores below threshold
+        should still return the thesis whose title contains the query string,
+        because 'THESYS+' contains punctuation and qualifies for the boost."""
+        thesys = make_thesis(
+            'THESYS+: A Semantic-Based Thesis Retrieval and Topic Trend Analysis System',
+            'This study presents THESYS+, an AI-powered thesis management system '
+            'developed for Pampanga State University College of Computing Studies.',
+            keywords=['semantic search', 'SBERT', 'thesis retrieval', 'topic analysis'],
+        )
+        unrelated = make_thesis(
+            'Hotel Booking Web Application',
+            'Hotel reservation web app with room availability calendar.',
+            keywords=['hotel', 'booking', 'web'],
+        )
+
+        from auth_service.services import issue_token_pair
+        pair = issue_token_pair(faculty_user, request=None, remember_me=False)
+
+        url = reverse('thesis-list')
+        # Search for the brand name at default 60 % threshold
+        response = client.get(
+            f'{url}?q=THESYS%2B&min_score=0.60',
+            HTTP_AUTHORIZATION=f'Bearer {pair.access_token}',
+        )
+        assert response.status_code == 200
+        body = response.json()
+
+        assert body['count'] >= 1, (
+            'THESYS+ thesis should be returned via title-match boost '
+            'even when SBERT cosine score is below 0.60'
+        )
+        ids = [r['id'] for r in body['results']]
+        assert str(thesys.id) in ids, (
+            f'Expected THESYS+ thesis in results; got: {[r["title"][:40] for r in body["results"]]}'
+        )
+        # Unrelated hotel thesis must NOT be boosted
+        assert str(unrelated.id) not in ids
+
+    def test_generic_single_word_does_not_bypass_threshold(self, client, faculty_user, make_thesis):
+        """A generic single common word like 'computer' that appears in a title
+        must NOT rescue low-scoring theses past the threshold.  The boost only
+        applies to specific identifiers (acronyms, punctuated names, phrases)."""
+        computer_thesis = make_thesis(
+            'Computer-Based Monitoring System for Smart Agriculture',
+            'A computer-based system that monitors soil moisture and temperature '
+            'using IoT sensors to automate irrigation in small farms.',
+            keywords=['computer', 'monitoring', 'IoT', 'agriculture'],
+        )
+
+        from auth_service.services import issue_token_pair
+        pair = issue_token_pair(faculty_user, request=None, remember_me=False)
+
+        url = reverse('thesis-list')
+        # Use 50 % threshold — 'computer' is a single generic word and should
+        # not boost the thesis if its SBERT score is below 0.50.
+        response = client.get(
+            f'{url}?q=computer&min_score=0.50',
+            HTTP_AUTHORIZATION=f'Bearer {pair.access_token}',
+        )
+        assert response.status_code == 200
+        body = response.json()
+
+        # Every result MUST have a real similarity_score >= 0.50.
+        # If the thesis appears, it genuinely matched semantically.
+        for result in body['results']:
+            assert result['similarity_score'] >= 0.50, (
+                f'Result "{result["title"][:50]}" has similarity_score '
+                f'{result["similarity_score"]} which is below the 0.50 threshold. '
+                f'Generic query "computer" must not bypass the threshold.'
+            )
+
+    def test_all_caps_acronym_qualifies_for_boost(self, client, faculty_user, make_thesis):
+        """All-uppercase acronym like 'RFID' qualifies for the title-match boost."""
+        rfid_thesis = make_thesis(
+            'RFID-Based Student Attendance Monitoring System',
+            'An attendance tracking system using radio-frequency identification '
+            'tags and readers to automatically record student presence.',
+            keywords=['RFID', 'attendance', 'monitoring'],
+        )
+        unrelated = make_thesis(
+            'Hotel Booking Web Application',
+            'Hotel reservation web app with room availability calendar.',
+            keywords=['hotel', 'booking', 'web'],
+        )
+
+        from auth_service.services import issue_token_pair
+        pair = issue_token_pair(faculty_user, request=None, remember_me=False)
+
+        url = reverse('thesis-list')
+        response = client.get(
+            f'{url}?q=RFID&min_score=0.60',
+            HTTP_AUTHORIZATION=f'Bearer {pair.access_token}',
+        )
+        assert response.status_code == 200
+        body = response.json()
+
+        ids = [r['id'] for r in body['results']]
+        assert str(rfid_thesis.id) in ids, (
+            'All-caps acronym RFID should trigger the title-match boost'
+        )
+        assert str(unrelated.id) not in ids
+
 
 # ---------------------------------------------------------------------------
 # Threshold filtering — min_score param

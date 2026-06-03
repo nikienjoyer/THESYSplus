@@ -107,7 +107,10 @@ function semanticDotColor(score) {
 function ThesisCard({ thesis, isDark }) {
   const score = thesis.similarity_score;
   const showScore = typeof score === 'number';
-  const pct = showScore ? Math.round(score * 100) : null;
+  // Use one decimal place so displayed value (e.g. "47.6%") reflects the
+  // actual score used in threshold filtering, preventing confusion where a
+  // thesis showing "48%" disappears when the threshold is raised to 48%.
+  const pct = showScore ? (score * 100).toFixed(1) : null;
 
   return (
     <Link
@@ -494,12 +497,34 @@ export default function RepositoryPage() {
           </div>
         ) : (
           <>
-            {/* Result count summary */}
-            {search && (
-              <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                {totalCount} result{totalCount !== 1 ? 's' : ''} above {committedThreshold}% similarity
-              </p>
-            )}
+            {/* Result count summary — distinguishes semantic matches from title-rescued results */}
+            {search && (() => {
+              const threshold = committedThreshold / 100;
+              const aboveThreshold = theses.filter(t => (t.similarity_score ?? 0) >= threshold).length;
+              const belowThreshold = theses.filter(t => (t.similarity_score ?? 0) < threshold).length;
+              // Use totalCount for the above-threshold count only when all current-page results pass,
+              // otherwise use page-level counts which are what the user actually sees.
+              const totalAbove = belowThreshold === 0 ? totalCount : aboveThreshold;
+              const totalBelow = belowThreshold;
+
+              let summary;
+              if (totalBelow === 0) {
+                // All results passed semantic threshold — original wording
+                summary = `${totalAbove} result${totalAbove !== 1 ? 's' : ''} above ${committedThreshold}% similarity`;
+              } else if (totalAbove === 0) {
+                // All results are title-rescued (below threshold)
+                summary = `${totalBelow} exact title match${totalBelow !== 1 ? 'es' : ''} found below ${committedThreshold}% semantic similarity`;
+              } else {
+                // Mixed: some semantic, some title-rescued
+                summary = `${totalAbove + totalBelow} result${totalAbove + totalBelow !== 1 ? 's' : ''} found: ${totalAbove} above ${committedThreshold}% similarity, ${totalBelow} exact title match${totalBelow !== 1 ? 'es' : ''} below threshold`;
+              }
+
+              return (
+                <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                  {summary}
+                </p>
+              );
+            })()}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {theses.map((t) => (

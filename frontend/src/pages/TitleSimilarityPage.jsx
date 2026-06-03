@@ -77,7 +77,7 @@ function statusVisuals(classification, isDark) {
 // Match card
 // ---------------------------------------------------------------------------
 function MatchCard({ match, isDark }) {
-  const pct = Math.round((match.similarity ?? 0) * 100);
+  const pct = ((match.similarity ?? 0) * 100).toFixed(1);
   return (
     <Link
       to={`/repository/${match.id}`}
@@ -190,7 +190,8 @@ export default function TitleSimilarityPage() {
   };
 
   const visuals = result ? statusVisuals(result.classification, isDark) : null;
-  const pct = result ? Math.round((result.similarity_score ?? 0) * 100) : 0;
+  // One decimal place so the displayed score matches threshold filtering behaviour.
+  const pct = result ? ((result.similarity_score ?? 0) * 100).toFixed(1) : '0.0';
   const { common: commonTerms, distinctive: distinctiveTerms } =
     result ? splitTerms(result.query || title, result.matches || []) : { common: [], distinctive: [] };
 

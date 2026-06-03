@@ -164,7 +164,53 @@ class ThesisListView(APIView):
         # Drop results below the similarity threshold.
         # min_score defaults to 0.10 (noise floor for all-MiniLM-L6-v2);
         # the frontend exposes a 30–95 % slider that overrides this.
-        scored = [s for s in scored if s.score >= min_score]
+        #
+        # Title-match boost (narrow):
+        # When a query is a *specific identifier* — an acronym, a brand name
+        # with punctuation, or a multi-word phrase — and that query appears
+        # verbatim in a thesis title, we clamp the score to at least min_score
+        # so it survives the threshold filter.
+        #
+        # This handles cases like "THESYS+", "RFID", "IPv4", or
+        # "Face Recognition" where SBERT produces a low cosine score because
+        # the query is a proper noun / acronym with no sentence-level semantics.
+        #
+        # Generic single words such as "computer", "system", or "web" are
+        # intentionally excluded: they appear in almost every thesis title and
+        # should not bypass the threshold.
+        #
+        # A query qualifies for the boost when ANY of:
+        #   1. It contains non-alphanumeric punctuation ("+", "-", ".", "#", …)
+        #   2. It is a single word that is fully UPPERCASE and ≥ 3 characters
+        #      (all-caps acronym: "RFID", "NLP", "BERT", "BSIT")
+        #   3. It has ≥ 2 space-separated tokens (multi-word exact phrase)
+
+        import re as _re
+
+        def _is_specific_identifier(query: str) -> bool:
+            stripped = query.strip()
+            # Rule 1: contains any non-alphanumeric, non-space character
+            if _re.search(r'[^a-zA-Z0-9\s]', stripped):
+                return True
+            tokens = stripped.split()
+            # Rule 2: single all-uppercase token of ≥ 3 characters
+            if len(tokens) == 1 and stripped == stripped.upper() and len(stripped) >= 3:
+                return True
+            # Rule 3: multi-word phrase
+            if len(tokens) >= 2:
+                return True
+            return False
+
+        apply_boost = _is_specific_identifier(q)
+        q_lower = q.lower()
+        boosted = []
+        for s in scored:
+            effective_score = s.score
+            if apply_boost and q_lower in s.thesis.title.lower():
+                effective_score = max(effective_score, min_score)
+            if effective_score >= min_score:
+                boosted.append(s)
+        scored = boosted
 
         # Manual pagination
         paginator = _ThesisPagination()
