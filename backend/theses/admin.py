@@ -161,13 +161,50 @@ class ThesisAdmin(admin.ModelAdmin):
     
     def approve_theses(self, request, queryset):
         """Bulk action to approve selected theses."""
-        updated = queryset.filter(status=ThesisStatus.PENDING_REVIEW).update(
+        to_approve = queryset.filter(status=ThesisStatus.PENDING_REVIEW)
+        # Capture IDs before update so we can check embedding status after
+        pending_ids = list(to_approve.values_list('id', flat=True))
+
+        updated = to_approve.update(
             status=ThesisStatus.APPROVED,
             reviewed_by=request.user,
             reviewed_at=timezone.now(),
             rejection_reason='',
         )
         self.message_user(request, f'{updated} thesis(es) approved successfully.')
+
+        # Retry embedding generation for any newly-approved thesis whose
+        # embedding is missing or failed.  This closes the lifecycle gap
+        # where a student thesis was approved but SBERT had failed at
+        # upload time — without this, the thesis appears in the repository
+        # but is silently excluded from semantic search and title similarity.
+        if pending_ids:
+            from theses.models import EmbeddingStatus
+            from theses.services.semantic_search import generate_thesis_embedding
+
+            needs_embedding = queryset.model.objects.filter(
+                id__in=pending_ids,
+                status=ThesisStatus.APPROVED,
+            ).exclude(embedding_status=EmbeddingStatus.READY)
+
+            retry_count = 0
+            fail_count = 0
+            for thesis in needs_embedding:
+                try:
+                    generate_thesis_embedding(thesis)
+                    retry_count += 1
+                except Exception:
+                    fail_count += 1
+
+            if retry_count:
+                self.message_user(request, f'Embedding regenerated for {retry_count} thesis(es).')
+            if fail_count:
+                self.message_user(
+                    request,
+                    f'{fail_count} thesis(es) could not be embedded — '
+                    'semantic search may not work for them. Check server logs.',
+                    level='warning',
+                )
     approve_theses.short_description = 'Approve selected theses'
     
     def reject_theses(self, request, queryset):

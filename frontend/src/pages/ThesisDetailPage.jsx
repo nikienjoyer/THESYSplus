@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Bookmark, FileText } from 'lucide-react';
+import { Bookmark, FileText, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -118,6 +118,23 @@ export default function ThesisDetailPage() {
               </svg>
               Back to Repository
             </Link>
+
+            {/* Embedding warning — visible to faculty/admin only when semantic search won't work */}
+            {user?.role !== 'student' && thesis.status === 'approved' && thesis.embedding_status !== 'ready' && (
+              <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 mb-4 text-xs ${
+                isDark
+                  ? 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+                  : 'bg-amber-50 border-amber-200 text-amber-700'
+              }`}>
+                <TriangleAlert className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong>Semantic search unavailable for this thesis.</strong>
+                  {' '}Embedding status: <code className="font-mono">{thesis.embedding_status}</code>.
+                  This thesis will not appear in semantic search results or title similarity comparisons.
+                  To fix, re-upload the thesis or regenerate its embedding from Django Admin.
+                </span>
+              </div>
+            )}
 
             <article
               className="thesys-card p-6 sm:p-8"
