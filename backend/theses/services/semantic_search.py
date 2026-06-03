@@ -99,13 +99,28 @@ def embed_text(text: str) -> List[float]:
 def compose_thesis_text(thesis) -> str:
     """Build the canonical text used to embed a Thesis record.
 
-    Combines title + abstract + truncated extracted_text per the
-    Phase 2A requirements.
+    Combines title + abstract + truncated extracted_text + keywords per the
+    Phase 2A requirements. Keywords are normalised defensively — the field
+    may be a list of strings, a raw string, None, or otherwise malformed.
+
+    Including keywords improves semantic search quality for acronym-heavy
+    and technical-term queries (e.g. "RFID", "IoT") that may appear in
+    keywords metadata but not in the title or abstract prose.
     """
     title = (thesis.title or '').strip()
     abstract = (thesis.abstract or '').strip()
     extracted = (thesis.extracted_text or '').strip()[:EXTRACTED_TEXT_MAX_CHARS]
-    parts = [p for p in (title, abstract, extracted) if p]
+
+    # Normalise keywords: accept list[str], str, None, or any other value.
+    raw_kw = getattr(thesis, 'keywords', None)
+    if isinstance(raw_kw, list):
+        keyword_str = ' '.join(str(k).strip() for k in raw_kw if k and str(k).strip())
+    elif isinstance(raw_kw, str) and raw_kw.strip():
+        keyword_str = raw_kw.strip()
+    else:
+        keyword_str = ''
+
+    parts = [p for p in (title, abstract, extracted, keyword_str) if p]
     return '\n\n'.join(parts)
 
 

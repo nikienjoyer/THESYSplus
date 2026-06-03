@@ -76,6 +76,97 @@ def make_thesis(db, faculty_user):
 
 
 # ---------------------------------------------------------------------------
+# compose_thesis_text — keyword inclusion and edge cases
+# ---------------------------------------------------------------------------
+
+class _FakeThesis:
+    """Minimal stub used to test compose_thesis_text without a DB."""
+    def __init__(self, title='', abstract='', extracted_text='', keywords=None):
+        self.title = title
+        self.abstract = abstract
+        self.extracted_text = extracted_text
+        self.keywords = keywords
+
+
+class TestComposeThesisText:
+    """Unit tests for compose_thesis_text — no DB required."""
+
+    def test_keywords_list_included_in_output(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(
+            title='RFID Attendance System',
+            abstract='Tracks attendance using RFID cards.',
+            keywords=['RFID', 'attendance', 'IoT'],
+        )
+        text = compose_thesis_text(t)
+        assert 'RFID' in text
+        assert 'attendance' in text
+        assert 'IoT' in text
+
+    def test_keywords_string_accepted(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(
+            title='Test',
+            abstract='Abstract.',
+            keywords='machine learning deep learning',
+        )
+        text = compose_thesis_text(t)
+        assert 'machine learning' in text
+
+    def test_keywords_none_does_not_crash(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(title='Test', abstract='Abstract.', keywords=None)
+        text = compose_thesis_text(t)
+        assert 'Test' in text
+        assert 'Abstract' in text
+
+    def test_keywords_empty_list_does_not_add_blank_section(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(title='Test', abstract='Abstract.', keywords=[])
+        text = compose_thesis_text(t)
+        # Should end cleanly — no trailing separator
+        assert not text.endswith('\n\n')
+
+    def test_keywords_list_with_falsy_entries_skipped(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(title='Test', abstract='Abstract.', keywords=[None, '', 'valid'])
+        text = compose_thesis_text(t)
+        assert 'valid' in text
+        # None and '' should not appear as literal strings
+        assert 'None' not in text
+
+    def test_extracted_text_truncated_before_keywords(self):
+        from theses.services.semantic_search import compose_thesis_text, EXTRACTED_TEXT_MAX_CHARS
+        long_text = 'x' * (EXTRACTED_TEXT_MAX_CHARS + 500)
+        t = _FakeThesis(
+            title='T',
+            abstract='A',
+            extracted_text=long_text,
+            keywords=['keyword_sentinel'],
+        )
+        text = compose_thesis_text(t)
+        # Keywords must still appear even when extracted_text is long
+        assert 'keyword_sentinel' in text
+        # Extracted text must be capped
+        assert len(text) < len(long_text)
+
+    def test_all_fields_present_in_output(self):
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(
+            title='IoT Smart Greenhouse',
+            abstract='Monitors temperature and humidity.',
+            extracted_text='Chapter 1: Introduction to smart agriculture.',
+            keywords=['IoT', 'greenhouse', 'ESP32'],
+        )
+        text = compose_thesis_text(t)
+        assert 'IoT Smart Greenhouse' in text
+        assert 'Monitors temperature' in text
+        assert 'Introduction to smart' in text
+        assert 'greenhouse' in text
+        assert 'ESP32' in text
+
+
+# ---------------------------------------------------------------------------
 # embed_text — sanity
 # ---------------------------------------------------------------------------
 
