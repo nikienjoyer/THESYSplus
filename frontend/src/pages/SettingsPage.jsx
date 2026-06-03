@@ -30,7 +30,16 @@ export default function SettingsPage() {
   const isDark = theme === 'dark';
   const photoInputRef = useRef(null);
 
-  const { dataUrl: avatarUrl, save: saveAvatar, clear: clearAvatar } = useProfilePicture();
+  const { dataUrl: savedAvatarUrl, save: saveAvatar, clear: clearAvatar } = useProfilePicture();
+
+  // pendingAvatar tracks the in-Settings preview state:
+  //   undefined  = no pending change (show savedAvatarUrl)
+  //   null       = user clicked Remove (preview shows initials, but not saved yet)
+  //   string     = new dataUrl selected (preview shows new photo, but not saved yet)
+  const [pendingAvatar, setPendingAvatar] = useState(undefined);
+
+  // The preview the Settings page shows — pending if dirty, else saved
+  const avatarUrl = pendingAvatar !== undefined ? pendingAvatar : savedAvatarUrl;
 
   // Load user-scoped profile data
   const stored = useMemo(() => getUserData('profile', user, {}), [user]);
@@ -78,7 +87,8 @@ export default function SettingsPage() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        saveAvatar(dataUrl);
+        // Stage in pending preview — do not write to localStorage until Save
+        setPendingAvatar(dataUrl);
         setPhotoError('');
       };
       img.src = ev.target.result;
@@ -91,6 +101,17 @@ export default function SettingsPage() {
     e.preventDefault();
     const profile = { bio, department, interests };
     setUserData('profile', user, profile);
+
+    // Commit any pending avatar change to localStorage (updates navbar)
+    if (pendingAvatar !== undefined) {
+      if (pendingAvatar === null) {
+        clearAvatar();
+      } else {
+        saveAvatar(pendingAvatar);
+      }
+      setPendingAvatar(undefined);
+    }
+
     setSaved(true);
     // Redirect to /profile after 1000 ms so the user sees the updated info
     setTimeout(() => {
@@ -188,7 +209,7 @@ export default function SettingsPage() {
                   {avatarUrl && (
                     <button
                       type="button"
-                      onClick={clearAvatar}
+                      onClick={() => setPendingAvatar(null)}
                       className={`text-xs text-left transition-colors ${isDark ? 'text-gray-600 hover:text-rose-400' : 'text-gray-400 hover:text-rose-500'}`}
                     >
                       Remove photo
