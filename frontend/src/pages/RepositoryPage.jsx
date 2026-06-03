@@ -17,6 +17,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { BookOpen } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -198,7 +199,7 @@ function ThesisCard({ thesis, isDark }) {
 
 export default function RepositoryPage() {
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isDark = theme === 'dark';
@@ -277,9 +278,19 @@ export default function RepositoryPage() {
       setCache(cacheKey, res.data);
       setTheses(res.data.results || []);
       setTotalCount(res.data.count || 0);
-    } catch {
-      setError('Failed to load theses. Please try again.');
-      setTheses([]);
+    } catch (err) {
+      // Ignore request cancellations (component unmounted mid-fetch)
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
+        return;
+      }
+      // If we were doing a background refresh and already have results visible,
+      // silently swallow the error — don't replace good data with an error banner.
+      // Only show the error state when the page has nothing to display.
+      if (theses.length === 0) {
+        setError('Failed to load theses. Please try again.');
+        setTheses([]);
+      }
+      // If theses.length > 0 (soft-loading), leave existing data intact
     } finally {
       setLoading(false);
       setSoftLoading(false);
@@ -290,8 +301,9 @@ export default function RepositoryPage() {
   // render cycle after every fetch.
 
   useEffect(() => {
-    if (isAuthenticated) loadTheses();
-  }, [isAuthenticated, loadTheses]);
+    if (isInitializing || !isAuthenticated) return;
+    loadTheses();
+  }, [isAuthenticated, isInitializing, loadTheses]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -450,7 +462,7 @@ export default function RepositoryPage() {
           </div>
         ) : theses.length === 0 ? (
           <div className="thesys-empty">
-            <div className="text-4xl">📚</div>
+            <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               {search && committedThreshold >= 70
                 ? 'No related theses found at the current threshold.'

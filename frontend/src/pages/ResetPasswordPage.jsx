@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
@@ -115,9 +116,11 @@ export default function ResetPasswordPage() {
         <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
           {invalidToken ? (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDark ? 'bg-rose-500/15' : 'bg-rose-50'
-              }`}>⚠️</div>
+              }`}>
+                <TriangleAlert className="w-7 h-7 text-rose-500" aria-hidden="true" />
+              </div>
               <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Link invalid or expired
               </h2>

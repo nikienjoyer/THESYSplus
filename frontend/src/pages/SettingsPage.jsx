@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Camera } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -155,7 +156,7 @@ export default function SettingsPage() {
                   )}
                   {/* Hover overlay — fades in on hover */}
                   <div className="absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                    <span className="text-sm" aria-hidden="true">📷</span>
+                    <Camera className="w-5 h-5 text-white" aria-hidden="true" />
                     <span className="text-[10px] font-semibold text-white leading-tight text-center px-1">
                       Change Photo
                     </span>

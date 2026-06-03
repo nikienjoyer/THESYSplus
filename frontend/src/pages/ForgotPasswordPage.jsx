@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Lock, Mail } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
@@ -85,9 +86,11 @@ export default function ForgotPasswordPage() {
         <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
           {success ? (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-              }`}>✉️</div>
+              }`}>
+                <Mail className="w-7 h-7 text-emerald-500" aria-hidden="true" />
+              </div>
               <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Reset link sent
               </h2>
@@ -108,8 +111,9 @@ export default function ForgotPasswordPage() {
                 Enter your institutional email and we'll send you a link to reset your password.
               </p>
               {/* Security trust cue */}
-              <p className={`text-xs mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                🔒 For security, password reset links expire after 30 minutes.
+              <p className={`text-xs mb-4 flex items-center gap-1.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                For security, password reset links expire after 30 minutes.
               </p>
               <form onSubmit={handleSubmit} noValidate>
                 <div className="mb-4">

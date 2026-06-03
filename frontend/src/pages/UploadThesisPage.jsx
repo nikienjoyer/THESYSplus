@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { CheckCircle2, Clock, Lock } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -262,7 +263,14 @@ export default function UploadThesisPage() {
               ? isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
               : isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'
           }`}>
-            <div className="text-4xl mb-3">{success.status === 'approved' ? '✅' : '⏳'}</div>
+            <div className={`w-16 h-16 flex items-center justify-center rounded-full mx-auto mb-3 ${
+              success.status === 'approved' ? (isDark ? 'bg-emerald-500/20' : 'bg-emerald-50') : (isDark ? 'bg-amber-500/20' : 'bg-amber-50')
+            }`}>
+              {success.status === 'approved'
+                ? <CheckCircle2 className="w-8 h-8 text-emerald-500" aria-hidden="true" />
+                : <Clock className="w-8 h-8 text-amber-500" aria-hidden="true" />
+              }
+            </div>
             <h1 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
               {success.status === 'approved' ? 'Thesis Approved & Published' : 'Submitted for Review'}
             </h1>
@@ -333,8 +341,9 @@ export default function UploadThesisPage() {
             : 'Your thesis will be published immediately upon upload.'}
         </p>
         {/* Trust cue */}
-        <p className={`text-xs mb-6 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-          🔒 Uploaded theses are reviewed before publication.
+        <p className={`text-xs mb-6 flex items-center gap-1.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+          <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          Uploaded theses are reviewed before publication.
         </p>
 
         {/* Upload progress — shown while submitting */}

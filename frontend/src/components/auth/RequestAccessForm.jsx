@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import Spinner from '../ui/Spinner';
 
 // Must match backend: digits-only local part, apex domain only.
@@ -110,7 +111,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
       <div className={`rounded-xl border p-4 flex gap-3 ${
         isDark ? 'bg-blue-500/[0.07] border-blue-500/20' : 'bg-blue-50 border-blue-100'
       }`}>
-        <span className="text-lg flex-shrink-0">🔍</span>
+        <Search className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary" aria-hidden="true" />
         <p className={`text-xs leading-relaxed ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
           THESYS+ verifies your <strong>PampangaStateU email</strong>, <strong>university identity</strong>,
           and <strong>CCS/program eligibility</strong> from your uploaded document before account activation.

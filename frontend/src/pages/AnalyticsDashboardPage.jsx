@@ -26,6 +26,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -225,7 +226,7 @@ function shortProgram(prog) {
 // ---------------------------------------------------------------------------
 export default function AnalyticsDashboardPage() {
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
   const navigate = useNavigate();
   const isDark = theme === 'dark';
 
@@ -235,7 +236,10 @@ export default function AnalyticsDashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    // Wait for auth initialization to complete before fetching.
+    // This prevents a request firing with no token (causing an unnecessary
+    // 401 → refresh → retry round-trip that extends the skeleton duration).
+    if (isInitializing || !isAuthenticated) return;
     let cancelled = false;
 
     (async () => {
@@ -261,7 +265,7 @@ export default function AnalyticsDashboardPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isInitializing]);
 
   // Shorten program names for chart labels
   const programDist = (data?.program_distribution || []).map((d) => ({
@@ -333,7 +337,7 @@ export default function AnalyticsDashboardPage() {
         {/* Empty */}
         {!loading && !error && data && data.total_theses === 0 && (
           <div className="thesys-empty">
-            <div className="text-4xl">📊</div>
+            <BarChart3 className="w-10 h-10 text-primary" aria-hidden="true" />
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               No analytics data available yet.
             </p>

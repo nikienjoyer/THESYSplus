@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Lightbulb, TriangleAlert, CheckCircle2, ArrowRight } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -219,7 +220,7 @@ export default function TitleSimilarityPage() {
         {/* ── How this works — shown before validation ─────────── */}
         {!result && (
           <div className="thesys-card p-4 mb-6 flex gap-3">
-            <span className="text-lg flex-shrink-0">💡</span>
+            <Lightbulb className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary" aria-hidden="true" />
             <p className={`text-xs leading-relaxed ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
               Title validation compares your proposed title with existing thesis records using semantic similarity.
               Higher scores may indicate possible topic overlap with existing studies.
@@ -349,19 +350,19 @@ export default function TitleSimilarityPage() {
               }`}>
                 {extractConf === 'low' ? (
                   <>
-                    <p className="font-semibold mb-1">⚠ Low Confidence Detection</p>
+                    <p className="font-semibold mb-1 flex items-center gap-1.5"><TriangleAlert className="w-3.5 h-3.5" aria-hidden="true" /> Low Confidence Detection</p>
                     <p className="mb-0.5">This file may not contain a title page.</p>
                     <p className="mb-1">The detected text may be a chapter heading or section title.</p>
                     <p className={isDark ? 'text-rose-400' : 'text-rose-600'}>Please review and edit manually.</p>
                   </>
                 ) : extractConf === 'medium' ? (
                   <>
-                    <p className="font-semibold mb-0.5">⚠ Possible title detected</p>
+                    <p className="font-semibold mb-0.5 flex items-center gap-1.5"><TriangleAlert className="w-3.5 h-3.5" aria-hidden="true" /> Possible title detected</p>
                     <p>Please review and edit the detected title if needed.</p>
                   </>
                 ) : (
                   <>
-                    <span className="font-semibold mr-1">✓</span>
+                    <span className="inline-flex items-center gap-1 font-semibold mr-1"><CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /></span>
                     Title detected successfully.
                   </>
                 )}
@@ -383,26 +384,42 @@ export default function TitleSimilarityPage() {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={submitting || title.trim().length < 5}
-              className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-            >
-              {submitting ? <><Spinner /> Validating…</> : 'Validate Title'}
-            </button>
-            {result && (
+          {/* Action footer — visually connects the form to the submit button */}
+          <div className={`rounded-xl border px-5 py-4 ${
+            isDark ? 'bg-white/[0.02] border-white/[0.08]' : 'bg-gray-50 border-gray-200'
+          }`}>
+            {/* 3-step flow hint */}
+            <div className={`flex items-center gap-1.5 text-[11px] font-medium mb-4 flex-wrap ${
+              isDark ? 'text-gray-500' : 'text-gray-400'
+            }`}>
+              <span className="text-primary">Enter or upload title</span>
+              <ArrowRight className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+              <span>Review detected title</span>
+              <ArrowRight className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+              <span>Validate</span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
               <button
-                type="button"
-                onClick={handleReset}
-                className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                  isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+                type="submit"
+                disabled={submitting || title.trim().length < 5}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
-                Clear
+                {submitting ? <><Spinner /> Validating…</> : 'Validate Title'}
               </button>
-            )}
+              {result && (
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </form>
 

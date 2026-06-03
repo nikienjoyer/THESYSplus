@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 
@@ -142,9 +143,11 @@ export default function VerifyEmailPage() {
 
           {state === 'success' && (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-              }`}>✅</div>
+              }`}>
+                <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
+              </div>
               <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Email Verified
               </h2>
@@ -163,9 +166,11 @@ export default function VerifyEmailPage() {
 
           {state === 'error' && (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDark ? 'bg-rose-500/15' : 'bg-rose-50'
-              }`}>⚠️</div>
+              }`}>
+                <TriangleAlert className="w-7 h-7 text-rose-500" aria-hidden="true" />
+              </div>
               <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Verification Failed
               </h2>

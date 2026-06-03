@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -331,7 +332,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
 
 export default function TrendAnalysisPage() {
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
   const isDark = theme === 'dark';
 
   // Seed state from cache immediately — avoids blank flash on revisit
@@ -340,7 +341,10 @@ export default function TrendAnalysisPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    // Wait for auth initialization to complete before fetching.
+    // This prevents a request firing with no token (causing an unnecessary
+    // 401 → refresh → retry round-trip that extends the skeleton duration).
+    if (isInitializing || !isAuthenticated) return;
     let cancelled = false;
 
     (async () => {
@@ -368,7 +372,7 @@ export default function TrendAnalysisPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isInitializing]);
 
   // Memoise palette mapping so cluster colours stay stable across re-renders
   const colourFor = useMemo(() => {
@@ -425,7 +429,7 @@ export default function TrendAnalysisPage() {
           </div>
         ) : data && data.status === 'empty' ? (
           <div className="thesys-empty">
-            <div className="text-4xl">📊</div>
+            <BarChart3 className="w-10 h-10 text-primary" aria-hidden="true" />
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               Not enough approved theses yet.
             </p>

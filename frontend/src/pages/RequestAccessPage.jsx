@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Mail, Search, TriangleAlert, ClipboardList, Lock } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
@@ -34,21 +35,24 @@ function mapError(err) {
 
 const DECISIONS = {
   pending_email_verification: {
-    icon: '✉️',
+    Icon: Mail,
+    iconColor: 'text-emerald-600',
     title: 'Check your PampangaStateU email',
     body: 'Your document was validated. We sent a verification link to your PampangaStateU institutional email. Please click the link to activate your account.',
     note: 'The link expires in 24 hours. Check your spam folder if you do not see it.',
     tone: 'success',
   },
   pending_manual_review: {
-    icon: '🔎',
+    Icon: Search,
+    iconColor: 'text-amber-600',
     title: 'Your request needs manual review',
     body: 'Some details could not be verified automatically from your document. An administrator will review your request and contact you.',
     note: 'This usually happens when the document scan is unclear or details are partially readable.',
     tone: 'warning',
   },
   rejected: {
-    icon: '⚠️',
+    Icon: TriangleAlert,
+    iconColor: 'text-rose-600',
     title: 'We could not verify your PampangaStateU/CCS information',
     body: 'Your uploaded document does not show the required PampangaStateU and CCS/program information. Please ensure you upload a valid PampangaStateU Student ID or Certificate of Registration.',
     note: 'If you believe this is an error, contact the THESYS+ administrator.',
@@ -190,7 +194,9 @@ export default function RequestAccessPage() {
     : 'bg-white border-slate-200 shadow-card';
 
   const decisionInfo = decision ? (DECISIONS[decision] || {
-    icon: '📋', title: 'Request Submitted',
+    Icon: ClipboardList,
+    iconColor: 'text-blue-600',
+    title: 'Request Submitted',
     body: 'Your request has been submitted. An administrator will review it.',
     note: '', tone: 'neutral',
   }) : null;
@@ -232,8 +238,8 @@ export default function RequestAccessPage() {
                 <div>
                   <div className={`rounded-xl border p-5 mb-6 ${cls.wrap}`}>
                     <div className="flex items-start gap-4">
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-2xl flex-shrink-0 ${cls.icon}`}>
-                        {decisionInfo.icon}
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${cls.icon}`}>
+                        {decisionInfo.Icon && <decisionInfo.Icon className={`w-5 h-5 ${decisionInfo.iconColor}`} aria-hidden="true" />}
                       </div>
                       <div>
                         <h2 className={`font-bold text-base mb-1 ${cls.title}`}>{decisionInfo.title}</h2>
@@ -275,8 +281,9 @@ export default function RequestAccessPage() {
                 Request Account Access
               </h2>
               {/* Trust cue */}
-              <p className={`text-xs mb-5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                🔒 Only PampangaStateU CCS students can request access.
+              <p className={`text-xs mb-5 flex items-center gap-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                Only PampangaStateU CCS students can request access.
               </p>
               <RequestAccessForm
                 onSubmit={handleSubmit}

@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Bookmark } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -379,7 +380,7 @@ export default function ProfilePage() {
               <div>
                 {savedTheses.length === 0 ? (
                   <div className="thesys-empty">
-                    <div className="text-4xl">🔖</div>
+                    <Bookmark className="w-10 h-10 text-primary" aria-hidden="true" />
                     <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                       No saved theses yet.
                     </p>

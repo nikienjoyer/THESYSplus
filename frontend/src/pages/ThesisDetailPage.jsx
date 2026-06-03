@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Bookmark, FileText } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -239,7 +240,8 @@ export default function ThesisDetailPage() {
                   }`}
                   title={saved ? 'Remove from saved theses' : 'Save to your profile'}
                 >
-                  {saved ? '🔖 Saved' : '🔖 Save'}
+                  <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
+                  {saved ? 'Saved' : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -250,7 +252,7 @@ export default function ThesisDetailPage() {
                   {downloading ? (
                     <><Spinner /> Downloading...</>
                   ) : (
-                    <>📄 Download {(thesis.file_type || 'pdf').toUpperCase()}</>
+                    <><FileText className="w-4 h-4" aria-hidden="true" /> Download {(thesis.file_type || 'pdf').toUpperCase()}</>
                   )}
                 </button>
               </div>
