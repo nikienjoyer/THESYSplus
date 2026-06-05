@@ -41,30 +41,18 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
       {/* Modal */}
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
         <div
-          className={`relative w-full max-w-3xl max-h-[85vh] rounded-2xl border overflow-hidden ${
-            isDark
-              ? 'bg-[#0a0f2e] border-white/10'
-              : 'bg-white border-gray-200 shadow-2xl'
-          }`}
+          className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className={`sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b ${
-            isDark
-              ? 'bg-[#0a0f2e]/95 backdrop-blur-sm border-white/10'
-              : 'bg-white/95 backdrop-blur-sm border-gray-200'
-          }`}>
-            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 backdrop-blur-sm">
+            <h2 className="text-xl font-bold text-ink">
               {content.title}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                isDark
-                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+              className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
               aria-label="Close"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -75,9 +63,7 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
 
           {/* Content */}
           <div className="overflow-y-auto px-6 py-6" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-            <div className={`prose prose-sm max-w-none ${
-              isDark ? 'prose-invert' : ''
-            }`}>
+            <div className={`prose prose-sm max-w-none ${isDark ? 'prose-invert' : ''}`}>
               {content.body}
             </div>
           </div>

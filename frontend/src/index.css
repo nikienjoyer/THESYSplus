@@ -76,61 +76,87 @@
 
 @layer components {
 
-  /* ── Card surface — consistent elevated card appearance ───────────── */
-  /*
-   * Light: white card, very subtle shadow, clean 1px border
-   * Dark:  faint navy glass with 1px semi-transparent border
-   * Usage: add `.thesys-card` alongside existing rounded-xl classes.
-   * All existing inline class patterns still work — this is additive.
-   */
-  .thesys-card {
+  /* ══════════════════════════════════════════════════════════════════
+   * Phase 1.2 — Consolidated surface primitive: .thesys-surface
+   *
+   * ONE canonical surface class replaces the confusing .thesys-card /
+   * .thesys-panel split. Both old class names are kept as aliases below
+   * so existing page JSX continues to compile without any page edits.
+   *
+   * Semantic rule:
+   *   .thesys-surface   — base class (no default padding — add p-* via utility)
+   *   .thesys-card      — alias for .thesys-surface  (backward compat)
+   *   .thesys-panel     — alias for .thesys-surface + p-5 default padding
+   *   .thesys-card-lift — modifier: hover float animation on interactive surfaces
+   *
+   * Colors now read from tokens.css Tier 2 semantic variables so a single
+   * edit to tokens.css updates all surfaces at once.
+   * ══════════════════════════════════════════════════════════════════ */
+
+  /* ── Canonical surface primitive ─────────────────────────────────── */
+  .thesys-surface {
     border-radius: 0.75rem;           /* rounded-xl */
     border-width: 1px;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    transition-property: transform, box-shadow, border-color, background-color;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  :root .thesys-surface {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.03);
+  }
+  .dark .thesys-surface {
+    box-shadow: none;
+  }
+
+  /* ── .thesys-card — alias for .thesys-surface (no default padding) ── */
+  .thesys-card {
+    border-radius: 0.75rem;
+    border-width: 1px;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
     transition-property: transform, box-shadow, border-color, background-color;
     transition-duration: 180ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
   :root .thesys-card {
-    background-color: #ffffff;
-    border-color: rgb(226 232 240);   /* slate-200 */
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.03);
   }
   .dark .thesys-card {
-    background-color: rgba(255 255 255 / 0.03);
-    border-color: rgba(255 255 255 / 0.09);
     box-shadow: none;
   }
 
-  /* ── Card hover-lift ──────────────────────────────────────────────── */
+  /* ── .thesys-card-lift — hover float on interactive cards ─────────── */
   .thesys-card-lift {
     cursor: pointer;
   }
   :root .thesys-card-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
-    border-color: rgb(203 213 225);   /* slate-300 */
+    border-color: var(--color-border-strong);
   }
   .dark .thesys-card-lift:hover {
     transform: translateY(-2px);
     background-color: rgba(255 255 255 / 0.055);
-    border-color: rgba(255 255 255 / 0.16);
+    border-color: var(--color-border-strong);
     box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.4);
   }
 
-  /* ── Section panel — chart/data panel surface ─────────────────────── */
+  /* ── .thesys-panel — alias with 1.25rem default padding ──────────── */
+  /* Semantically: a data/chart container. Same surface, padded by default. */
   .thesys-panel {
     border-radius: 0.75rem;
     border-width: 1px;
     padding: 1.25rem;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
   }
   :root .thesys-panel {
-    background-color: #ffffff;
-    border-color: rgb(226 232 240);
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
   }
   .dark .thesys-panel {
-    background-color: rgba(255 255 255 / 0.03);
-    border-color: rgba(255 255 255 / 0.09);
+    box-shadow: none;
   }
 
   /* ── Primary button — consistent hover + focus ring ──────────────── */
@@ -144,14 +170,14 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: #2563eb;
+    background-color: var(--color-primary);
     transition-property: background-color, box-shadow, transform;
     transition-duration: 150ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
   }
   .thesys-btn-primary:hover {
-    background-color: #1d4ed8;
+    background-color: var(--color-primary-hover);
     box-shadow: 0 4px 12px -2px rgb(37 99 235 / 0.4);
   }
   .thesys-btn-primary:active {
@@ -169,9 +195,9 @@
   :root .thesys-skeleton {
     background-image: linear-gradient(
       90deg,
-      rgb(241 245 249) 25%,
-      rgb(226 232 240) 37%,
-      rgb(241 245 249) 63%
+      var(--th-slate-100) 25%,
+      var(--th-slate-200) 37%,
+      var(--th-slate-100) 63%
     );
     animation: shimmer 1.6s ease-in-out infinite;
   }
@@ -202,7 +228,7 @@
     right: 0;
     height: 2px;
     border-radius: 9999px;
-    background-color: #3b82f6;
+    background-color: var(--color-primary);
     transform: scaleX(0);
     transform-origin: center;
     transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -217,19 +243,64 @@
     border-radius: 3px;
   }
 
-  /* ── Badge / chip — consistent pill tokens ─────────────────────────── */
+  /* ── Badge / chip — canonical pill primitive ───────────────────────
+   *
+   * Phase 1.3 — Chip standardization:
+   *   .thesys-chip  is the CSS-class chip primitive.
+   *   <Badge>       (shadcn/badge.jsx) is the React chip primitive.
+   *   Both share the same visual spec; use <Badge> in JSX, .thesys-chip
+   *   in plain HTML contexts or when shadcn is not available.
+   *
+   * Status variants via modifier classes:
+   *   .thesys-chip--success  (emerald — approved / safe / underexplored)
+   *   .thesys-chip--warning  (amber  — pending / emerging / balanced)
+   *   .thesys-chip--danger   (rose   — rejected / risk / saturated)
+   *   .thesys-chip--info     (blue   — informational / broad / keyword)
+   *   .thesys-chip--muted    (gray   — neutral / secondary)
+   * ─────────────────────────────────────────────────────────────────── */
   .thesys-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
+    padding: 0.125rem 0.625rem;
     border-radius: 9999px;
-    font-size: 0.625rem;  /* 10px */
+    font-size: 0.75rem;     /* 12px — matches Badge text-xs */
     font-weight: 600;
     letter-spacing: 0.025em;
     border-width: 1px;
+    border-style: solid;
+    border-color: var(--color-border);
+    background-color: var(--color-surface-secondary);
+    color: var(--color-text-body);
     white-space: nowrap;
     transition: opacity 120ms ease;
+  }
+
+  /* Status variants — map to the status quartet tokens */
+  .thesys-chip--success {
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-border);
+    color: var(--color-success-text);
+  }
+  .thesys-chip--warning {
+    background-color: var(--color-warning-bg);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning-text);
+  }
+  .thesys-chip--danger {
+    background-color: var(--color-danger-bg);
+    border-color: var(--color-danger-border);
+    color: var(--color-danger-text);
+  }
+  .thesys-chip--info {
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-border);
+    color: var(--color-info-text);
+  }
+  .thesys-chip--muted {
+    background-color: transparent;
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
   }
 
   /* ── Empty state container ─────────────────────────────────────────── */
@@ -241,14 +312,8 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-  }
-  :root .thesys-empty {
-    background-color: #ffffff;
-    border: 1px solid rgb(226 232 240);
-  }
-  .dark .thesys-empty {
-    background-color: rgba(255 255 255 / 0.025);
-    border: 1px solid rgba(255 255 255 / 0.09);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
   }
 
   /* ── Dropdown menu — smooth fade + scale ──────────────────────────── */
@@ -256,17 +321,15 @@
     border-radius: 0.75rem;
     padding: 0.25rem 0;
     border-width: 1px;
+    background-color: var(--color-surface-elevated);
+    border-color: var(--color-border);
     animation: fade-in 0.15s ease-out forwards;
     transform-origin: top right;
   }
   :root .thesys-dropdown {
-    background-color: #ffffff;
-    border-color: rgb(226 232 240);
     box-shadow: 0 8px 30px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.08);
   }
   .dark .thesys-dropdown {
-    background-color: #0f1a3a;
-    border-color: rgba(255 255 255 / 0.09);
     box-shadow: 0 8px 30px -4px rgb(0 0 0 / 0.6);
   }
 

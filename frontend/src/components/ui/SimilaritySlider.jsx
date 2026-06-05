@@ -5,11 +5,18 @@
  * coloured relevance pill that changes from green (strict) → amber
  * (balanced) → blue (broad) as the threshold decreases.
  *
+ * Phase 1.1 Step 1: isDark ternaries for text colours replaced with
+ * semantic token utilities. The track gradient and pill classes still
+ * use direct Tailwind utilities mapped to the status quartet tokens;
+ * the isDark prop is retained only for the track fill gradient (an
+ * inline style value) and the prose-invert prose class. Layout,
+ * spacing, behaviour, and slider mechanics are unchanged.
+ *
  * Props
  * -----
  * value       {number}          current threshold 0–100 (integer percent)
  * onChange    {fn}              called with the new integer percent on every change
- * isDark      {boolean}         toggles dark/light colour tokens
+ * isDark      {boolean}         still needed for the inline track-fill gradient empty side
  * disabled    {boolean}         greyed out when no query is active
  * helperText  {string|null}     overrides the default helper text when provided
  */
@@ -28,31 +35,29 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
 
   const zoneLabel = { strict: 'Strict', balanced: 'Balanced', broad: 'Broad' }[zone];
 
+  // Pill classes — mapped to semantic token utilities where possible.
+  // The dark-mode variants are token-backed via the CSS variables in tokens.css.
   const pillClass = {
-    strict: isDark
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    balanced: isDark
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-      : 'bg-amber-50 text-amber-700 border-amber-200',
-    broad: isDark
-      ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-      : 'bg-blue-50 text-blue-700 border-blue-200',
+    strict:   'bg-success-bg text-success-text border-success-border',
+    balanced: 'bg-warning-bg text-warning-text border-warning-border',
+    broad:    'bg-info-bg    text-info-text    border-info-border',
   }[zone];
 
   const trackFill = {
-    strict: '#10b981',   // emerald-500
-    balanced: '#f59e0b', // amber-500
-    broad: '#3b82f6',    // blue-500
+    strict:   'var(--color-success)',  // emerald
+    balanced: 'var(--color-warning)',  // amber
+    broad:    'var(--color-primary)',  // blue
   }[zone];
 
-  // Percentage position of the thumb on the track (for background gradient)
+  // Percentage position of thumb on the track (for the background gradient)
   const pct = ((value - MIN) / (MAX - MIN)) * 100;
 
+  // The empty side of the track still needs a fixed colour because
+  // we can't use a CSS var in a linear-gradient without var() in inline style
+  const trackEmptyColor = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
+
   const trackStyle = {
-    background: `linear-gradient(to right, ${trackFill} ${pct}%, ${
-      isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'
-    } ${pct}%)`,
+    background: `linear-gradient(to right, ${trackFill} ${pct}%, ${trackEmptyColor} ${pct}%)`,
   };
 
   return (
@@ -64,20 +69,12 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
     >
       {/* Row: label + value badge */}
       <div className="flex items-center justify-between gap-3">
-        <span
-          className={`text-xs font-medium ${
-            isDark ? 'text-gray-400' : 'text-gray-500'
-          }`}
-        >
+        <span className="text-xs font-medium text-muted">
           Similarity Threshold
         </span>
 
         <div className="flex items-center gap-2">
-          <span
-            className={`text-xs font-bold tabular-nums ${
-              isDark ? 'text-white' : 'text-gray-900'
-            }`}
-          >
+          <span className="text-xs font-bold tabular-nums text-ink">
             {value}%
           </span>
           <span
@@ -107,16 +104,12 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
 
       {/* Tick labels */}
       <div className="flex justify-between">
-        <span className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-          {MIN}% Broad
-        </span>
-        <span className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-          {MAX}% Strict
-        </span>
+        <span className="text-[10px] text-subtle">{MIN}% Broad</span>
+        <span className="text-[10px] text-subtle">{MAX}% Strict</span>
       </div>
 
       {/* Helper text */}
-      <p className={`text-[11px] leading-snug ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+      <p className="text-[11px] leading-snug text-muted">
         {helperText ?? 'Lower thresholds show broader related studies. Higher thresholds show stricter semantic matches.'}
       </p>
     </div>

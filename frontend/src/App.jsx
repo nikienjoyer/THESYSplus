@@ -17,7 +17,6 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Outlet, Link } from 'react-router-dom';
 import { TooltipProvider } from './components/shadcn/tooltip';
 import { useAuth } from './hooks/useAuth';
-import { useTheme } from './context/ThemeContext';
 import Spinner from './components/ui/Spinner';
 import AuthLayout from './components/layout/AuthLayout';
 import LandingPage from './pages/LandingPage';
@@ -39,33 +38,18 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 // NotFound — minimal 404 page for unmatched routes
 // ---------------------------------------------------------------------------
 function NotFound() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
   return (
-    <div
-      className={`min-h-screen flex flex-col items-center justify-center px-4 text-center transition-colors duration-300 ${
-        isDark ? 'bg-[#080d24]' : 'bg-slate-50'
-      }`}
-    >
-      <div
-        className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-6 ${
-          isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-        }`}
-      >
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-4 text-center transition-colors duration-300">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-6 bg-logo-bg ring-1 ring-[var(--color-logo-ring)]">
         🎓
       </div>
-      <h1
-        className={`text-6xl font-extrabold tracking-tighter mb-3 ${
-          isDark ? 'text-white' : 'text-gray-900'
-        }`}
-      >
+      <h1 className="text-6xl font-extrabold tracking-tighter mb-3 text-ink">
         404
       </h1>
-      <p className={`text-lg font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+      <p className="text-lg font-semibold mb-2 text-ink">
         Page not found
       </p>
-      <p className={`text-sm mb-8 max-w-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+      <p className="text-sm mb-8 max-w-xs text-muted">
         The page you're looking for doesn't exist or has been moved.
       </p>
       <Link
@@ -83,9 +67,7 @@ function NotFound() {
 // ---------------------------------------------------------------------------
 function ProtectedRoute() {
   const { isAuthenticated, isInitializing } = useAuth();
-  const { theme } = useTheme();
   const navigate = useNavigate();
-  const isDark = theme === 'dark';
 
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
@@ -93,17 +75,14 @@ function ProtectedRoute() {
     }
   }, [isInitializing, isAuthenticated, navigate]);
 
-  // While the silent refresh is in flight, show a neutral full-screen spinner.
-  // This prevents the brief blank screen / flash of the page before the redirect.
   if (isInitializing || !isAuthenticated) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
         <Spinner />
       </div>
     );
   }
 
-  // Auth confirmed — render the matched child route
   return <Outlet />;
 }
 

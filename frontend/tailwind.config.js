@@ -9,7 +9,11 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
-      // ── existing THESYS+ design tokens
+      // ── THESYS+ semantic design tokens (Phase 1.1)
+      // All values resolve to CSS custom properties defined in tokens.css.
+      // The .dark class on <html> redefines those variables, so every
+      // utility (bg-canvas, text-muted, etc.) automatically resolves to
+      // the correct theme value without any isDark ternary in JSX.
       colors: {
         ...thesysColors,
 
@@ -53,17 +57,39 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
-      // ── THESYS+ polish tokens
-      boxShadow: {
-        'card':     '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card-md':  '0 4px 12px -2px rgb(0 0 0 / 0.10), 0 2px 4px -2px rgb(0 0 0 / 0.06)',
-        'card-lift':'0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08)',
-        'blue-glow':'0 0 0 1px rgb(59 130 246 / 0.15), 0 4px 16px -4px rgb(59 130 246 / 0.25)',
-        'blue-glow-sm': '0 0 0 1px rgb(59 130 246 / 0.10), 0 2px 8px -2px rgb(59 130 246 / 0.15)',
+      // ── THESYS+ z-index scale (Phase 1.4)
+      // Mirrors --z-* CSS custom properties in tokens.css.
+      // Use z-navbar, z-dropdown, z-modal in JSX instead of z-[9999] etc.
+      zIndex: {
+        'base':     '0',
+        'raised':   '10',
+        'sticky':   '20',
+        'navbar':   '30',
+        'dropdown': '50',
+        'modal':    '9999',
       },
+      // ── THESYS+ easing scale (Phase 1.4)
+      // Matches --ease-* CSS custom properties in tokens.css.
       transitionTimingFunction: {
-        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'out':    'cubic-bezier(0, 0, 0.2, 1)',
+        'in':     'cubic-bezier(0.4, 0, 1, 1)',
+        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+      },
+      // ── THESYS+ duration scale (Phase 1.4)
+      transitionDuration: {
+        'fast':    '120ms',
+        'normal':  '150ms',
+        'surface': '180ms',
+        'enter':   '200ms',
+      },
+      // ── THESYS+ box shadow tokens
+      boxShadow: {
+        'card':         '0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
+        'card-md':      '0 4px 12px -2px rgb(0 0 0 / 0.10), 0 2px 4px -2px rgb(0 0 0 / 0.06)',
+        'card-lift':    '0 8px 24px -4px rgb(0 0 0 / 0.14), 0 2px 8px -2px rgb(0 0 0 / 0.08)',
+        'blue-glow':    '0 0 0 1px rgb(59 130 246 / 0.15), 0 4px 16px -4px rgb(59 130 246 / 0.25)',
+        'blue-glow-sm': '0 0 0 1px rgb(59 130 246 / 0.10), 0 2px 8px -2px rgb(59 130 246 / 0.15)',
       },
       keyframes: {
         'accordion-down': {

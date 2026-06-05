@@ -13,6 +13,9 @@
  * Every auth-page Route must be nested under this layout in App.jsx.
  * Internal navigation between auth pages must use React Router <Link> (not
  * <a href>) so the router drives all history operations.
+ *
+ * Phase 1.1 Step 1: isDark ternaries replaced with semantic token utilities.
+ * Theme-switching behaviour and all layout/spacing/interaction unchanged.
  */
 
 import { Link, Outlet } from 'react-router-dom';
@@ -24,11 +27,8 @@ export default function AuthLayout() {
   const isDark = theme === 'dark';
 
   return (
-    <div
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? 'bg-[#080d24]' : 'bg-slate-50'
-      }`}
-    >
+    <div className="min-h-screen bg-canvas flex flex-col transition-colors duration-300">
+
       {/* ── Background layer (fixed, non-interactive) ──────────────── */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
@@ -52,33 +52,17 @@ export default function AuthLayout() {
       )}
 
       {/* ── Header — persists across all auth page navigations ─────── */}
-      <header
-        className={`relative z-10 flex items-center justify-between px-5 sm:px-10 py-4 border-b flex-shrink-0 ${
-          isDark
-            ? 'border-white/[0.06] bg-[#080d24]/70 backdrop-blur-md'
-            : 'border-gray-200/80 bg-white/70 backdrop-blur-md'
-        }`}
-      >
+      <header className="relative z-10 flex items-center justify-between px-5 sm:px-10 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-canvas)]/70 backdrop-blur-md flex-shrink-0">
         {/* Logo — internal navigation, no full page reload */}
         <Link
           to="/"
           className="flex items-center gap-2.5 select-none"
           aria-label="THESYS+ home"
         >
-          <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-              isDark
-                ? 'bg-blue-600/20 ring-1 ring-blue-500/30'
-                : 'bg-blue-100 ring-1 ring-blue-200'
-            }`}
-          >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm bg-[var(--color-logo-bg)] ring-1 ring-[var(--color-logo-ring)]">
             🎓
           </div>
-          <span
-            className={`text-sm font-bold tracking-wide ${
-              isDark ? 'text-white' : 'text-gray-900'
-            }`}
-          >
+          <span className="text-sm font-bold tracking-wide text-ink">
             THESYS+
           </span>
         </Link>
@@ -88,22 +72,13 @@ export default function AuthLayout() {
           type="button"
           onClick={toggleTheme}
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-            isDark
-              ? 'text-gray-400 hover:text-white hover:bg-white/10'
-              : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
-          }`}
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
         >
           {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
         </button>
       </header>
 
       {/* ── Page content — provided by each nested route ────────────── */}
-      {/*
-        `flex-1` makes this area expand so child pages can use their own
-        flex alignment (items-center or items-start). Each page renders
-        a <div className="relative z-10 flex flex-1 ..."> body wrapper.
-      */}
       <Outlet />
     </div>
   );

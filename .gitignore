@@ -66,3 +66,4 @@ backend/private/
 # Local cookie/session files
 cookies.txt
 backend/cookies.txt
+.kiro/skills/
