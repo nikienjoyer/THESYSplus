@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
           }`}>🎓</div>
           <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>SYS+</span>
+            <span className="text-primary">SYS+</span>
           </h1>
           <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             {invalidToken ? 'Link expired' : 'Set your new password'}
@@ -131,7 +131,7 @@ export default function ResetPasswordPage() {
                 Reset links expire after 30 minutes. Please request a new one.
               </p>
               <Link to="/forgot-password"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
                 Request New Reset Link
               </Link>
             </div>
@@ -192,7 +192,7 @@ export default function ResetPasswordPage() {
 
               <button type="submit"
                 disabled={isLoading || !!newErr || !!confirmErr || !newPw || !confirmPw}
-                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {isLoading ? <><Spinner size="sm" /> Resetting…</> : 'Reset Password'}
               </button>
             </form>
@@ -202,7 +202,7 @@ export default function ResetPasswordPage() {
         {!invalidToken && (
           <p className={`mt-5 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Remember your password?{' '}
-            <Link to="/sign-in" className={`font-medium hover:underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+            <Link to="/sign-in" className="font-medium hover:underline text-primary">
               Sign In
             </Link>
           </p>

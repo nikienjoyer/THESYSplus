@@ -29,6 +29,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import { Badge } from '../components/shadcn/badge';
+import { CHART_PALETTE } from '../styles/tokens';
 
 // ---------------------------------------------------------------------------
 // Module-level memory cache — 5-minute TTL, single slot for topic trends
@@ -92,18 +93,8 @@ function trendStyles(trend, isDark) {
   }
 }
 
-// Deterministic palette for clusters (cycles for >7 clusters).
-// Light enough on dark mode, vivid enough on light mode.
-const CLUSTER_PALETTE = [
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#f59e0b', // amber
-  '#10b981', // emerald
-  '#06b6d4', // cyan
-  '#ef4444', // red
-  '#84cc16', // lime
-];
+// Deterministic palette for clusters (cycles for >7 clusters) — from tokens.js
+const CLUSTER_PALETTE = CHART_PALETTE;
 
 
 // ---------------------------------------------------------------------------
@@ -380,7 +371,7 @@ export default function TrendAnalysisPage() {
 
   // Memoise palette mapping so cluster colours stay stable across re-renders
   const colourFor = useMemo(() => {
-    if (!data?.clusters) return () => '#3b82f6';
+    if (!data?.clusters) return () => CHART_PALETTE[0];
     return (idx) => CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length];
   }, [data]);
 

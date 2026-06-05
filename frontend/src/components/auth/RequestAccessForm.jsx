@@ -257,7 +257,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
                 e.preventDefault();
                 onOpenLegal('terms');
               }}
-              className={`font-medium underline hover:no-underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+              className="font-medium underline hover:no-underline text-primary"
             >
               Terms
             </button>
@@ -268,7 +268,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
                 e.preventDefault();
                 onOpenLegal('privacy');
               }}
-              className={`font-medium underline hover:no-underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+              className="font-medium underline hover:no-underline text-primary"
             >
               Privacy Policy
             </button>
@@ -299,7 +299,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {isLoading ? <><Spinner size="sm" /> Submitting…</> : 'Submit Access Request'}
       </button>

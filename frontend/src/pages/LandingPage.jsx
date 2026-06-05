@@ -182,7 +182,7 @@ export default function LandingPage() {
             {!isInitializing && !isAuthenticated && (
               <Link
                 to="/sign-in"
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 Sign In
               </Link>
@@ -255,7 +255,7 @@ export default function LandingPage() {
               <>
                 <Link
                   to="/upload"
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   Upload Thesis
                 </Link>
@@ -269,7 +269,7 @@ export default function LandingPage() {
             {!isInitializing && !isAuthenticated && (
               <Link
                 to="/sign-in"
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 Sign In
               </Link>
@@ -332,12 +332,12 @@ export default function LandingPage() {
               </ul>
               {!isInitializing && isAuthenticated ? (
                 <Link to="/upload" onClick={() => setMobileMenuOpen(false)}
-                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors">
+                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">
                   Upload Thesis
                 </Link>
               ) : (
                 <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)}
-                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors">
+                  className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">
                   Sign In
                 </Link>
               )}
@@ -368,7 +368,7 @@ export default function LandingPage() {
           style={{ fontSize: 'clamp(3.5rem, 12vw, 7.5rem)' }}
         >
           <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-          <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>SYS+</span>
+          <span className="text-primary">SYS+</span>
         </h1>
 
         {/* Subtitle */}
@@ -427,7 +427,7 @@ export default function LandingPage() {
           <button
             type="submit"
             form="hero-search-form"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-all duration-150 hover:shadow-lg hover:shadow-blue-600/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" aria-hidden="true">

@@ -360,7 +360,7 @@ export default function ProfilePage() {
                         <li key={t.id}>
                           <Link
                             to={`/repository/${t.id}`}
-                            className={`text-sm hover:underline line-clamp-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+                            className="text-sm hover:underline line-clamp-1 text-primary"
                           >
                             {t.title}
                           </Link>
@@ -389,7 +389,7 @@ export default function ProfilePage() {
                     </p>
                     <Link
                       to="/repository"
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
                     >
                       Browse Repository
                     </Link>

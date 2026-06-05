@@ -284,7 +284,7 @@ export default function UploadThesisPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to={`/repository/${success.id}`}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
                 View Thesis
               </Link>
               <Link to="/repository"
@@ -484,7 +484,7 @@ export default function UploadThesisPage() {
             <button
               type="submit"
               disabled={submitting || !file}
-              className="w-full px-4 py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full px-4 py-3 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {submitting ? <><Spinner /> Uploading…</> : 'Upload Thesis'}
             </button>

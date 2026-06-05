@@ -82,7 +82,7 @@ export default function SignInPage() {
           }`}>🎓</div>
           <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>SYS+</span>
+            <span className="text-primary">SYS+</span>
           </h1>
           <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             Sign in to continue
@@ -111,7 +111,7 @@ export default function SignInPage() {
         <div className="mt-5 flex flex-col items-center gap-2">
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Don&rsquo;t have an account?{' '}
-            <Link to="/request-access" className={`font-medium hover:underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+            <Link to="/request-access" className={`font-medium hover:underline text-primary`}>
               Request Access
             </Link>
           </p>

@@ -345,7 +345,7 @@ export default function RepositoryPage() {
               </>
             )}
             <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
-            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+            <span className={`inline-flex items-center gap-1 text-primary`}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
@@ -410,7 +410,7 @@ export default function RepositoryPage() {
 
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
               >
                 {searchInput.trim() ? 'Semantic Search' : 'Search'}
               </button>

@@ -125,7 +125,7 @@ function ProgressStepper({ step, isDark }) {
                   isComplete
                     ? isDark ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-emerald-500 border-emerald-500 text-white'
                     : isActive
-                    ? isDark ? 'bg-blue-500 border-blue-500 text-white' : 'bg-blue-600 border-blue-600 text-white'
+                    ? isDark ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white' : 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
                     : isDark ? 'bg-transparent border-white/20 text-gray-600' : 'bg-transparent border-gray-200 text-gray-400'
                 }`}>
                   {isComplete ? (
@@ -140,7 +140,7 @@ function ProgressStepper({ step, isDark }) {
                   isComplete
                     ? isDark ? 'text-emerald-400' : 'text-emerald-600'
                     : isActive
-                    ? isDark ? 'text-blue-400 font-semibold' : 'text-blue-600 font-semibold'
+                    ? 'text-primary font-semibold'
                     : isDark ? 'text-gray-600' : 'text-gray-400'
                 }`}>
                   {s.label}
@@ -218,7 +218,7 @@ export default function RequestAccessPage() {
           }`}>🎓</div>
           <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>SYS+</span>
+            <span className="text-primary">SYS+</span>
           </h1>
           <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             {decision ? 'Request Status' : 'Request Access'}
@@ -261,7 +261,7 @@ export default function RequestAccessPage() {
                       <button
                         type="button"
                         onClick={() => setDecision(null)}
-                        className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                        className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
                       >
                         Try Again
                       </button>
@@ -301,7 +301,7 @@ export default function RequestAccessPage() {
           <div className="mt-5 text-center">
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Already have an account?{' '}
-              <Link to="/sign-in" className={`font-medium hover:underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              <Link to="/sign-in" className="font-medium hover:underline text-primary">
                 Sign In
               </Link>
             </p>

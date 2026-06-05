@@ -32,7 +32,7 @@ function ProgressStepper({ activeStep, isDark }) {
                   isComplete
                     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : isActive
-                    ? isDark ? 'bg-blue-500 border-blue-500 text-white' : 'bg-blue-600 border-blue-600 text-white'
+                    ? isDark ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white' : 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
                     : isDark ? 'bg-transparent border-white/20 text-gray-600' : 'bg-transparent border-gray-200 text-gray-400'
                 }`}>
                   {isComplete ? (
@@ -45,7 +45,7 @@ function ProgressStepper({ activeStep, isDark }) {
                   isComplete
                     ? isDark ? 'text-emerald-400' : 'text-emerald-600'
                     : isActive
-                    ? isDark ? 'text-blue-400 font-semibold' : 'text-blue-600 font-semibold'
+                    ? 'text-primary font-semibold'
                     : isDark ? 'text-gray-600' : 'text-gray-400'
                 }`}>{label}</span>
               </div>
@@ -113,7 +113,7 @@ export default function VerifyEmailPage() {
           }`}>🎓</div>
           <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>SYS+</span>
+            <span className="text-primary">SYS+</span>
           </h1>
           <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             Email Verification
@@ -158,7 +158,7 @@ export default function VerifyEmailPage() {
                 Please check your inbox for a separate email with instructions to set your password.
               </p>
               <Link to="/sign-in"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
                 Go to Sign In
               </Link>
             </div>
@@ -179,7 +179,7 @@ export default function VerifyEmailPage() {
               </p>
               <div className="flex flex-col items-center gap-2">
                 <Link to="/request-access"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
                   Submit a New Request
                 </Link>
                 <Link to="/sign-in"

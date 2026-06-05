@@ -33,6 +33,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+import { CHART_PALETTE } from '../styles/tokens';
 
 
 // ---------------------------------------------------------------------------
@@ -56,12 +57,9 @@ registerCacheClearer(() => { analyticsCache = null; });
 
 
 // ---------------------------------------------------------------------------
-// Palette — consistent with TrendAnalysisPage
+// Palette — consistent with TrendAnalysisPage (imported from tokens.js)
 // ---------------------------------------------------------------------------
-const PALETTE = [
-  '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
-  '#10b981', '#06b6d4', '#ef4444', '#84cc16',
-];
+const PALETTE = CHART_PALETTE;
 
 
 // ---------------------------------------------------------------------------
@@ -442,7 +440,7 @@ export default function AnalyticsDashboardPage() {
                 Derived from TF-IDF + K-Means clustering.{' '}
                 <Link
                   to="/trend-analysis"
-                  className={`underline ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                  className="underline text-primary hover:opacity-80"
                 >
                   View full Trend Analysis →
                 </Link>
