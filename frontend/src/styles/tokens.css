@@ -298,4 +298,21 @@
   --duration-normal:  150ms;  /* Button color, nav link color */
   --duration-surface: 180ms;  /* Card hover (border-color, bg, shadow) */
   --duration-enter:   200ms;  /* Dropdown fade-in, nav underline scale */
+
+  /* ── Font family tokens (Phase 2.C-1) ────────────────────────────── */
+  /*
+   * --font-ui:      The THESYS+ interface typeface (Inter Variable).
+   *                 Used for all UI chrome, labels, buttons, nav, metadata.
+   *                 Fallback chain covers the swap gap with metric-matched
+   *                 system fonts (system-ui ≈ Inter metrics on most platforms).
+   *
+   * --font-reading: Reserved for Source Serif 4 (Phase 2.C-2, scoped to the
+   *                 thesis abstract and long-form reading surfaces only).
+   *                 Placeholder set to a neutral system serif now.
+   *
+   * --font-mono:    Existing monospace usage (⌘K hint). Unchanged.
+   */
+  --font-ui:      'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-reading: ui-serif, Georgia, 'Times New Roman', serif;  /* placeholder — Phase 2.C-2 */
+  --font-mono:    ui-monospace, 'Cascadia Code', 'Fira Mono', 'Menlo', monospace;
 }

@@ -57,6 +57,17 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      // ── THESYS+ font family tokens (Phase 2.C-1)
+      // font-sans → Inter Variable (the UI typeface)
+      // font-reading → placeholder serif (Source Serif 4 wired in Phase 2.C-2)
+      // font-mono → system mono (existing, unchanged)
+      // Using the CSS custom property allows the fallback chain to be managed
+      // centrally in tokens.css rather than repeated in every font-* utility.
+      fontFamily: {
+        sans:    ['Inter Variable', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        reading: ['ui-serif', 'Georgia', 'Times New Roman', 'serif'],   // Phase 2.C-2 placeholder
+        mono:    ['ui-monospace', 'Cascadia Code', 'Fira Mono', 'Menlo', 'monospace'],
+      },
       // ── THESYS+ z-index scale (Phase 1.4)
       // Mirrors --z-* CSS custom properties in tokens.css.
       // Use z-navbar, z-dropdown, z-modal in JSX instead of z-[9999] etc.

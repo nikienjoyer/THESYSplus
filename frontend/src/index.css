@@ -1,4 +1,10 @@
 @import './styles/tokens.css';
+/* Phase 2.C-1: Inter Variable — Latin subset, weight 100-900, font-display:swap
+   Source: @fontsource-variable/inter (SIL OFL 1.1 license)
+   The package ships subsetted woff2 files per unicode-range, so only
+   Latin glyphs load. Vite copies the woff2 assets to dist at build time. */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/inter/wght-italic.css';
 
 @tailwind base;
 @tailwind components;
@@ -66,7 +72,12 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    /* Slightly smoother font rendering */
+    /* Phase 2.C-1: Inter Variable as the UI font.
+       font-sans is wired to 'Inter Variable' in tailwind.config.js.
+       font-feature-settings enables tabular numerals (already used via
+       Tailwind's tabular-nums utility) at the base level. */
+    font-family: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'tnum' 0;   /* off by default — enabled via tabular-nums utility */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

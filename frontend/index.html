@@ -5,6 +5,16 @@
     <link rel="icon" type="image/png" href="/Thesys+.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>THESYS+</title>
+    <!--
+      Phase 2.C-1: Inter Variable is loaded via @font-face with font-display:swap
+      in src/index.css (imported from @fontsource-variable/inter).
+      A manual <link rel="preload"> is intentionally omitted here because Vite
+      hashes all asset filenames at build time; a static href cannot target
+      the hashed woff2 path. font-display:swap ensures no invisible text (FOIT)
+      and the Latin subset (48 KB) loads quickly from the same origin.
+      If a preload is desired in production, use vite-plugin-webfont-dl or
+      add a Vite plugin that injects the preload with the correct hashed path.
+    -->
   </head>
   <body>
     <div id="root"></div>
