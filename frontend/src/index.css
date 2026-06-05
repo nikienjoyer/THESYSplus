@@ -16,7 +16,10 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    /* Phase 2.B: primary updated from blue-600 (221 83% 53%) to ink-blue (#1e40af)
+       HSL: hsl(226, 71%, 40%) — verified via hex conversion
+       Contrast verified: #1e40af on white = 8.72:1 AA */
+    --primary: 226 71% 40%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
@@ -28,7 +31,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --ring: 226 71% 40%;
     --radius: 0.5rem;
   }
 
@@ -39,6 +42,7 @@
     --card-foreground: 213 31% 91%;
     --popover: 228 39% 18%;
     --popover-foreground: 213 31% 91%;
+    /* Phase 2.B: dark primary stays #60a5fa (213 97% 69%) — unchanged, 7.55:1 AA on navy */
     --primary: 213 97% 69%;
     --primary-foreground: 222 47% 11%;
     --secondary: 222 47% 22%;

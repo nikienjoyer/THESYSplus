@@ -71,9 +71,10 @@ export default {
 
 // ── Chart palette — single source of truth for inline SVG charts ─────────
 // Used by AnalyticsDashboardPage and TrendAnalysisPage.
+// Phase 2.B: slot 1 re-anchored to the institutional ink-blue (#1e40af).
 // Values match --th-chart-1…8 primitives in tokens.css.
 export const CHART_PALETTE = [
-  '#3b82f6', // blue
+  '#1e40af', // institutional ink-blue  ← Phase 2.B (was #3b82f6)
   '#8b5cf6', // violet
   '#ec4899', // pink
   '#f59e0b', // amber
@@ -86,19 +87,18 @@ export const CHART_PALETTE = [
 
 // ── Semantic JS color accessors ───────────────────────────────────────────
 // For use in inline styles / prop values where a CSS class is not enough.
-// These are static fallback hex values; components that use these should
-// prefer CSS utilities wherever possible.
+// Phase 2.B: primaryLight updated to institutional ink-blue (#1e40af).
 export const TOKEN_COLORS = {
   // Success (emerald)
-  successLight: '#059669',  // light mode
-  successDark:  '#34d399',  // dark mode
+  successLight: '#059669',
+  successDark:  '#34d399',
   // Warning (amber)
   warningLight: '#d97706',
   warningDark:  '#fbbf24',
   // Danger (rose)
   dangerLight:  '#e11d48',
   dangerDark:   '#f87171',
-  // Primary (blue) — before Phase 2 brand swap
-  primaryLight: '#2563eb',
-  primaryDark:  '#60a5fa',
+  // Primary (institutional ink-blue) — Phase 2.B
+  primaryLight: '#1e40af',  // was #2563eb
+  primaryDark:  '#60a5fa',  // unchanged — 7.55:1 on #080d24
 };

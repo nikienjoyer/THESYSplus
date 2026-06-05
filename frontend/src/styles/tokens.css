@@ -1,19 +1,29 @@
 /*
- * THESYS+ Design Tokens — Phase 1.1 Step 0
+ * THESYS+ Design Tokens — Phase 2.B: Institutional Ink-Blue Brand Color
+ *
+ * PHASE 2.B CHANGES (token-only, no JSX edits):
+ *   Replaced Tailwind blue-600 (#2563eb) with the institutional ink-blue
+ *   ramp anchored at blue-800 (#1e40af). This is a deeper, slate-tinted
+ *   blue that reads as "archival ink" rather than "notification accent."
+ *
+ *   Contrast results (pre-verified):
+ *     #1e40af on #f8fafc (light canvas)  : 8.34:1  ✓ AA
+ *     #1e40af on #ffffff (white surface) : 8.72:1  ✓ AA
+ *     #ffffff on #1e40af (button label)  : 8.72:1  ✓ AA
+ *     #60a5fa on #080d24 (dark mode)     : 7.55:1  ✓ AA
+ *
+ *   Chart re-anchor: --th-chart-1 updated from #3b82f6 to #1e40af so
+ *   the first chart series matches the brand primary. CHART_PALETTE in
+ *   tokens.js is also updated.
+ *
+ *   Status colors, violet accent, and dark-mode navy canvas are unchanged.
  *
  * Two-tier architecture:
- *   Tier 1 — Primitive tokens: raw values, theme-independent, named by
- *             color identity. Never referenced directly in components.
- *   Tier 2 — Semantic tokens: role-based, redefined per theme. These are
- *             what components reference, what Tailwind utilities expose,
- *             and the single source of truth for Phase 2 brand-color swap.
+ *   Tier 1 — Primitive tokens: raw values, theme-independent.
+ *   Tier 2 — Semantic tokens: role-based, redefined per theme.
  *
- * PHASE 2 NOTE: to change the brand color, edit ONLY --th-prim-600 and
- * --th-prim-400 in the Tier 1 block. The semantic layer propagates
- * the change everywhere automatically.
- *
- * shadcn alignment: Tier 2 semantic tokens alias the shadcn HSL variables
- * already established in index.css so both systems read from the same values.
+ * FUTURE BRAND SWAP: edit ONLY the --th-prim-* ramp below.
+ * The semantic layer propagates the change everywhere automatically.
  */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -22,14 +32,24 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Primary blue ramp (current: Tailwind blue — swappable in Phase 2) */
-  --th-prim-900: #1e3a8a;
-  --th-prim-700: #1d4ed8;
-  --th-prim-600: #2563eb;
-  --th-prim-500: #3b82f6;
-  --th-prim-400: #60a5fa;
-  --th-prim-100: #dbeafe;
-  --th-prim-50:  #eff6ff;
+  /* ── Primary blue ramp — PHASE 2.B: institutional ink-blue
+   *
+   * Anchored at blue-800 (#1e40af). Deeper and more archival than the
+   * previous blue-600 (#2563eb). The ramp is shifted uniformly:
+   *   900 → deep navy-blue  800 → hover state  600 → primary action
+   *   400 → dark-mode primary  100/50 → light tints (focus rings, badges)
+   *
+   * Contrast (all AA):  #1e40af/#f8fafc 8.34:1 · #1e40af/#fff 8.72:1
+   *                     #60a5fa/#080d24 7.55:1 · #fff/#1e40af 8.72:1
+   * ─────────────────────────────────────────────────────────────────── */
+  --th-prim-900: #1e3a8a;  /* deepest blue (unchanged — already deep) */
+  --th-prim-800: #1e3799;  /* new: hover/active state step */
+  --th-prim-700: #1c3a99;  /* hover on light surface (was #1d4ed8) */
+  --th-prim-600: #1e40af;  /* ★ PRIMARY — institutional ink-blue (was #2563eb) */
+  --th-prim-500: #2563eb;  /* mid-blue — used only in chart slot re-anchor */
+  --th-prim-400: #60a5fa;  /* dark-mode primary (unchanged — 7.55:1 on navy) */
+  --th-prim-100: #dbeafe;  /* light tint: focus rings, logo bg, muted bg */
+  --th-prim-50:  #eff6ff;  /* lightest tint: info-bg, primary-light */
 
   /* Accent violet ramp */
   --th-accent-700: #6d28d9;
@@ -89,8 +109,10 @@
   --th-navy-800: #0f1a3a;   /* elevated: dropdown, drawer, modal */
   --th-navy-modal: #0a0f2e; /* legacy modal bg — maps to navy-800 going forward */
 
-  /* Chart palette — 8-step cycle */
-  --th-chart-1: #3b82f6;
+  /* Chart palette — 8-step cycle
+   * Phase 2.B: slot 1 re-anchored to the institutional ink-blue (#1e40af).
+   * Slots 2-8 unchanged. The first chart series now matches the brand primary. */
+  --th-chart-1: #1e40af;  /* ★ institutional ink-blue (was #3b82f6) */
   --th-chart-2: #8b5cf6;
   --th-chart-3: #ec4899;
   --th-chart-4: #f59e0b;
@@ -108,11 +130,11 @@
 
 :root {
   /* ── Brand / action ───────────────────────────────────────────────── */
-  --color-primary:           var(--th-prim-600);       /* #2563eb */
-  --color-primary-hover:     var(--th-prim-700);       /* #1d4ed8 */
+  --color-primary:           var(--th-prim-600);       /* #1e40af — institutional ink-blue */
+  --color-primary-hover:     var(--th-prim-700);       /* #1c3a99 */
   --color-primary-light:     var(--th-prim-50);        /* #eff6ff */
   --color-primary-muted:     var(--th-prim-100);       /* #dbeafe */
-  --color-accent:            var(--th-accent-600);     /* #7c3aed */
+  --color-accent:            var(--th-accent-600);     /* #7c3aed (unchanged) */
 
   /* ── Canvas + surfaces ───────────────────────────────────────────── */
   --color-canvas:            var(--th-slate-50);       /* #f8fafc  — page background */
@@ -148,10 +170,10 @@
   --color-danger-border:     var(--th-danger-200);     /* #fda4af */
   --color-danger-text:       var(--th-danger-700);     /* #be123c */
 
-  --color-info:              var(--th-prim-600);       /* #2563eb  (same as primary) */
+  --color-info:              var(--th-prim-600);       /* #1e40af  (same as primary) */
   --color-info-bg:           var(--th-prim-50);        /* #eff6ff */
   --color-info-border:       var(--th-prim-100);       /* #dbeafe */
-  --color-info-text:         var(--th-prim-700);       /* #1d4ed8 */
+  --color-info-text:         var(--th-prim-700);       /* #1c3a99 */
 
   /* ── Overlays / decorations ──────────────────────────────────────── */
   --color-overlay:           rgba(0, 0, 0, 0.4);
@@ -174,10 +196,10 @@
 
 .dark {
   /* ── Brand / action ───────────────────────────────────────────────── */
-  --color-primary:           var(--th-prim-400);       /* #60a5fa — lighter for dark bg */
-  --color-primary-hover:     var(--th-prim-500);       /* #3b82f6 */
-  --color-primary-light:     rgba(59, 130, 246, 0.15); /* blue-500/15 */
-  --color-primary-muted:     rgba(59, 130, 246, 0.10); /* blue-500/10 */
+  --color-primary:           var(--th-prim-400);       /* #60a5fa — lighter for dark bg, unchanged */
+  --color-primary-hover:     var(--th-prim-500);       /* #2563eb (previous primary, now hover) */
+  --color-primary-light:     rgba(30, 64, 175, 0.15);  /* ink-blue/15 */
+  --color-primary-muted:     rgba(30, 64, 175, 0.10);  /* ink-blue/10 */
 
   /* ── Canvas + surfaces ───────────────────────────────────────────── */
   --color-canvas:            var(--th-navy-900);       /* #080d24 */
@@ -216,13 +238,13 @@
   --color-danger-text:       var(--th-danger-400);     /* #f87171 */
 
   --color-info:              var(--th-prim-400);       /* #60a5fa */
-  --color-info-bg:           rgba(59, 130, 246, 0.10);
-  --color-info-border:       rgba(59, 130, 246, 0.20);
+  --color-info-bg:           rgba(30, 64, 175, 0.10);  /* ink-blue/10 */
+  --color-info-border:       rgba(30, 64, 175, 0.20);  /* ink-blue/20 */
   --color-info-text:         var(--th-prim-400);       /* #60a5fa */
 
   /* ── Overlays / decorations ──────────────────────────────────────── */
-  --color-logo-bg:           rgba(37, 99, 235, 0.20);  /* blue-600/20 */
-  --color-logo-ring:         rgba(59, 130, 246, 0.30); /* blue-500/30 */
+  --color-logo-bg:           rgba(30, 64, 175, 0.20);  /* ink-blue/20 (was blue-600/20) */
+  --color-logo-ring:         rgba(96, 165, 250, 0.30); /* prim-400/30 */
   --color-nav-active-bg:     rgba(255, 255, 255, 0.10);
   --color-nav-active-text:   #ffffff;
   --color-nav-hover-bg:      rgba(255, 255, 255, 0.06);
