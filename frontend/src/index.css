@@ -5,6 +5,12 @@
    Latin glyphs load. Vite copies the woff2 assets to dist at build time. */
 @import '@fontsource-variable/inter/wght.css';
 @import '@fontsource-variable/inter/wght-italic.css';
+/* Phase 2.C-2: Source Serif 4 Variable — Latin subset, weight 200-900, font-display:swap
+   Source: @fontsource-variable/source-serif-4 (SIL OFL 1.1 license)
+   Scoped to long-form reading surfaces ONLY: thesis abstract and legal prose.
+   Do NOT apply to navigation, forms, buttons, tables, or any UI chrome.
+   Using wght variant (50 KB Latin) — opsz variant (119 KB) excluded for performance. */
+@import '@fontsource-variable/source-serif-4/wght.css';
 
 @tailwind base;
 @tailwind components;
@@ -331,7 +337,21 @@
     border: 1px solid var(--color-border);
   }
 
-  /* ── Dropdown menu — smooth fade + scale ──────────────────────────── */
+  /* ── Reading typography (Phase 2.C-2) ────────────────────────────────
+   * Source Serif 4 is applied via the font-reading Tailwind utility.
+   * Headings WITHIN a reading container revert to the UI font (Inter) so
+   * the contrast-axis pairing is maintained: serif body, sans headings.
+   * This rule is intentionally narrow — it only affects headings that are
+   * children of an element carrying Tailwind's font-reading class.
+   * ─────────────────────────────────────────────────────────────────── */
+  .font-reading h1,
+  .font-reading h2,
+  .font-reading h3,
+  .font-reading h4,
+  .font-reading h5,
+  .font-reading h6 {
+    font-family: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
   .thesys-dropdown {
     border-radius: 0.75rem;
     padding: 0.25rem 0;

@@ -313,6 +313,6 @@
    * --font-mono:    Existing monospace usage (⌘K hint). Unchanged.
    */
   --font-ui:      'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-reading: ui-serif, Georgia, 'Times New Roman', serif;  /* placeholder — Phase 2.C-2 */
+  --font-reading: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;  /* Phase 2.C-2 — thesis abstract + legal prose only */
   --font-mono:    ui-monospace, 'Cascadia Code', 'Fira Mono', 'Menlo', monospace;
 }

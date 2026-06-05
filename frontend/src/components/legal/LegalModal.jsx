@@ -63,7 +63,16 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
 
           {/* Content */}
           <div className="overflow-y-auto px-6 py-6" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-            <div className={`prose prose-sm max-w-none ${isDark ? 'prose-invert' : ''}`}>
+            {/* Reading column: Source Serif 4 for legal prose body (Phase 2.C-2).
+                font-reading = Source Serif 4 Variable, applied to this wrapper only.
+                max-w-[65ch] constrains prose to the approved reading measure.
+                text-[1.0625rem]/leading-[1.65] = 17px at 1.65 line-height.
+                Prose headings (h3/h4) inside content.body carry their own
+                Inter class names and override font-family at element level. */}
+            <div
+              className={`max-w-[65ch] font-reading text-[1.0625rem] leading-[1.65] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+              style={{ textWrap: 'pretty' }}
+            >
               {content.body}
             </div>
           </div>

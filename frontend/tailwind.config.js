@@ -65,7 +65,7 @@ export default {
       // centrally in tokens.css rather than repeated in every font-* utility.
       fontFamily: {
         sans:    ['Inter Variable', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-        reading: ['ui-serif', 'Georgia', 'Times New Roman', 'serif'],   // Phase 2.C-2 placeholder
+        reading: ['Source Serif 4 Variable', 'Georgia', 'Times New Roman', 'serif'],  // Phase 2.C-2: thesis abstract + legal prose
         mono:    ['ui-monospace', 'Cascadia Code', 'Fira Mono', 'Menlo', 'monospace'],
       },
       // ── THESYS+ z-index scale (Phase 1.4)

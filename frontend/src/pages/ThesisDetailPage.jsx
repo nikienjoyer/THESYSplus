@@ -197,9 +197,17 @@ export default function ThesisDetailPage() {
             <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Abstract
             </h2>
-            <p className={`text-sm leading-relaxed mb-6 whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              {thesis.abstract}
-            </p>
+            {/* Reading column: 65ch measure for comfortable scholarly reading.
+                font-reading = Source Serif 4 Variable (Phase 2.C-2).
+                text-[1.0625rem] = 17px — within the 16-18px approved reading range. */}
+            <div className="max-w-[65ch] mb-6">
+              <p
+                className={`font-reading text-[1.0625rem] leading-[1.65] whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                style={{ textWrap: 'pretty' }}
+              >
+                {thesis.abstract}
+              </p>
+            </div>
 
             <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Keywords
