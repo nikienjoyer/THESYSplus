@@ -32,6 +32,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
 import { Avatar, AvatarImage, AvatarFallback } from '../shadcn/avatar';
+import ThesysLogo from '../brand/ThesysLogo';
 
 const NAV_LINKS = [
   { label: 'Home',             to: '/',                 key: 'home'       },
@@ -229,8 +230,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
               </svg>
             </button>
             <Link to="/" className="flex items-center gap-2 select-none">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-[var(--color-logo-bg)] ring-1 ring-[var(--color-logo-ring)]">🎓</div>
-              <span className="text-sm font-bold tracking-wide text-ink">THESYS+</span>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
             </Link>
           </div>
           <div className="flex items-center gap-2">
@@ -251,8 +251,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
           {/* COL 1 — Logo + breadcrumb */}
           <div className="flex items-center gap-2 select-none">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-[var(--color-logo-bg)] ring-1 ring-[var(--color-logo-ring)]">🎓</div>
-              <span className="text-sm font-bold tracking-wide text-ink">THESYS+</span>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
             </Link>
             {breadcrumb && (
               <>
@@ -331,10 +330,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
           <div className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl bg-surface-elevated border-r border-[var(--color-border)]">
             {/* Drawer header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm bg-[var(--color-logo-bg)] ring-1 ring-[var(--color-logo-ring)]">🎓</div>
-                <span className="text-sm font-bold tracking-wide text-ink">THESYS+</span>
-              </div>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}

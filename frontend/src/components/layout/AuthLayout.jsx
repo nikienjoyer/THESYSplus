@@ -21,6 +21,7 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
+import ThesysLogo from '../brand/ThesysLogo';
 
 export default function AuthLayout() {
   const { theme, toggleTheme } = useTheme();
@@ -56,15 +57,10 @@ export default function AuthLayout() {
         {/* Logo — internal navigation, no full page reload */}
         <Link
           to="/"
-          className="flex items-center gap-2.5 select-none"
+          className="flex items-center select-none"
           aria-label="THESYS+ home"
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm bg-[var(--color-logo-bg)] ring-1 ring-[var(--color-logo-ring)]">
-            🎓
-          </div>
-          <span className="text-sm font-bold tracking-wide text-ink">
-            THESYS+
-          </span>
+          <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
         </Link>
 
         {/* Theme toggle */}

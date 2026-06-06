@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
 import { AvatarDropdown } from '../components/layout/AppNavbar';
 import LegalModal from '../components/legal/LegalModal';
+import ThesysLogo from '../components/brand/ThesysLogo';
 
 // Core module nav links.
 // implemented: true  → active, routable
@@ -162,12 +163,7 @@ export default function LandingPage() {
               </svg>
             </button>
             <Link to="/" className="flex items-center gap-2 select-none">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
-                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-              }`}>🎓</div>
-              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                THESYS+
-              </span>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
             </Link>
           </div>
           {/* Right group */}
@@ -207,12 +203,7 @@ export default function LandingPage() {
           {/* COL 1 — Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2 select-none">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
-                isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-              }`}>🎓</div>
-              <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                THESYS+
-              </span>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
             </Link>
           </div>
 
@@ -298,12 +289,7 @@ export default function LandingPage() {
             isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'
           }`}>
             <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-                  isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-                }`}>🎓</div>
-                <span className={`text-sm font-bold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>THESYS+</span>
-              </div>
+              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
               <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
                   isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
@@ -574,14 +560,7 @@ export default function LandingPage() {
             {/* Brand column */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-                  isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-                }`}>
-                  🎓
-                </div>
-                <span className={`text-base font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  THESYS+
-                </span>
+                <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
               </div>
               <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
                 Semantic-Based Thesis Retrieval and Topic Trend Analysis System

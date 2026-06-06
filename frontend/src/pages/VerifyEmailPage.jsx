@@ -14,6 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
+import AuthBranding from '../components/brand/AuthBranding';
 
 // Reuse the same stepper from RequestAccessPage — inline here to keep files self-contained
 function ProgressStepper({ activeStep, isDark }) {
@@ -107,18 +108,7 @@ export default function VerifyEmailPage() {
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <div className="flex flex-col items-center mb-8 select-none">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-            isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-          }`}>🎓</div>
-          <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
-            <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className="text-primary">SYS+</span>
-          </h1>
-          <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-            Email Verification
-          </p>
-        </div>
+        <AuthBranding subtitle="Email Verification" isDark={isDark} />
 
         {/* Progress stepper — only on success (step 2 = Set Password is now active) */}
         {state === 'success' && <ProgressStepper activeStep={2} isDark={isDark} />}

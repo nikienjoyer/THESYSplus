@@ -19,6 +19,7 @@ import { TooltipProvider } from './components/shadcn/tooltip';
 import { useAuth } from './hooks/useAuth';
 import Spinner from './components/ui/Spinner';
 import AuthLayout from './components/layout/AuthLayout';
+import ThesysLogo from './components/brand/ThesysLogo';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
 import RequestAccessPage from './pages/RequestAccessPage';
@@ -40,8 +41,8 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 function NotFound() {
   return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-4 text-center transition-colors duration-300">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-6 bg-logo-bg ring-1 ring-[var(--color-logo-ring)]">
-        🎓
+      <div className="mb-6">
+        <ThesysLogo variant="symbol" size={64} />
       </div>
       <h1 className="text-6xl font-extrabold tracking-tighter mb-3 text-ink">
         404

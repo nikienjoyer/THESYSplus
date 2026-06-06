@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { SignInCard } from '../components/auth';
 import Alert from '../components/ui/Alert';
+import AuthBranding from '../components/brand/AuthBranding';
 
 function mapErrorMessage(error) {
   const errorCode = error?.response?.data?.error?.code;
@@ -76,18 +77,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <div className="flex flex-col items-center mb-8 select-none">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-            isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-          }`}>🎓</div>
-          <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
-            <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className="text-primary">SYS+</span>
-          </h1>
-          <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-            Sign in to continue
-          </p>
-        </div>
+        <AuthBranding subtitle="Sign in to continue" isDark={isDark} />
 
         {/* Context banner */}
         {banner && (

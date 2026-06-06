@@ -13,6 +13,7 @@ import { Lock, Mail } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
+import AuthBranding from '../components/brand/AuthBranding';
 
 const INSTITUTIONAL_EMAIL_RE = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*pampangastateu\.edu\.ph$/i;
 
@@ -70,18 +71,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <div className="flex flex-col items-center mb-8 select-none">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${
-            isDark ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-blue-100 ring-1 ring-blue-200'
-          }`}>🎓</div>
-          <h1 className="text-3xl font-extrabold tracking-tighter leading-none mb-1">
-            <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
-            <span className="text-primary">SYS+</span>
-          </h1>
-          <p className={`text-xs tracking-widest uppercase font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-            {success ? 'Check your email' : 'Forgot your password?'}
-          </p>
-        </div>
+        <AuthBranding subtitle={success ? 'Check your email' : 'Forgot your password?'} isDark={isDark} />
 
         <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
           {success ? (
