@@ -86,6 +86,43 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
 
 // Content for each modal type
 function getContent(type) {
+  if (type === 'about') {
+    return {
+      title: 'About THESYS+',
+      body: (
+        <>
+          <p className="text-sm leading-relaxed mb-4">
+            THESYS+ is a Semantic-Based Thesis Retrieval and Topic Trend Analysis System developed for Pampanga State University, College of Computing Studies. It preserves CCS undergraduate theses, makes them findable by meaning rather than exact keywords, and turns the accumulated body of student research into research intelligence.
+          </p>
+
+          <h3 className="text-base font-semibold mt-6 mb-3">What THESYS+ Does</h3>
+          <ul className="text-sm leading-relaxed mb-4 list-disc pl-5 space-y-1">
+            <li>Semantic search across the CCS undergraduate thesis repository using SBERT embeddings</li>
+            <li>Title originality validation against the full corpus using cosine similarity and TF-IDF</li>
+            <li>Topic trend analysis that surfaces saturated, emerging, and underexplored research areas</li>
+            <li>A structured submission and faculty review workflow for new theses</li>
+            <li>Departmental analytics on research output over time</li>
+          </ul>
+
+          <h3 className="text-base font-semibold mt-6 mb-3">Methodology</h3>
+          <p className="text-sm leading-relaxed mb-4">
+            Semantic retrieval is powered by the all-MiniLM-L6-v2 sentence-transformer model, ranked by cosine similarity. Topic clusters are derived using TF-IDF feature extraction and K-Means clustering. These AI-assisted features are decision-support tools and do not replace consultation with faculty advisers.
+          </p>
+
+          <h3 className="text-base font-semibold mt-6 mb-3">Institutional Context</h3>
+          <p className="text-sm leading-relaxed mb-4">
+            THESYS+ is a departmental system owned and operated by Pampanga State University CCS. It covers CCS undergraduate theses across the BSIS, BSIT, and BSCS programs.
+          </p>
+
+          <h3 className="text-base font-semibold mt-6 mb-3">Contact</h3>
+          <p className="text-sm leading-relaxed mb-4">
+            For questions about THESYS+, please contact the system administrator at Pampanga State University, College of Computing Studies.
+          </p>
+        </>
+      ),
+    };
+  }
+
   if (type === 'privacy') {
     return {
       title: 'Privacy Policy',
