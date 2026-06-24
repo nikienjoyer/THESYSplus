@@ -59,6 +59,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
   const [dropOpen, setDropOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropRef = useRef(null);
+  const logoutModalRef = useFocusTrap(showLogoutModal);
 
   useEffect(() => {
     function handleClick(e) {
@@ -108,7 +109,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
               <p className="text-xs font-semibold truncate text-ink">
                 {user ? `${user.first_name} ${user.last_name}`.trim() : 'User'}
               </p>
-              <p className="text-[11px] truncate text-muted">
+              <p className="text-[11px] truncate text-gray-500 dark:text-gray-400">
                 {user?.role?.charAt(0).toUpperCase()}{user?.role?.slice(1)}
               </p>
             </div>
@@ -151,7 +152,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
             aria-hidden="true"
           />
 
-          <div className="relative w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-surface-elevated p-6 shadow-2xl">
+          <div ref={logoutModalRef} className="relative w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-surface-elevated p-6 shadow-2xl">
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-danger-bg">
               <svg className="w-5 h-5 text-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -278,10 +279,10 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                       'relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       soon
-                        ? 'text-subtle pointer-events-none cursor-default'
+                        ? 'text-gray-400 dark:text-gray-600 pointer-events-none cursor-default'
                         : isActive
-                        ? 'bg-nav-active-bg text-nav-active-text'
-                        : 'text-muted hover:text-ink hover:bg-nav-hover-bg',
+                        ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10',
                     ].join(' ')}
                   >
                     {label}
@@ -363,10 +364,10 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                         className={[
                           'block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
                           soon
-                            ? 'text-subtle cursor-default'
+                            ? 'text-gray-400 dark:text-gray-600 cursor-default'
                             : isActive
-                            ? 'bg-info-bg text-primary font-semibold'
-                            : 'text-body hover:bg-[var(--color-surface-secondary)] hover:text-ink',
+                            ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white'
+                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10',
                         ].join(' ')}
                       >
                         {label}

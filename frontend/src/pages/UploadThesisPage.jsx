@@ -65,7 +65,7 @@ function UploadProgress({ stageIndex, isDark }) {
             </svg>
           </div>
         ) : (
-          <Spinner size="sm" className={isDark ? 'text-blue-400' : 'text-blue-600'} />
+          <Spinner size="sm" className="text-primary" />
         )}
         <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
           {current.label}

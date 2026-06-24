@@ -482,7 +482,7 @@ export default function RepositoryPage() {
                 ? 'Try lowering the similarity threshold or using broader keywords.'
                 : search
                 ? 'No related theses found. Try lowering the similarity threshold or using broader keywords.'
-                : 'Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-powered search.'}
+                : 'Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-assisted search.'}
             </p>
             {search && committedThreshold >= 70 && (
               <span

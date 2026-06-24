@@ -96,13 +96,54 @@ function trendStyles(trend, isDark) {
 // Deterministic palette for clusters (cycles for >7 clusters) — from tokens.js
 const CLUSTER_PALETTE = CHART_PALETTE;
 
+// Max individual slices in the doughnut before the tail is grouped into "Other".
+// Beyond this, the ring and its legend become unreadable (DESIGN.md note).
+const MAX_DOUGHNUT_SLICES = 7;
+
+/**
+ * buildDoughnutSegments — caps the doughnut at MAX_DOUGHNUT_SLICES readable
+ * slices. When there are more clusters, the largest (maxSlices − 1) are kept
+ * as individual slices and the remainder collapse into a single neutral
+ * "Other" slice.
+ *
+ * Color consistency: kept clusters retain the palette color of their ORIGINAL
+ * index, so a topic's doughnut slice matches its dot in the cluster-cards
+ * section below. "Other" uses a neutral gray (outside the cluster palette).
+ */
+function buildDoughnutSegments(clusters, isDark, maxSlices = MAX_DOUGHNUT_SLICES) {
+  const withColor = clusters.map((c, idx) => ({
+    id: c.cluster_id,
+    topic: c.topic,
+    thesis_count: c.thesis_count,
+    color: CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length],
+  }));
+
+  if (withColor.length <= maxSlices) return withColor;
+
+  // Keep the largest (maxSlices − 1) by count; aggregate the rest as "Other".
+  const sorted = [...withColor].sort((a, b) => b.thesis_count - a.thesis_count);
+  const kept = sorted.slice(0, maxSlices - 1);
+  const rest = sorted.slice(maxSlices - 1);
+  const otherCount = rest.reduce((sum, c) => sum + c.thesis_count, 0);
+
+  return [
+    ...kept,
+    {
+      id: 'other',
+      topic: `Other (${rest.length} topics)`,
+      thesis_count: otherCount,
+      color: isDark ? '#6b7280' : '#9ca3af',
+    },
+  ];
+}
+
 
 // ---------------------------------------------------------------------------
 // Doughnut — topic distribution
 // ---------------------------------------------------------------------------
 
-function DoughnutChart({ clusters, isDark }) {
-  const total = clusters.reduce((sum, c) => sum + c.thesis_count, 0);
+function DoughnutChart({ segments, isDark }) {
+  const total = segments.reduce((sum, s) => sum + s.thesis_count, 0);
   if (total === 0) return null;
 
   const radius = 60;
@@ -110,9 +151,9 @@ function DoughnutChart({ clusters, isDark }) {
   const circumference = 2 * Math.PI * radius;
   let cumulative = 0;
 
-  // Accessible summary: top clusters by count for the chart's aria-label
-  const summary = clusters
-    .map((c) => `${c.topic} ${c.thesis_count}`)
+  // Accessible summary for the chart's aria-label
+  const summary = segments
+    .map((s) => `${s.topic} ${s.thesis_count}`)
     .join(', ');
 
   return (
@@ -121,7 +162,7 @@ function DoughnutChart({ clusters, isDark }) {
         viewBox="0 0 160 160"
         className="w-44 h-44 -rotate-90"
         role="img"
-        aria-label={`Topic distribution across ${clusters.length} clusters, ${total} theses total: ${summary}`}
+        aria-label={`Topic distribution across ${segments.length} segments, ${total} theses total: ${summary}`}
       >
         {/* Background ring */}
         <circle
@@ -129,23 +170,23 @@ function DoughnutChart({ clusters, isDark }) {
           fill="none" stroke={isDark ? '#1e293b' : '#e5e7eb'}
           strokeWidth={stroke}
         />
-        {clusters.map((c, idx) => {
-          const fraction = c.thesis_count / total;
+        {segments.map((s) => {
+          const fraction = s.thesis_count / total;
           const dash = fraction * circumference;
           const offset = -((cumulative / total) * circumference);
-          cumulative += c.thesis_count;
+          cumulative += s.thesis_count;
           return (
             <circle
-              key={c.cluster_id}
+              key={s.id}
               cx="80" cy="80" r={radius}
               fill="none"
-              stroke={CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length]}
+              stroke={s.color}
               strokeWidth={stroke}
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={offset}
               strokeLinecap="butt"
             >
-              <title>{`${c.topic} — ${c.thesis_count} thes${c.thesis_count === 1 ? 'is' : 'es'}`}</title>
+              <title>{`${s.topic} — ${s.thesis_count} thes${s.thesis_count === 1 ? 'is' : 'es'}`}</title>
             </circle>
           );
         })}
@@ -386,6 +427,13 @@ export default function TrendAnalysisPage() {
     return (idx) => CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length];
   }, [data]);
 
+  // Doughnut segments — caps slices at MAX_DOUGHNUT_SLICES, grouping the tail
+  // into "Other" so the ring and its legend stay readable at high cluster counts.
+  const doughnutSegments = useMemo(
+    () => (data?.clusters ? buildDoughnutSegments(data.clusters, isDark) : []),
+    [data, isDark]
+  );
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="trends" breadcrumb="Trend Analysis" />
@@ -397,7 +445,7 @@ export default function TrendAnalysisPage() {
             Topic Trend Analysis
           </h1>
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            AI-powered topic clustering and trend identification using TF-IDF + K-Means.
+            AI-assisted topic clustering and trend identification using TF-IDF + K-Means.
           </p>
         </div>
 
@@ -481,20 +529,20 @@ export default function TrendAnalysisPage() {
                 <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Topic Distribution
                 </div>
-                <DoughnutChart clusters={data.clusters} isDark={isDark} />
+                <DoughnutChart segments={doughnutSegments} isDark={isDark} />
                 <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 justify-center">
-                  {data.clusters.map((c, idx) => (
-                    <div key={c.cluster_id} className="flex items-center gap-1.5">
+                  {doughnutSegments.map((s) => (
+                    <div key={s.id} className="flex items-center gap-1.5">
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: colourFor(idx) }}
+                        style={{ backgroundColor: s.color }}
                         aria-hidden="true"
                       />
                       <span
                         className={`text-xs truncate max-w-[8rem] ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
-                        title={c.topic}
+                        title={s.topic}
                       >
-                        {c.topic}
+                        {s.topic}
                       </span>
                     </div>
                   ))}

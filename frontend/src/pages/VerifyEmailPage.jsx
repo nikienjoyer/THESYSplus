@@ -117,7 +117,7 @@ export default function VerifyEmailPage() {
 
           {state === 'loading' && (
             <div className="flex flex-col items-center gap-3 py-4">
-              <svg className="animate-spin h-8 w-8 text-blue-500" viewBox="0 0 24 24" fill="none">
+              <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" className="opacity-15"/>
                 <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>

@@ -207,7 +207,7 @@ export default function TitleSimilarityPage() {
             Title Similarity Validation
           </h1>
           <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <span>Validate proposed thesis titles using AI-powered semantic comparison.</span>
+            <span>Validate proposed thesis titles using AI-assisted semantic comparison.</span>
             <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
             <span className={`inline-flex items-center gap-1 text-primary`}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">

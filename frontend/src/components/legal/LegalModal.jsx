@@ -5,8 +5,10 @@
 
 import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 export default function LegalModal({ isOpen, onClose, type, isDark }) {
+  const panelRef = useFocusTrap(isOpen);
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -41,6 +43,7 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
       {/* Modal */}
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
         <div
+          ref={panelRef}
           className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
