@@ -110,12 +110,18 @@ function DoughnutChart({ clusters, isDark }) {
   const circumference = 2 * Math.PI * radius;
   let cumulative = 0;
 
+  // Accessible summary: top clusters by count for the chart's aria-label
+  const summary = clusters
+    .map((c) => `${c.topic} ${c.thesis_count}`)
+    .join(', ');
+
   return (
     <div className="flex items-center justify-center">
       <svg
         viewBox="0 0 160 160"
         className="w-44 h-44 -rotate-90"
-        aria-label="Topic distribution"
+        role="img"
+        aria-label={`Topic distribution across ${clusters.length} clusters, ${total} theses total: ${summary}`}
       >
         {/* Background ring */}
         <circle
@@ -173,9 +179,14 @@ function DoughnutChart({ clusters, isDark }) {
 function CountsBarChart({ clusters, isDark }) {
   if (clusters.length === 0) return null;
   const max = Math.max(...clusters.map((c) => c.thesis_count), 1);
+  const summary = clusters.map((c) => `${c.topic} ${c.thesis_count}`).join(', ');
 
   return (
-    <div className="space-y-2">
+    <div
+      className="space-y-2"
+      role="img"
+      aria-label={`Theses per topic: ${summary}`}
+    >
       {clusters.map((c, idx) => {
         const pct = (c.thesis_count / max) * 100;
         const color = CLUSTER_PALETTE[idx % CLUSTER_PALETTE.length];
@@ -221,7 +232,7 @@ function CountsBarChart({ clusters, isDark }) {
 function StatCard({ label, value, sublabel, isDark, accent }) {
   return (
     <div className="thesys-panel">
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
       </div>
       <div
@@ -231,7 +242,7 @@ function StatCard({ label, value, sublabel, isDark, accent }) {
         {value}
       </div>
       {sublabel && (
-        <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           {sublabel}
         </div>
       )}
@@ -277,7 +288,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
 
         {cluster.keywords && cluster.keywords.length > 0 && (
           <div className="mb-3">
-            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Top keywords (TF-IDF)
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -300,7 +311,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
 
         {cluster.sample_titles && cluster.sample_titles.length > 0 && (
           <div>
-            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Sample studies
             </div>
             <ul className="space-y-1">
@@ -393,7 +404,7 @@ export default function TrendAnalysisPage() {
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (
           <div className="space-y-6">
-            <p className={`text-xs mb-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Clustering research topics…
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -428,7 +439,7 @@ export default function TrendAnalysisPage() {
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               Not enough approved theses yet.
             </p>
-            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.
             </p>
           </div>
@@ -467,7 +478,7 @@ export default function TrendAnalysisPage() {
             {/* ── Charts row ───────────────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
               <div className="thesys-panel">
-                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Topic Distribution
                 </div>
                 <DoughnutChart clusters={data.clusters} isDark={isDark} />
@@ -491,7 +502,7 @@ export default function TrendAnalysisPage() {
               </div>
 
               <div className="thesys-panel lg:col-span-2">
-                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Theses per Topic
                 </div>
                 <CountsBarChart clusters={data.clusters} isDark={isDark} />
@@ -532,7 +543,7 @@ export default function TrendAnalysisPage() {
                 clusters, and the highest-weight TF-IDF terms in each cluster's
                 centroid become the surfaced keywords.
               </p>
-              <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 <li>🔴 <strong>Saturated</strong> — 5 or more studies in a cluster (well-explored research area)</li>
                 <li>🟡 <strong>Emerging</strong> — 2–4 studies (active but not yet saturated)</li>
                 <li>🟢 <strong>Underexplored</strong> — single study (potential research gap)</li>

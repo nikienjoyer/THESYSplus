@@ -71,9 +71,9 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">
-        Welcome!
+    <div className="w-full max-w-md mx-auto p-6 thesys-card">
+      <h2 className="text-2xl font-bold mb-6 text-center text-ink">
+        Sign In
       </h2>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -81,7 +81,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         <div className="mb-4">
           <label
             htmlFor="sign-in-email"
-            className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300"
+            className="block text-sm font-medium mb-2 text-body"
           >
             Email
           </label>
@@ -98,7 +98,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
             aria-describedby={emailError ? 'email-error' : undefined}
           />
           {emailError && (
-            <p id="email-error" className="mt-1 text-sm text-red-600 dark:text-red-400">
+            <p id="email-error" className="mt-1 text-sm text-danger">
               {emailError}
             </p>
           )}
@@ -108,7 +108,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         <div className="mb-4">
           <label
             htmlFor="sign-in-password"
-            className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300"
+            className="block text-sm font-medium mb-2 text-body"
           >
             Password
           </label>
@@ -126,7 +126,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink focus:outline-none"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               disabled={isLoading}
             >
@@ -149,7 +149,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
           />
           <label
             htmlFor="sign-in-remember-me"
-            className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+            className="ml-2 text-sm text-body"
           >
             Remember me
           </label>
@@ -157,7 +157,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
 
         {/* Error alert */}
         {error && (
-          <Alert className="mb-4 bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+          <Alert className="mb-4 bg-danger-bg border-danger-border text-danger-text">
             {error}
           </Alert>
         )}

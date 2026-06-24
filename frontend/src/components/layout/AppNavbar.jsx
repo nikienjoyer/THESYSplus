@@ -31,6 +31,7 @@ import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
+import useFocusTrap from '../../hooks/useFocusTrap';
 import { Avatar, AvatarImage, AvatarFallback } from '../shadcn/avatar';
 import ThesysLogo from '../brand/ThesysLogo';
 
@@ -198,6 +199,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const drawerRef = useFocusTrap(mobileMenuOpen);
 
   const handleSignOut = async () => {
     await signOut();
@@ -296,7 +298,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
           <div className="flex items-center gap-2 justify-end">
             <Link
               to="/upload"
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               Upload Thesis
             </Link>
@@ -327,7 +329,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
             aria-hidden="true"
           />
 
-          <div className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl bg-surface-elevated border-r border-[var(--color-border)]">
+          <div ref={drawerRef} className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl bg-surface-elevated border-r border-[var(--color-border)]">
             {/* Drawer header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
@@ -380,7 +382,7 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
               <Link
                 to="/upload"
                 onClick={() => setMobileMenuOpen(false)}
-                className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition-colors"
+                className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors"
               >
                 Upload Thesis
               </Link>

@@ -27,6 +27,7 @@ import client from '../api/client';
 import { AvatarDropdown } from '../components/layout/AppNavbar';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
+import useFocusTrap from '../hooks/useFocusTrap';
 
 const CORE_NAV = [
   { label: 'Home',             to: '/',                 implemented: true },
@@ -89,6 +90,7 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasBuildingImg, setHasBuildingImg] = useState(false);
   const isDark = theme === 'dark';
+  const drawerRef = useFocusTrap(mobileMenuOpen);
 
   // Escape closes mobile menu
   useEffect(() => {
@@ -253,7 +255,7 @@ export default function LandingPage() {
       {mobileMenuOpen && createPortal(
         <div className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
-          <div className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
+          <div ref={drawerRef} className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
             <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
               <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
               <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"

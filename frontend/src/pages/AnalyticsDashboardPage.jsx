@@ -70,8 +70,9 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
   if (!data || data.length === 0) return null;
   const items = data.slice(0, maxBars);
   const maxVal = Math.max(...items.map((d) => d[valueField]), 1);
+  const summary = items.map((d) => `${d[keyField]} ${d[valueField]}`).join(', ');
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="img" aria-label={`Bar chart: ${summary}`}>
       {items.map((d, idx) => {
         const pct = (d[valueField] / maxVal) * 100;
         return (
@@ -101,8 +102,9 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
 function YearBarChart({ data, isDark }) {
   if (!data || data.length === 0) return null;
   const maxVal = Math.max(...data.map((d) => d.count), 1);
+  const summary = data.map((d) => `${d.year}: ${d.count}`).join(', ');
   return (
-    <div className="flex items-end gap-1 sm:gap-2 h-28 w-full">
+    <div className="flex items-end gap-1 sm:gap-2 h-28 w-full" role="img" aria-label={`Research growth by year: ${summary}`}>
       {data.map((d, idx) => {
         const heightPct = (d.count / maxVal) * 100;
         return (
@@ -115,7 +117,7 @@ function YearBarChart({ data, isDark }) {
               style={{ height: `${Math.max(heightPct, 4)}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
               title={`${d.year}: ${d.count}`}
             />
-            <span className={`text-[9px] mt-1 truncate w-full text-center ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <span className={`text-[9px] mt-1 truncate w-full text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               {String(d.year).slice(2)}
             </span>
           </div>
@@ -132,7 +134,7 @@ function YearBarChart({ data, isDark }) {
 function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
   const card = (
     <div className="thesys-panel">
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
         {tooltipText && (
           <svg className="w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -147,7 +149,7 @@ function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
         {value ?? '—'}
       </div>
       {sublabel && (
-        <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{sublabel}</div>
+        <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{sublabel}</div>
       )}
     </div>
   );
@@ -200,7 +202,7 @@ function TrendSummary({ summary, isDark }) {
           <span className="text-xl flex-shrink-0" aria-hidden="true">{emoji}</span>
           <div>
             <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{count ?? 0}</div>
-            <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{label}</div>
+            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</div>
           </div>
         </div>
       ))}
@@ -281,7 +283,7 @@ export default function AnalyticsDashboardPage() {
   }));
 
   const sectionCls = null; // replaced by shadcn Card below
-  const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-500' : 'text-gray-500'}`;
+  const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
@@ -302,7 +304,7 @@ export default function AnalyticsDashboardPage() {
         {/* Loading */}
         {loading && (
           <div className="space-y-6">
-            <p className={`text-xs mb-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Loading repository analytics…
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -343,7 +345,7 @@ export default function AnalyticsDashboardPage() {
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               No analytics data available yet.
             </p>
-            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Upload and approve thesis records to generate repository insights.
             </p>
           </div>
@@ -436,7 +438,7 @@ export default function AnalyticsDashboardPage() {
             {/* ── Section 5: Trend summary ── */}
             <div className="thesys-panel">
               <p className={sectionTitle}>Topic Trend Summary</p>
-              <p className={`text-xs mb-4 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Derived from TF-IDF + K-Means clustering.{' '}
                 <Link
                   to="/trend-analysis"
