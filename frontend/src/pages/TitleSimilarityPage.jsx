@@ -12,17 +12,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Lightbulb, TriangleAlert, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Lightbulb, TriangleAlert, CheckCircle2, ShieldCheck } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
+import { useToast } from '../hooks/useToast';
+import FileDropzone from '../components/ui/FileDropzone';
 
 const CLASS_HIGH = 'HIGHLY_SIMILAR';
 const CLASS_MODERATE = 'MODERATELY_SIMILAR';
 const CLASS_LOW = 'LOW_SIMILARITY';
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 
 // ---------------------------------------------------------------------------
@@ -110,6 +112,7 @@ function MatchCard({ match, isDark }) {
 export default function TitleSimilarityPage() {
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const isDark = theme === 'dark';
   const fileInputRef = useRef(null);
 
@@ -140,7 +143,10 @@ export default function TitleSimilarityPage() {
       const msg = err?.response?.data?.error?.message;
       if (code === 'TITLE_TOO_SHORT') setError('Title must be at least 5 characters.');
       else if (code === 'TITLE_TOO_LONG') setError('Title must not exceed 500 characters.');
-      else setError(msg || 'Validation failed. Please try again.');
+      else {
+        setError(msg || 'Validation failed. Please try again.');
+        toast.error(msg || 'Title validation failed. Please try again.');
+      }
     } finally { setSubmitting(false); }
   };
 
@@ -184,7 +190,7 @@ export default function TitleSimilarityPage() {
       const code = err?.response?.data?.error?.code;
       const msg = err?.response?.data?.error?.message;
       if (code === 'FILE_TYPE_NOT_ALLOWED') setUploadError('Only PDF and DOCX files are accepted.');
-      else if (code === 'FILE_TOO_LARGE') setUploadError('File size must be less than 25 MB.');
+      else if (code === 'FILE_TOO_LARGE') setUploadError('File size must be less than 15 MB.');
       else setUploadError(msg || 'Could not extract title. Please type the title manually.');
     } finally { setExtracting(false); }
   };
@@ -199,7 +205,7 @@ export default function TitleSimilarityPage() {
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="similarity" breadcrumb="Title Similarity" />
 
-      <main className="max-w-3xl mx-auto px-5 py-8">
+      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
 
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="mb-6">
@@ -209,7 +215,7 @@ export default function TitleSimilarityPage() {
           <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             <span>Validate proposed thesis titles using AI-assisted semantic comparison.</span>
             <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
-            <span className={`inline-flex items-center gap-1 text-primary`}>
+            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
               </svg>
@@ -218,25 +224,18 @@ export default function TitleSimilarityPage() {
           </p>
         </div>
 
-        {/* ── How this works — shown before validation ─────────── */}
-        {!result && (
-          <div className="thesys-card p-4 mb-6 flex gap-3">
-            <Lightbulb className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary" aria-hidden="true" />
-            <p className={`text-xs leading-relaxed ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-              Title validation compares your proposed title with existing thesis records using semantic similarity.
-              Higher scores may indicate possible topic overlap with existing studies.
-              Scores ≥ 85% are flagged as highly similar; 60–84% as moderately similar.
-            </p>
-          </div>
-        )}
+        {/* Two-column portal layout: form (left) + methodology rail (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* LEFT — form + results */}
+          <div className="lg:col-span-2">
 
         {/* ── Input form ──────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-3 mb-6"
+          className="space-y-5 mb-6"
         >
-          {/* Option 1: Manual title input */}
-          <div className="thesys-card p-5">
+          {/* Option 1: Manual title input — bare section, no card */}
+          <div>
             <label
               htmlFor="proposed-title"
               className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
@@ -267,8 +266,15 @@ export default function TitleSimilarityPage() {
             />
           </div>
 
-          {/* Option 2: Upload proposal document */}
-          <div className="thesys-card p-5">
+          {/* OR divider — the two methods are mutually exclusive choices */}
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <span className={`flex-1 h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+            <span className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>or</span>
+            <span className={`flex-1 h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+          </div>
+
+          {/* Option 2: Upload proposal document — bare section, no card */}
+          <div>
             <p className={`text-sm font-semibold mb-1 flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0 ${
                 isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
@@ -279,58 +285,31 @@ export default function TitleSimilarityPage() {
               Upload a PDF or DOCX proposal to auto-detect the thesis title. Review and edit the detected title before validating.
             </p>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <label
-                htmlFor="proposal-upload"
-                className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+            <FileDropzone
+              file={uploadFile}
+              onFileSelect={(f) => { setUploadFile(f); setUploadError(''); setExtractMsg(''); setExtractConf(''); }}
+              onRemove={() => {
+                setUploadFile(null); setExtractMsg(''); setExtractConf(''); setUploadError('');
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              disabled={submitting || extracting}
+              idleTitle="Drag & drop your proposal"
+            />
+
+            {uploadFile && (
+              <button
+                type="button"
+                onClick={handleExtract}
+                disabled={extracting || submitting}
+                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50 ${
+                  isDark
+                    ? 'border-blue-500/40 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
+                    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
                 }`}
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                </svg>
-                {uploadFile ? uploadFile.name : 'Choose File'}
-              </label>
-              <input
-                id="proposal-upload"
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={handleFileChange}
-                disabled={submitting || extracting}
-                className="sr-only"
-                aria-label="Upload proposal document"
-              />
-
-              {uploadFile && (
-                <button
-                  type="button"
-                  onClick={handleExtract}
-                  disabled={extracting || submitting}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50 ${
-                    isDark
-                      ? 'border-blue-500/40 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
-                      : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  {extracting ? <><Spinner />Extracting title from document…</> : 'Extract Title'}
-                </button>
-              )}
-
-              {uploadFile && !extracting && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadFile(null); setExtractMsg(''); setExtractConf(''); setUploadError('');
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className={`text-xs transition-colors ${isDark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
-                  aria-label="Remove file"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+                {extracting ? <><Spinner />Extracting title from document…</> : 'Extract Title'}
+              </button>
+            )}
 
             {uploadError && (
               <p className={`text-xs mt-2 ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{uploadError}</p>
@@ -371,7 +350,7 @@ export default function TitleSimilarityPage() {
             )}
             {uploadFile && !uploadError && !extractMsg && !extracting && (
               <p className={`text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                Accepted: PDF · DOCX (max 25 MB)
+                Accepted: PDF · DOCX (max 15 MB)
               </p>
             )}
           </div>
@@ -385,22 +364,8 @@ export default function TitleSimilarityPage() {
             </div>
           )}
 
-          {/* Action footer — visually connects the form to the submit button */}
-          <div className={`rounded-xl border px-5 py-4 ${
-            isDark ? 'bg-white/[0.02] border-white/[0.08]' : 'bg-gray-50 border-gray-200'
-          }`}>
-            {/* 3-step flow hint */}
-            <div className={`flex items-center gap-1.5 text-[11px] font-medium mb-4 flex-wrap ${
-              isDark ? 'text-gray-500' : 'text-gray-400'
-            }`}>
-              <span className="text-primary">Enter or upload title</span>
-              <ArrowRight className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-              <span>Review detected title</span>
-              <ArrowRight className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-              <span>Validate</span>
-            </div>
-
-            {/* Actions */}
+          {/* Standalone action row */}
+          <div className={`pt-2 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
             <div className="flex items-center gap-2">
               <button
                 type="submit"
@@ -421,6 +386,13 @@ export default function TitleSimilarityPage() {
                 </button>
               )}
             </div>
+
+            {/* Disabled-state explanation — clarifies why the button is inactive */}
+            {!submitting && title.trim().length < 5 && (
+              <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                Enter or upload a title to begin validation.
+              </p>
+            )}
           </div>
         </form>
 
@@ -434,38 +406,74 @@ export default function TitleSimilarityPage() {
           </div>
         )}
 
-        {/* ── Results ──────────────────────────────────────────────── */}
-        {result && visuals && (
-          <>
-            {/* Status card */}
-            <div className={`rounded-xl border p-5 mb-6 ${visuals.cardClass}`}>
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="text-2xl" aria-hidden="true">{visuals.emoji}</span>
-                <div>
-                  <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${visuals.textClass} opacity-70`}>Risk Level</p>
-                  <h2 className={`text-lg font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>{visuals.label}</h2>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${visuals.textClass} opacity-70`}>Similarity Score</p>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${visuals.chipClass}`}>
-                    {pct}%
-                  </span>
-                </div>
-              </div>
-              <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${visuals.textClass} opacity-70`}>Recommendation</div>
-              <p className={`text-sm leading-relaxed ${visuals.textClass}`}>{result.recommendation}</p>
+        {/* Loading hint lives in the left column under the form */}
+        </div>{/* end left column */}
+
+          {/* RIGHT — stacked sidebar: How this works (top) + Risk Level (below) */}
+          <aside className="lg:col-span-1 flex flex-col gap-4">
+            {/* How this works — always visible */}
+            <div className="thesys-card p-4">
+              <p className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <Lightbulb className="w-4 h-4 flex-shrink-0 text-primary" aria-hidden="true" />
+                How this works
+              </p>
+              <p className={`text-xs leading-relaxed mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Title validation compares your proposed title with existing thesis records using SBERT semantic similarity. Higher scores may indicate topic overlap with existing studies.
+              </p>
+              <ul className={`text-xs space-y-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <li>🔴 <strong>Highly Similar</strong> — score ≥ 85%</li>
+                <li>🟡 <strong>Moderately Similar</strong> — 60–84%</li>
+                <li>🟢 <strong>Low Similarity</strong> — &lt; 60%</li>
+              </ul>
             </div>
 
-            {/* Related matches */}
+            {/* Risk Level — hidden until validation completes, then sits below How this works */}
+            {result && visuals ? (
+              <div className={`rounded-xl border p-5 ${visuals.cardClass}`}>
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                  <span className="text-2xl" aria-hidden="true">{visuals.emoji}</span>
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${visuals.textClass} opacity-70`}>Risk Level</p>
+                    <h2 className={`text-lg font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>{visuals.label}</h2>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${visuals.textClass} opacity-70`}>Similarity Score</p>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${visuals.chipClass}`}>
+                      {pct}%
+                    </span>
+                  </div>
+                </div>
+                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${visuals.textClass} opacity-70`}>Recommendation</div>
+                <p className={`text-sm leading-relaxed ${visuals.textClass}`}>{result.recommendation}</p>
+              </div>
+            ) : (
+              /* Result preview placeholder — keeps the sidebar balanced before validation */
+              <div className={`rounded-xl border border-dashed p-6 flex flex-col items-center text-center gap-2 ${
+                isDark ? 'border-white/15 bg-white/[0.02]' : 'border-gray-300 bg-gray-50/50'
+              }`}>
+                <ShieldCheck className={`w-7 h-7 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} aria-hidden="true" />
+                <p className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Awaiting validation</p>
+                <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                  Your similarity risk level and score will appear here once you validate your title.
+                </p>
+              </div>
+            )}
+          </aside>
+        </div>{/* end grid */}
+
+        {/* ── Full-width results detail (below the two-column grid) ──── */}
+        {result && visuals && (
+          <div className="mt-6 space-y-6">
+            {/* Related Existing Studies */}
             {result.matches?.length > 0 && (
-              <div className="mb-6">
+              <div>
                 <h3 className={`text-sm font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Related Existing Studies
                 </h3>
                 <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                   {result.matches.length} thes{result.matches.length === 1 ? 'is' : 'es'} with similar semantic content found in the repository.
                 </p>
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {result.matches.map((m) => <MatchCard key={m.id} match={m} isDark={isDark} />)}
                 </div>
               </div>
@@ -473,7 +481,7 @@ export default function TitleSimilarityPage() {
 
             {/* Term analysis panel (client-side TF-IDF explainability) */}
             {(commonTerms.length > 0 || distinctiveTerms.length > 0) && (
-              <div className={`rounded-xl border p-5 mb-6 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
+              <div className={`rounded-xl border p-5 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
                 <h3 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Term Analysis
                 </h3>
@@ -512,26 +520,7 @@ export default function TitleSimilarityPage() {
                 </div>
               </div>
             )}
-
-            {/* How this works */}
-            <div className={`rounded-xl border p-5 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
-              <h3 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                How this works
-              </h3>
-              <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Similarity is measured using semantic comparison through Sentence-BERT
-                embeddings and cosine similarity. Your proposed title is encoded into a
-                384-dimensional vector and compared against the title of every approved
-                thesis in the repository. Scores closer to 100% indicate stronger
-                semantic overlap.
-              </p>
-              <ul className={`mt-3 text-xs space-y-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                <li>🔴 <strong>Highly Similar</strong> — score ≥ 85%</li>
-                <li>🟡 <strong>Moderately Similar</strong> — score 60–84%</li>
-                <li>🟢 <strong>Low Similarity</strong> — score &lt; 60%</li>
-              </ul>
-            </div>
-          </>
+          </div>
         )}
       </main>
     </div>

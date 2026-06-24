@@ -71,7 +71,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 thesys-card">
+    <div className="w-full max-w-md mx-auto p-6 thesys-card thesys-modal-enter">
       <h2 className="text-2xl font-bold mb-6 text-center text-ink">
         Sign In
       </h2>

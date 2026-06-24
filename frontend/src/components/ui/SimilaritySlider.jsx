@@ -69,7 +69,7 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
     >
       {/* Row: label + value badge */}
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-muted">
+        <span className="text-xs font-medium text-body">
           Similarity Threshold
         </span>
 
@@ -104,12 +104,12 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
 
       {/* Tick labels */}
       <div className="flex justify-between">
-        <span className="text-[10px] text-subtle">{MIN}% Broad</span>
-        <span className="text-[10px] text-subtle">{MAX}% Strict</span>
+        <span className="text-[10px] text-muted">{MIN}% Broad</span>
+        <span className="text-[10px] text-muted">{MAX}% Strict</span>
       </div>
 
       {/* Helper text */}
-      <p className="text-[11px] leading-snug text-muted">
+      <p className="text-[11px] leading-snug text-body">
         {helperText ?? 'Lower thresholds show broader related studies. Higher thresholds show stricter semantic matches.'}
       </p>
     </div>

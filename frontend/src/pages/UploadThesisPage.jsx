@@ -20,6 +20,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
+import { useToast } from '../hooks/useToast';
+import FileDropzone from '../components/ui/FileDropzone';
 
 const PROGRAMS = [
   'BS Information System',
@@ -28,7 +30,7 @@ const PROGRAMS = [
   'Associate in Computer Technology',
 ];
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 // Simulated frontend progress stages (purely visual — no backend changes)
 const UPLOAD_STAGES = [
@@ -112,6 +114,7 @@ function UploadProgress({ stageIndex, isDark }) {
 export default function UploadThesisPage() {
   const { theme } = useTheme();
   const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
   const isDark = theme === 'dark';
 
   const [title, setTitle]       = useState('');
@@ -155,7 +158,7 @@ export default function UploadThesisPage() {
     if (!f) return '';
     const ext = f.name.toLowerCase().split('.').pop();
     if (ext !== 'pdf' && ext !== 'docx') return 'Only PDF and DOCX files are allowed.';
-    if (f.size > MAX_FILE_BYTES) return `File size must be less than 25 MB (selected: ${fmtBytes(f.size)}).`;
+    if (f.size > MAX_FILE_BYTES) return `File size must be less than 15 MB (selected: ${fmtBytes(f.size)}).`;
     return '';
   };
 
@@ -222,7 +225,7 @@ export default function UploadThesisPage() {
       if (code === 'DUPLICATE_FILE') {
         setError('This file has already been uploaded.');
       } else if (code === 'FILE_TOO_LARGE') {
-        setError('File size must be less than 25 MB.');
+        setError('File size must be less than 15 MB.');
       } else if (code === 'FILE_TYPE_NOT_ALLOWED' || code === 'FILE_TYPE_MISMATCH') {
         setError('Only PDF and DOCX files are allowed.');
       } else if (code === 'VALIDATION_ERROR' && details && typeof details === 'object') {
@@ -249,6 +252,7 @@ export default function UploadThesisPage() {
         setError(msg || 'Please check that all fields are filled correctly.');
       } else {
         setError(msg || 'Upload failed. Please try again.');
+        toast.error(msg || 'Upload failed. Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -445,26 +449,16 @@ export default function UploadThesisPage() {
               <label className={labelCls}>Thesis Document</label>
               {/* File guidance */}
               <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                Accepted formats: <strong>PDF</strong> or <strong>DOCX</strong> (max 25 MB).
+                Accepted formats: <strong>PDF</strong> or <strong>DOCX</strong> (max 15 MB).
                 Machine-readable documents use direct extraction; scanned files may use OCR.
               </p>
-              <input
-                type="file"
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={handleFileChange}
-                required
+              <FileDropzone
+                file={file}
+                onFileSelect={(f) => { setFile(f); setFileError(''); }}
+                onRemove={() => { setFile(null); setFileError(''); }}
                 disabled={submitting}
-                className={`block w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}
-                  file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium
-                  file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
-                  dark:file:bg-blue-900/20 dark:file:text-blue-400 dark:hover:file:bg-blue-900/30
-                  cursor-pointer`}
+                idleTitle="Drag & drop your thesis"
               />
-              {file && !fileError && (
-                <p className={`mt-1 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Selected: {file.name} ({fmtBytes(file.size)})
-                </p>
-              )}
               {fileError && <p className="mt-1 text-xs text-rose-500">{fileError}</p>}
               {fieldErrors.file && (
                 <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>

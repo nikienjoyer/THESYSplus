@@ -254,8 +254,8 @@ export default function LandingPage() {
       {/* Mobile drawer */}
       {mobileMenuOpen && createPortal(
         <div className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
-          <div ref={drawerRef} className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm thesys-overlay-enter" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
+          <div ref={drawerRef} className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl thesys-drawer-enter ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
             <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
               <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
               <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"

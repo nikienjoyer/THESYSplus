@@ -35,7 +35,7 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999]"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] thesys-overlay-enter"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -44,7 +44,7 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
         <div
           ref={panelRef}
-          className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl"
+          className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl thesys-modal-enter"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

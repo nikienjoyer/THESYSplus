@@ -19,6 +19,7 @@ import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { getUserData, setUserData } from '../utils/userStorage';
+import { useToast } from '../hooks/useToast';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_IMG_BYTES = 4 * 1024 * 1024; // 4 MB raw; will be re-encoded by canvas
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const { theme } = useTheme();
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isDark = theme === 'dark';
   const photoInputRef = useRef(null);
   const saveRedirectTimerRef = useRef(null);
@@ -117,6 +119,7 @@ export default function SettingsPage() {
     }
 
     setSaved(true);
+    toast.success('Profile updated.');
     // Redirect to /profile after 1000 ms so the user sees the updated info
     saveRedirectTimerRef.current = setTimeout(() => {
       navigate('/profile');

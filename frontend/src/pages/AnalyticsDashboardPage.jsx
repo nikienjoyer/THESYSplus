@@ -108,15 +108,18 @@ function YearBarChart({ data, isDark }) {
       {data.map((d, idx) => {
         const heightPct = (d.count / maxVal) * 100;
         return (
-          <div key={d.year} className="flex flex-col items-center flex-1 min-w-0">
+          <div key={d.year} className="flex flex-col items-center flex-1 min-w-0 h-full">
             <span className={`text-[9px] mb-0.5 font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               {d.count}
             </span>
-            <div
-              className="w-full rounded-t-sm transition-all duration-300"
-              style={{ height: `${Math.max(heightPct, 4)}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
-              title={`${d.year}: ${d.count}`}
-            />
+            {/* Bar track — flex-1 gives the percentage-height bar a real basis */}
+            <div className="flex-1 w-full flex items-end">
+              <div
+                className="w-full rounded-t-sm transition-all duration-300"
+                style={{ height: `${Math.max(heightPct, 4)}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
+                title={`${d.year}: ${d.count}`}
+              />
+            </div>
             <span className={`text-[9px] mt-1 truncate w-full text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               {String(d.year).slice(2)}
             </span>

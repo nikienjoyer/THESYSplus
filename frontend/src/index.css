@@ -417,3 +417,55 @@
 .similarity-slider::-moz-focus-outer {
   border: 0;
 }
+
+
+/* ── Toast entrance (Global Feedback) ──────────────────────────────────────
+   Slide-in + fade from the top edge. Suppressed for reduced-motion users,
+   who get an instant appearance instead. */
+@keyframes thesys-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.thesys-toast-enter {
+  animation: thesys-toast-in 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .thesys-toast-enter {
+    animation: none;
+  }
+}
+
+
+/* ── Entrance motion (Step 4: Motion & Fluidity) ───────────────────────────
+   Token-driven, transform/opacity only (no layout-property animation).
+   200ms with the standard ease-out curve. All suppressed under
+   prefers-reduced-motion below. */
+@keyframes thesys-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes thesys-modal-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes thesys-drawer-in {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.thesys-overlay-enter { animation: thesys-fade-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+.thesys-modal-enter   { animation: thesys-modal-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+.thesys-drawer-enter  { animation: thesys-drawer-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .thesys-overlay-enter,
+  .thesys-modal-enter,
+  .thesys-drawer-enter,
+  .thesys-toast-enter {
+    animation: none;
+  }
+  /* Drop the hover lift for motion-sensitive users; keep the shadow/border cue */
+  .thesys-card-lift:hover {
+    transform: none;
+  }
+}

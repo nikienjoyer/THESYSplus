@@ -43,6 +43,14 @@ const PAGE_SIZE = 20;
 const DEBOUNCE_MS = 500;   // threshold debounce window
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2-minute memory cache
 
+// Seeded example queries — known to return matches in the CCS corpus.
+// Used as cold-start guidance and zero-result recovery.
+const EXAMPLE_QUERIES = [
+  'RFID attendance monitoring',
+  'inventory and POS systems',
+  'AI and machine learning',
+];
+
 // ---------------------------------------------------------------------------
 // Module-level memory cache — survives re-renders, cleared on page unload.
 // Keys are the full query string; values are { data, ts }.
@@ -318,6 +326,44 @@ export default function RepositoryPage() {
     setSearch(searchInput.trim());
   };
 
+  // Run a seeded example query — populates the input and commits the search.
+  const runExampleQuery = (q) => {
+    setSearchInput(q);
+    setSearch(q);
+    setPage(1);
+  };
+
+  // Lower the similarity threshold in one click (zero-result recovery).
+  // Sets both slider + committed value so the fetch re-runs immediately.
+  const applyThreshold = (pct) => {
+    setSliderThreshold(pct);
+    setCommittedThreshold(pct);
+    setPage(1);
+  };
+
+  // Reusable example-query chip row
+  const ExampleChips = () => (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {EXAMPLE_QUERIES.map((q) => (
+        <button
+          key={q}
+          type="button"
+          onClick={() => runExampleQuery(q)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+            isDark
+              ? 'border-white/15 text-gray-300 hover:bg-white/[0.07] hover:text-white'
+              : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <svg className="w-3 h-3 flex-shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          {q}
+        </button>
+      ))}
+    </div>
+  );
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
@@ -442,6 +488,16 @@ export default function RepositoryPage() {
           </form>
         </div>
 
+        {/* Cold-start guidance — example queries shown before any search is run */}
+        {!search && !loading && !error && (
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Try a semantic search:
+            </p>
+            <ExampleChips />
+          </div>
+        )}
+
         {/* ── Results ───────────────────────────────────────────────────── */}
         {loading ? (
           <>
@@ -468,37 +524,50 @@ export default function RepositoryPage() {
             {error}
           </div>
         ) : theses.length === 0 ? (
-          <div className="thesys-empty">
-            <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
-            <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              {search && committedThreshold >= 70
-                ? 'No related theses found at the current threshold.'
-                : search
-                ? 'No related theses found.'
-                : 'No theses in repository yet.'}
-            </p>
-            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-              {search && committedThreshold >= 70
-                ? 'Try lowering the similarity threshold or using broader keywords.'
-                : search
-                ? 'No related theses found. Try lowering the similarity threshold or using broader keywords.'
-                : 'Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-assisted search.'}
-            </p>
-            {search && committedThreshold >= 70 && (
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
-                  isDark
-                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}
-              >
-                <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                </svg>
-                Current threshold: {committedThreshold}%
-              </span>
-            )}
-          </div>
+          search ? (
+            /* ── Zero Results — a query ran but nothing matched ─────────── */
+            <div className="thesys-empty">
+              <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
+              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                {committedThreshold > 50
+                  ? `No theses found above ${committedThreshold}% similarity.`
+                  : 'No related theses found.'}
+              </p>
+              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                {committedThreshold > 50
+                  ? 'Lower the similarity threshold to broaden the search, or try a different query.'
+                  : 'Try a broader query or one of the examples below.'}
+              </p>
+
+              {/* One-click threshold broadening */}
+              {committedThreshold > 50 && (
+                <button
+                  type="button"
+                  onClick={() => applyThreshold(50)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  Try lowering the threshold to 50%
+                </button>
+              )}
+
+              {/* Example-query recovery */}
+              <div className="mt-2 flex flex-col items-center gap-2">
+                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Or try one of these searches:</p>
+                <ExampleChips />
+              </div>
+            </div>
+          ) : (
+            /* ── Empty Corpus — repository has no theses at all ─────────── */
+            <div className="thesys-empty">
+              <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
+              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                No theses in repository yet.
+              </p>
+              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-assisted search.
+              </p>
+            </div>
+          )
         ) : (
           <>
             {/* Result count summary — distinguishes semantic matches from title-rescued results */}

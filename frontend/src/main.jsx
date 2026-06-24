@@ -3,6 +3,7 @@ import './index.css';
 import App from './App.jsx';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 
 // NOTE: StrictMode is intentionally omitted.
 // React StrictMode double-invokes useEffect in development, which causes
@@ -16,7 +17,9 @@ import { AuthProvider } from './context/AuthContext';
 createRoot(document.getElementById('root')).render(
   <ThemeProvider>
     <AuthProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </AuthProvider>
   </ThemeProvider>,
 );
