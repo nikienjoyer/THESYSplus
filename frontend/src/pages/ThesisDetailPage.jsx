@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
 import { getUserData, setUserData } from '../utils/userStorage';
 
 function isSaved(id, user) {
@@ -98,7 +99,8 @@ export default function ThesisDetailPage() {
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="repository" breadcrumb="Repository" />
 
-      <main className="max-w-3xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
+        <div className="max-w-3xl">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : error ? (
@@ -290,7 +292,8 @@ export default function ThesisDetailPage() {
           </article>
           </>
         ) : null}
-      </main>
+        </div>
+      </PageShell>
     </div>
   );
 }

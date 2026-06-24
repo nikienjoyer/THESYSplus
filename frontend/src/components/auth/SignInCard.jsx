@@ -71,17 +71,17 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 thesys-card thesys-modal-enter">
+    <div className="w-full">
       <h2 className="text-2xl font-bold mb-6 text-center text-ink">
         Sign In
       </h2>
 
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
         {/* Email field */}
-        <div className="mb-4">
+        <div className="space-y-1.5">
           <label
             htmlFor="sign-in-email"
-            className="block text-sm font-medium mb-2 text-body"
+            className="block text-sm font-medium text-body"
           >
             Email
           </label>
@@ -105,10 +105,10 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         </div>
 
         {/* Password field */}
-        <div className="mb-4">
+        <div className="space-y-1.5">
           <label
             htmlFor="sign-in-password"
-            className="block text-sm font-medium mb-2 text-body"
+            className="block text-sm font-medium text-body"
           >
             Password
           </label>
@@ -140,7 +140,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         </div>
 
         {/* Remember me checkbox */}
-        <div className="mb-4 flex items-center">
+        <div className="flex items-center">
           <Checkbox
             id="sign-in-remember-me"
             checked={rememberMe}
@@ -157,7 +157,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
 
         {/* Error alert */}
         {error && (
-          <Alert className="mb-4 bg-danger-bg border-danger-border text-danger-text">
+          <Alert className="bg-danger-bg border-danger-border text-danger-text">
             {error}
           </Alert>
         )}
@@ -165,7 +165,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         {/* Submit button */}
         <Button
           type="submit"
-          className="w-full mb-4"
+          className="w-full"
           disabled={isLoading || !!emailError}
         >
           {isLoading ? (

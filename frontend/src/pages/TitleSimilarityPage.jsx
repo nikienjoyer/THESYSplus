@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
 import { useToast } from '../hooks/useToast';
 import FileDropzone from '../components/ui/FileDropzone';
 
@@ -203,9 +204,9 @@ export default function TitleSimilarityPage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="similarity" breadcrumb="Title Similarity" />
+      <AppNavbar activePage="similarity" />
 
-      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
 
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="mb-6">
@@ -522,7 +523,7 @@ export default function TitleSimilarityPage() {
             )}
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

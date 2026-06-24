@@ -84,18 +84,29 @@ def make_thesis(db, faculty_user):
 # ---------------------------------------------------------------------------
 
 class TestClassifyTrend:
+    # Cold-start regime — total_theses < 15 preserves the original static rules.
     def test_saturated_at_5(self):
-        assert _classify_trend(5) == CLASS_SATURATED
-        assert _classify_trend(10) == CLASS_SATURATED
+        assert _classify_trend(5, average_size=2.0, total_theses=10) == CLASS_SATURATED
+        assert _classify_trend(10, average_size=2.0, total_theses=10) == CLASS_SATURATED
 
     def test_emerging_2_to_4(self):
-        assert _classify_trend(2) == CLASS_EMERGING
-        assert _classify_trend(3) == CLASS_EMERGING
-        assert _classify_trend(4) == CLASS_EMERGING
+        assert _classify_trend(2, average_size=2.0, total_theses=10) == CLASS_EMERGING
+        assert _classify_trend(3, average_size=2.0, total_theses=10) == CLASS_EMERGING
+        assert _classify_trend(4, average_size=2.0, total_theses=10) == CLASS_EMERGING
 
     def test_underexplored_0_or_1(self):
-        assert _classify_trend(1) == CLASS_UNDEREXPLORED
-        assert _classify_trend(0) == CLASS_UNDEREXPLORED
+        assert _classify_trend(1, average_size=2.0, total_theses=10) == CLASS_UNDEREXPLORED
+        assert _classify_trend(0, average_size=2.0, total_theses=10) == CLASS_UNDEREXPLORED
+
+    def test_classify_trend_dynamic(self):
+        # Large corpus (>= 15) switches to mean-relative scaling.
+        # average_size = 20 → SATURATED >= 30, UNDEREXPLORED <= 10, else EMERGING.
+        assert _classify_trend(35, average_size=20.0, total_theses=100) == CLASS_SATURATED
+        assert _classify_trend(18, average_size=20.0, total_theses=100) == CLASS_EMERGING
+        assert _classify_trend(8, average_size=20.0, total_theses=100) == CLASS_UNDEREXPLORED
+        # Boundary checks: exactly 1.5x is SATURATED, exactly 0.5x is UNDEREXPLORED.
+        assert _classify_trend(30, average_size=20.0, total_theses=100) == CLASS_SATURATED
+        assert _classify_trend(10, average_size=20.0, total_theses=100) == CLASS_UNDEREXPLORED
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,8 @@ import { Camera } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { getUserData, setUserData } from '../utils/userStorage';
 import { useToast } from '../hooks/useToast';
@@ -143,21 +145,17 @@ export default function SettingsPage() {
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="settings" breadcrumb="Settings" />
 
-      <main className="max-w-2xl mx-auto px-5 py-8">
-        <div className="mb-6">
-          <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Account Settings
-          </h1>
+      <PageShell>
+        <PageHeader title="Account Settings">
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Update your profile information and preferences.
           </p>
-        </div>
+        </PageHeader>
 
-        <form onSubmit={handleSave} className="space-y-4">
+        <div className="max-w-2xl">
+        <form onSubmit={handleSave} className="space-y-10">
           {/* ── General ─────────────────────────────────────────── */}
-          <section
-            className="thesys-card p-5 space-y-4"
-          >
+          <section className="space-y-5">
             <h2 className={sectionTitle}>General</h2>
 
             {/* ── Profile photo ─────────────────────────────────── */}
@@ -292,9 +290,7 @@ export default function SettingsPage() {
           </section>
 
           {/* ── Account ─────────────────────────────────────────── */}
-          <section
-            className="thesys-card p-5 space-y-4"
-          >
+          <section className="space-y-5 border-t border-[var(--color-border-subtle)] pt-10">
             <h2 className={sectionTitle}>Account</h2>
 
             <div>
@@ -328,7 +324,7 @@ export default function SettingsPage() {
           </section>
 
           {/* ── Actions ─────────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-6">
             <Link
               to="/profile"
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
@@ -355,7 +351,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </form>
-      </main>
+        </div>
+      </PageShell>
     </div>
   );
 }

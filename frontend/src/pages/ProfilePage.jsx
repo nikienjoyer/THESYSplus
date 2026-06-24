@@ -23,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/shadcn/avatar';
 import { getUserData, setUserData } from '../utils/userStorage';
@@ -57,11 +58,7 @@ function roleLabel(role) {
 function Sidebar({ user, stats, isDark }) {
   const { dataUrl: avatarUrl } = useProfilePicture();
   return (
-    <aside
-      className={`rounded-2xl border p-6 flex flex-col items-center text-center ${
-        isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'
-      }`}
-    >
+    <aside className="flex flex-col items-center text-center lg:border-r lg:border-[var(--color-border-subtle)] lg:pr-6">
       {/* Avatar — shadcn Avatar with image + initial fallback */}
       <Avatar className="w-20 h-20 mb-4 ring-2 ring-blue-500/30">
         {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile" />}
@@ -111,8 +108,8 @@ function Sidebar({ user, stats, isDark }) {
 
       {/* Quick stats */}
       <div
-        className={`mt-5 w-full grid grid-cols-2 divide-x rounded-xl overflow-hidden border ${
-          isDark ? 'border-white/[0.08] divide-white/[0.08]' : 'border-gray-200 divide-gray-200'
+        className={`mt-5 w-full grid grid-cols-2 divide-x ${
+          isDark ? 'divide-white/[0.08]' : 'divide-gray-200'
         }`}
       >
         {[
@@ -121,9 +118,7 @@ function Sidebar({ user, stats, isDark }) {
         ].map((s) => (
           <div
             key={s.label}
-            className={`flex flex-col items-center py-3 ${
-              isDark ? 'bg-white/[0.02]' : 'bg-gray-50'
-            }`}
+            className="flex flex-col items-center py-3"
           >
             <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
               {s.value ?? 0}
@@ -288,9 +283,9 @@ export default function ProfilePage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="profile" breadcrumb="Profile" />
+      <AppNavbar activePage="profile" />
 
-      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           {/* Sidebar */}
           <Sidebar user={user} stats={stats} isDark={isDark} />
@@ -318,10 +313,10 @@ export default function ProfilePage() {
 
             {/* ── Overview tab ──────────────────────────────────── */}
             {activeTab === 'overview' && (
-              <div className="space-y-5">
-                {/* Info card */}
-                <div className={`rounded-xl border p-5 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
-                  <h3 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className="space-y-10">
+                {/* Account information — open section */}
+                <section>
+                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                     Account Information
                   </h3>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -343,11 +338,11 @@ export default function ProfilePage() {
                       </div>
                     ))}
                   </dl>
-                </div>
+                </section>
 
-                {/* Recent uploads */}
-                <div className={`rounded-xl border p-5 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
-                  <h3 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {/* Recent uploads — open section */}
+                <section>
+                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                     Recent Theses in Repository
                   </h3>
                   {uploadsLoading ? (
@@ -371,7 +366,7 @@ export default function ProfilePage() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </section>
               </div>
             )}
 
@@ -463,7 +458,7 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

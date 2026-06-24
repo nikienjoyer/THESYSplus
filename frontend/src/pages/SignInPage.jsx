@@ -90,12 +90,8 @@ export default function SignInPage() {
           </Alert>
         )}
 
-        {/* Sign-in card */}
-        <div className={`rounded-2xl border p-6 sm:p-8 ${
-          isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200 shadow-sm'
-        }`}>
-          <SignInCard onSubmit={handleSubmit} error={error} isLoading={isLoading} />
-        </div>
+        {/* Sign-in form — flat on the auth background, no nested frame */}
+        <SignInCard onSubmit={handleSubmit} error={error} isLoading={isLoading} />
 
         {/* Footer — all internal links use <Link> to avoid full reloads */}
         <div className="mt-5 flex flex-col items-center gap-2">

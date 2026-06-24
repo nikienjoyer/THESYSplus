@@ -28,6 +28,8 @@ import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { Badge } from '../components/shadcn/badge';
 import { CHART_PALETTE } from '../styles/tokens';
 
@@ -272,18 +274,18 @@ function CountsBarChart({ clusters, isDark }) {
 
 function StatCard({ label, value, sublabel, isDark, accent }) {
   return (
-    <div className="thesys-panel">
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-        {label}
-      </div>
+    <div>
       <div
-        className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}
+        className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
         style={accent ? { color: accent } : undefined}
       >
         {value}
       </div>
+      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        {label}
+      </div>
       {sublabel && (
-        <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
           {sublabel}
         </div>
       )}
@@ -436,18 +438,15 @@ export default function TrendAnalysisPage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="trends" breadcrumb="Trend Analysis" />
+      <AppNavbar activePage="trends" />
 
-      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div className="mb-6">
-          <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Topic Trend Analysis
-          </h1>
+        <PageHeader title="Topic Trend Analysis">
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             AI-assisted topic clustering and trend identification using TF-IDF + K-Means.
           </p>
-        </div>
+        </PageHeader>
 
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (
@@ -493,8 +492,8 @@ export default function TrendAnalysisPage() {
           </div>
         ) : data ? (
           <>
-            {/* ── Stat cards ───────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            {/* ── Stat metrics — open, de-boxed ────────────────────── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 mb-12">
               <StatCard
                 label="Total Theses"
                 value={data.total_theses}
@@ -510,25 +509,25 @@ export default function TrendAnalysisPage() {
               <StatCard
                 label="Saturated"
                 value={data.saturated_count}
-                sublabel="≥ 5 studies"
+                sublabel="High relative volume"
                 isDark={isDark}
                 accent={isDark ? '#f87171' : '#e11d48'}
               />
               <StatCard
                 label="Underexplored"
                 value={data.underexplored_count}
-                sublabel="Single study"
+                sublabel="Low relative volume"
                 isDark={isDark}
                 accent={isDark ? '#34d399' : '#059669'}
               />
             </div>
 
-            {/* ── Charts row ───────────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              <div className="thesys-panel">
-                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            {/* ── Charts row — open on canvas ──────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-12 mb-12">
+              <section>
+                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                   Topic Distribution
-                </div>
+                </h2>
                 <DoughnutChart segments={doughnutSegments} isDark={isDark} />
                 <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 justify-center">
                   {doughnutSegments.map((s) => (
@@ -547,14 +546,14 @@ export default function TrendAnalysisPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              <div className="thesys-panel lg:col-span-2">
-                <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <section className="lg:col-span-2">
+                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                   Theses per Topic
-                </div>
+                </h2>
                 <CountsBarChart clusters={data.clusters} isDark={isDark} />
-              </div>
+              </section>
             </div>
 
             {/* ── Cluster cards ────────────────────────────────────── */}
@@ -579,8 +578,8 @@ export default function TrendAnalysisPage() {
             </div>
 
             {/* ── How this works ───────────────────────────────────── */}
-            <div className="thesys-panel">
-              <h3 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <section>
+              <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                 How this works
               </h3>
               <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -592,14 +591,17 @@ export default function TrendAnalysisPage() {
                 centroid become the surfaced keywords.
               </p>
               <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <li>🔴 <strong>Saturated</strong> — 5 or more studies in a cluster (well-explored research area)</li>
-                <li>🟡 <strong>Emerging</strong> — 2–4 studies (active but not yet saturated)</li>
-                <li>🟢 <strong>Underexplored</strong> — single study (potential research gap)</li>
+                <li>🔴 <strong>Saturated</strong> — High volume (≥ 1.5x average cluster size; well-explored research area)</li>
+                <li>🟡 <strong>Emerging</strong> — Active volume (near average cluster size; growing area)</li>
+                <li>🟢 <strong>Underexplored</strong> — Low volume (≤ 0.5x average cluster size; potential research gap)</li>
               </ul>
-            </div>
+              <p className={`text-xs italic mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Note: Thresholds scale dynamically based on the total repository volume.
+              </p>
+            </section>
           </>
         ) : null}
-      </main>
+      </PageShell>
     </div>
   );
 }

@@ -12,7 +12,6 @@
  */
 
 import { useState } from 'react';
-import { Search } from 'lucide-react';
 import Spinner from '../ui/Spinner';
 
 // Must match backend: digits-only local part, apex domain only.
@@ -105,18 +104,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
   const canSubmit = firstName && lastName && email && !emailErr && doc && !docErr && agreed && !isLoading;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4">
-
-      {/* Validation info card */}
-      <div className={`rounded-xl border p-4 flex gap-3 ${
-        isDark ? 'bg-blue-500/[0.07] border-blue-500/20' : 'bg-blue-50 border-blue-100'
-      }`}>
-        <Search className="w-5 h-5 flex-shrink-0 mt-0.5 text-primary" aria-hidden="true" />
-        <p className={`text-xs leading-relaxed ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-          THESYS+ verifies your <strong>PampangaStateU email</strong>, <strong>university identity</strong>,
-          and <strong>CCS/program eligibility</strong> from your uploaded document before account activation.
-        </p>
-      </div>
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
       {/* Name row */}
       <div className="grid grid-cols-2 gap-3">
@@ -152,12 +140,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
           aria-invalid={!!emailErr}
           className={`${inputCls} ${emailErr ? (isDark ? 'border-rose-500/50' : 'border-rose-400') : ''}`}
         />
-        {emailErr
-          ? <p className={errCls}>{emailErr}</p>
-          : <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-              Use your PampangaStateU student number: studentnumber@pampangastateu.edu.ph
-            </p>
-        }
+        {emailErr && <p className={errCls}>{emailErr}</p>}
       </div>
 
       {/* Role */}
@@ -186,6 +169,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
         </label>
         <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
           Upload a clear PampangaStateU Student ID or Certificate of Registration.
+          <br />
           Accepted: PNG · JPG · PDF · max 10 MB
         </p>
 
@@ -275,13 +259,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
             {' '}of THESYS+.
           </span>
         </label>
-        {agreedErr ? (
-          <p className={errCls}>{agreedErr}</p>
-        ) : (
-          <p className={`text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-            Your PampangaStateU institutional email and uploaded document will be used only for account verification and eligibility review.
-          </p>
-        )}
+        {agreedErr && <p className={errCls}>{agreedErr}</p>}
       </div>
 
       {/* Server error */}

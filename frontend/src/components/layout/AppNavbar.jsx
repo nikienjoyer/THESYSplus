@@ -31,6 +31,7 @@ import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
+import { useUploadModal } from '../../hooks/useUploadModal';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import { Avatar, AvatarImage, AvatarFallback } from '../shadcn/avatar';
 import ThesysLogo from '../brand/ThesysLogo';
@@ -197,6 +198,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
 export default function AppNavbar({ activePage = '', breadcrumb = null }) {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
+  const { open: openUpload } = useUploadModal();
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -297,12 +299,13 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
 
           {/* COL 3 — Actions */}
           <div className="flex items-center gap-2 justify-end">
-            <Link
-              to="/upload"
+            <button
+              type="button"
+              onClick={openUpload}
               className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               Upload Thesis
-            </Link>
+            </button>
             <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
             <button
               type="button"
@@ -380,13 +383,13 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
                 })}
               </ul>
 
-              <Link
-                to="/upload"
-                onClick={() => setMobileMenuOpen(false)}
+              <button
+                type="button"
+                onClick={() => { setMobileMenuOpen(false); openUpload(); }}
                 className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors"
               >
                 Upload Thesis
-              </Link>
+              </button>
             </nav>
           </div>
         </div>,

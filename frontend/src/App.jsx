@@ -27,13 +27,14 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import RepositoryPage from './pages/RepositoryPage';
 import ThesisDetailPage from './pages/ThesisDetailPage';
-import UploadThesisPage from './pages/UploadThesisPage';
 import TitleSimilarityPage from './pages/TitleSimilarityPage';
 import TrendAnalysisPage from './pages/TrendAnalysisPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import { UploadModalProvider } from './context/UploadModalContext';
+import UploadThesisModal from './components/upload/UploadThesisModal';
 
 // ---------------------------------------------------------------------------
 // NotFound — minimal 404 page for unmatched routes
@@ -91,34 +92,38 @@ export default function App() {
   return (
     <BrowserRouter>
       <TooltipProvider delayDuration={300}>
-        <Routes>
-          {/* Public landing */}
-          <Route path="/" element={<LandingPage />} />
+        <UploadModalProvider>
+          <Routes>
+            {/* Public landing */}
+            <Route path="/" element={<LandingPage />} />
 
-          {/* All auth/public pages share AuthLayout (one header, one background) */}
-          <Route element={<AuthLayout />}>
-            <Route path="/sign-in"        element={<SignInPage />} />
-            <Route path="/request-access" element={<RequestAccessPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/verify-email"   element={<VerifyEmailPage />} />
-          </Route>
+            {/* All auth/public pages share AuthLayout (one header, one background) */}
+            <Route element={<AuthLayout />}>
+              <Route path="/sign-in"        element={<SignInPage />} />
+              <Route path="/request-access" element={<RequestAccessPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email"   element={<VerifyEmailPage />} />
+            </Route>
 
-          {/* Protected pages — ProtectedRoute handles auth gate for all children */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/repository" element={<RepositoryPage />} />
-            <Route path="/repository/:id" element={<ThesisDetailPage />} />
-            <Route path="/upload" element={<UploadThesisPage />} />
-            <Route path="/title-similarity" element={<TitleSimilarityPage />} />
-            <Route path="/trend-analysis" element={<TrendAnalysisPage />} />
-            <Route path="/analytics" element={<AnalyticsDashboardPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
+            {/* Protected pages — ProtectedRoute handles auth gate for all children */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/repository" element={<RepositoryPage />} />
+              <Route path="/repository/:id" element={<ThesisDetailPage />} />
+              <Route path="/title-similarity" element={<TitleSimilarityPage />} />
+              <Route path="/trend-analysis" element={<TrendAnalysisPage />} />
+              <Route path="/analytics" element={<AnalyticsDashboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
 
-          {/* Catch-all — redirect unknown paths to home */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Catch-all — redirect unknown paths to home */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+
+          {/* Global Upload Thesis overlay — triggered from any navbar button */}
+          <UploadThesisModal />
+        </UploadModalProvider>
       </TooltipProvider>
     </BrowserRouter>
   );

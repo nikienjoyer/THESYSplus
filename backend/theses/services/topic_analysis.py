@@ -47,6 +47,13 @@ KEYWORDS_PER_CLUSTER = 6
 TREND_SATURATED_MIN = 5     # ≥ this → SATURATED
 TREND_EMERGING_MIN = 2      # 2..(SATURATED_MIN-1) → EMERGING; below → UNDEREXPLORED
 
+# Dynamic (mean-relative) scaling — used once the corpus is large enough that
+# relative cluster sizes carry signal. Below TREND_DYNAMIC_MIN_CORPUS theses
+# the static thresholds above are used instead (cold-start fallback).
+TREND_DYNAMIC_MIN_CORPUS = 15   # total theses needed to switch to dynamic mode
+TREND_SATURATED_FACTOR = 1.5    # ≥ average_size * this → SATURATED
+TREND_UNDEREXPLORED_FACTOR = 0.5  # ≤ average_size * this → UNDEREXPLORED
+
 CLASS_SATURATED = 'SATURATED'
 CLASS_EMERGING = 'EMERGING'
 CLASS_UNDEREXPLORED = 'UNDEREXPLORED'
@@ -108,13 +115,37 @@ def _label_cluster(top_keywords: Sequence[str]) -> str:
     return top.title() if top else 'General Research'
 
 
-def _classify_trend(thesis_count: int) -> str:
-    """Map a cluster size to a trend classification."""
-    if thesis_count >= TREND_SATURATED_MIN:
+def _classify_trend(thesis_count: int, average_size: float, total_theses: int) -> str:
+    """Map a cluster size to a trend classification.
+
+    Two regimes:
+
+    * **Cold-start fallback** (``total_theses < 15``): the corpus is too small
+      for relative statistics to be meaningful, so fall back to the original
+      fixed thresholds (``>= 5`` SATURATED, ``>= 2`` EMERGING, else
+      UNDEREXPLORED).
+
+    * **Dynamic mean-relative scaling** (``total_theses >= 15``): classify each
+      cluster against the average cluster size so the model scales with the
+      repository:
+        - SATURATED      ``thesis_count >= average_size * 1.5``
+        - UNDEREXPLORED  ``thesis_count <= average_size * 0.5``
+        - EMERGING       everything in between
+    """
+    # Cold-start fallback — small corpus uses the original static rules
+    if total_theses < TREND_DYNAMIC_MIN_CORPUS:
+        if thesis_count >= TREND_SATURATED_MIN:
+            return CLASS_SATURATED
+        if thesis_count >= TREND_EMERGING_MIN:
+            return CLASS_EMERGING
+        return CLASS_UNDEREXPLORED
+
+    # Dynamic mean-relative scaling for larger corpora
+    if thesis_count >= average_size * TREND_SATURATED_FACTOR:
         return CLASS_SATURATED
-    if thesis_count >= TREND_EMERGING_MIN:
-        return CLASS_EMERGING
-    return CLASS_UNDEREXPLORED
+    if thesis_count <= average_size * TREND_UNDEREXPLORED_FACTOR:
+        return CLASS_UNDEREXPLORED
+    return CLASS_EMERGING
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +272,7 @@ def analyze_topics(
         cluster = TopicCluster(
             cluster_id=0,
             topic=topic,
-            trend=_classify_trend(1),
+            trend=_classify_trend(1, average_size=1.0, total_theses=1),
             thesis_count=1,
             keywords=keywords,
             sample_titles=[metadata[0][1]],
@@ -315,6 +346,14 @@ def analyze_topics(
         reverse=True,
     )
 
+    # Pre-compute corpus-wide context for mean-relative trend scaling.
+    # total_theses = sum of all clustered theses; average_size = mean cluster size.
+    total_clustered_theses = sum(len(v) for v in doc_indices_by_cluster.values())
+    num_clusters = len(sorted_cluster_ids)
+    average_cluster_size = (
+        total_clustered_theses / num_clusters if num_clusters else 0.0
+    )
+
     for cluster_id in sorted_cluster_ids:
         member_indices = doc_indices_by_cluster[cluster_id]
         thesis_count = len(member_indices)
@@ -335,7 +374,11 @@ def analyze_topics(
                 break
 
         topic = _label_cluster(keywords)
-        trend = _classify_trend(thesis_count)
+        trend = _classify_trend(
+            thesis_count,
+            average_size=average_cluster_size,
+            total_theses=total_clustered_theses,
+        )
         if trend == CLASS_SATURATED:
             saturated += 1
         elif trend == CLASS_EMERGING:

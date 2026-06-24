@@ -32,6 +32,8 @@ import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
 import { CHART_PALETTE } from '../styles/tokens';
 
@@ -136,8 +138,14 @@ function YearBarChart({ data, isDark }) {
 // ---------------------------------------------------------------------------
 function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
   const card = (
-    <div className="thesys-panel">
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+    <div>
+      <div
+        className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
+        style={accent ? { color: accent } : undefined}
+      >
+        {value ?? '—'}
+      </div>
+      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
         {tooltipText && (
           <svg className="w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -145,14 +153,8 @@ function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
           </svg>
         )}
       </div>
-      <div
-        className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}
-        style={accent ? { color: accent } : undefined}
-      >
-        {value ?? '—'}
-      </div>
       {sublabel && (
-        <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{sublabel}</div>
+        <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{sublabel}</div>
       )}
     </div>
   );
@@ -285,24 +287,21 @@ export default function AnalyticsDashboardPage() {
     count: k.count,
   }));
 
-  const sectionCls = null; // replaced by shadcn Card below
-  const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
+  // Open data-block header: text-sm semibold + thin hairline rule beneath
+  const sectionHeader = `text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`;
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="analytics" breadcrumb="Analytics" />
+      <AppNavbar activePage="analytics" />
 
-      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
 
         {/* Header */}
-        <div className="mb-6">
-          <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Repository Analytics
-          </h1>
+        <PageHeader title="Repository Analytics">
           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             Repository intelligence — counts, distributions, and growth insights.
           </p>
-        </div>
+        </PageHeader>
 
         {/* Loading */}
         {loading && (
@@ -356,10 +355,10 @@ export default function AnalyticsDashboardPage() {
 
         {/* Dashboard content */}
         {!loading && !error && data && data.total_theses > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-12">
 
-            {/* ── Section 1: Overview cards ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            {/* ── Section 1: Overview metrics — open, de-boxed ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6">
               <StatCard
                 label="Total Theses"
                 value={data.total_theses}
@@ -406,28 +405,28 @@ export default function AnalyticsDashboardPage() {
               )}
             </div>
 
-            {/* ── Section 2 + 3: Charts row ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="thesys-panel">
-                <p className={sectionTitle}>Research by Program</p>
+            {/* ── Section 2 + 3: Charts row — open on canvas ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-12">
+              <section>
+                <h2 className={sectionHeader}>Research by Program</h2>
                 <HBarChart
                   data={programDist}
                   keyField="program"
                   valueField="count"
                   isDark={isDark}
                 />
-              </div>
+              </section>
 
-              <div className="thesys-panel">
-                <p className={sectionTitle}>Research Growth by Year</p>
+              <section>
+                <h2 className={sectionHeader}>Research Growth by Year</h2>
                 <YearBarChart data={data.thesis_growth} isDark={isDark} />
-              </div>
+              </section>
             </div>
 
             {/* ── Section 4: Top keywords ── */}
             {keywordData.length > 0 && (
-              <div className="thesys-panel">
-                <p className={sectionTitle}>Top Keywords (from thesis metadata)</p>
+              <section>
+                <h2 className={sectionHeader}>Top Keywords (from thesis metadata)</h2>
                 <HBarChart
                   data={keywordData}
                   keyField="keyword"
@@ -435,12 +434,12 @@ export default function AnalyticsDashboardPage() {
                   isDark={isDark}
                   maxBars={10}
                 />
-              </div>
+              </section>
             )}
 
             {/* ── Section 5: Trend summary ── */}
-            <div className="thesys-panel">
-              <p className={sectionTitle}>Topic Trend Summary</p>
+            <section>
+              <h2 className={sectionHeader}>Topic Trend Summary</h2>
               <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Derived from TF-IDF + K-Means clustering.{' '}
                 <Link
@@ -451,11 +450,11 @@ export default function AnalyticsDashboardPage() {
                 </Link>
               </p>
               <TrendSummary summary={data.topic_summary} isDark={isDark} />
-            </div>
+            </section>
 
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

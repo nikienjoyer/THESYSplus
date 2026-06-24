@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Search, TriangleAlert, ClipboardList, Lock } from 'lucide-react';
+import { Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
@@ -218,8 +218,8 @@ export default function RequestAccessPage() {
         {/* Progress stepper */}
         <ProgressStepper step={stepperStep} isDark={isDark} />
 
-        {/* Card */}
-        <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
+        {/* Form / decision result — flat on the auth background, no nested frame */}
+        <div>
           {decision ? (
             /* ── Decision result ── */
             (() => {
@@ -270,11 +270,6 @@ export default function RequestAccessPage() {
               <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Request Account Access
               </h2>
-              {/* Trust cue */}
-              <p className={`text-xs mb-5 flex items-center gap-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-                Only PampangaStateU CCS students can request access.
-              </p>
               <RequestAccessForm
                 onSubmit={handleSubmit}
                 error={error}

@@ -25,6 +25,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
 import { AvatarDropdown } from '../components/layout/AppNavbar';
+import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
@@ -82,6 +83,7 @@ const FEATURES = [
 export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
   const { isAuthenticated, isInitializing, user, signOut } = useAuth();
+  const { open: openUpload } = useUploadModal();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery]   = useState('');
   const [thesisCount, setThesisCount]   = useState(null);
@@ -230,9 +232,9 @@ export default function LandingPage() {
           <div className="flex items-center gap-2 justify-end">
             {!isInitializing && isAuthenticated && (
               <>
-                <Link to="/upload" className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                   Upload Thesis
-                </Link>
+                </button>
                 <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
@@ -282,7 +284,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               {!isInitializing && isAuthenticated
-                ? <Link to="/upload" onClick={() => setMobileMenuOpen(false)} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">Upload Thesis</Link>
+                ? <button type="button" onClick={() => { setMobileMenuOpen(false); openUpload(); }} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">Upload Thesis</button>
                 : <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">Sign In</Link>
               }
             </nav>
@@ -498,14 +500,9 @@ export default function LandingPage() {
           <h2 className={`text-center text-base font-semibold tracking-wide mb-8 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             Research tools built for CCS
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {FEATURES.map(({ icon: Icon, iconBg, iconColor, title, desc, to, linkLabel }) => (
-              <div key={title}
-                className={`rounded-xl p-5 border flex flex-col gap-3 ${
-                  isDark
-                    ? 'bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.06]'
-                    : 'bg-white border-gray-200 shadow-sm hover:shadow-md'
-                } transition-shadow duration-200`}>
+              <div key={title} className="flex flex-col gap-3">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? iconBg.dark : iconBg.light}`}>
                   <Icon className={`w-5 h-5 ${isDark ? iconColor.dark : iconColor.light}`} aria-hidden="true" />
                 </div>

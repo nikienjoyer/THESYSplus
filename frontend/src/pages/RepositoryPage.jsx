@@ -23,6 +23,7 @@ import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
+import PageShell from '../components/layout/PageShell';
 import SimilaritySlider from '../components/ui/SimilaritySlider';
 import { Badge } from '../components/shadcn/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
@@ -368,9 +369,9 @@ export default function RepositoryPage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="repository" breadcrumb="Repository" />
+      <AppNavbar activePage="repository" />
 
-      <main className="max-w-6xl mx-auto px-5 sm:px-10 py-8">
+      <PageShell>
 
         {/* Page heading */}
         <div className="mb-6">
@@ -636,7 +637,7 @@ export default function RepositoryPage() {
           </>
         )}
 
-      </main>
+      </PageShell>
     </div>
   );
 }
