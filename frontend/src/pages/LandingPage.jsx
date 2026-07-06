@@ -458,13 +458,13 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <div className={`text-2xl font-bold leading-none ${isDark ? 'text-primary' : 'text-primary'}`}>
-                    2024 – 2025
+                    2023 – 2025
                   </div>
                   <div className={`text-xs font-semibold mt-0.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     Corpus Coverage
                   </div>
                   <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Theses from SY 2024 to SY 2025
+                    Theses from SY 2023 to SY 2025
                   </div>
                 </div>
               </div>
