@@ -1,0 +1,471 @@
+@import './styles/tokens.css';
+/* Phase 2.C-1: Inter Variable — Latin subset, weight 100-900, font-display:swap
+   Source: @fontsource-variable/inter (SIL OFL 1.1 license)
+   The package ships subsetted woff2 files per unicode-range, so only
+   Latin glyphs load. Vite copies the woff2 assets to dist at build time. */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/inter/wght-italic.css';
+/* Phase 2.C-2: Source Serif 4 Variable — Latin subset, weight 200-900, font-display:swap
+   Source: @fontsource-variable/source-serif-4 (SIL OFL 1.1 license)
+   Scoped to long-form reading surfaces ONLY: thesis abstract and legal prose.
+   Do NOT apply to navigation, forms, buttons, tables, or any UI chrome.
+   Using wght variant (50 KB Latin) — opsz variant (119 KB) excluded for performance. */
+@import '@fontsource-variable/source-serif-4/wght.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── shadcn/ui CSS variables ──────────────────────────────────────────────
+   Light / dark mode palette for shadcn components, calibrated to THESYS+.
+   ─────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    /* Phase 2.B: primary updated from blue-600 (221 83% 53%) to ink-blue (#1e40af)
+       HSL: hsl(226, 71%, 40%) — verified via hex conversion
+       Contrast verified: #1e40af on white = 8.72:1 AA */
+    --primary: 226 71% 40%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 263 70% 55%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 226 71% 40%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 228 51% 14%;
+    --foreground: 213 31% 91%;
+    --card: 228 39% 18%;
+    --card-foreground: 213 31% 91%;
+    --popover: 228 39% 18%;
+    --popover-foreground: 213 31% 91%;
+    /* Phase 2.B: dark primary stays #60a5fa (213 97% 69%) — unchanged, 7.55:1 AA on navy */
+    --primary: 213 97% 69%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 47% 22%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 222 47% 20%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 263 70% 55%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 222 47% 22%;
+    --input: 222 47% 22%;
+    --ring: 213 97% 69%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    /* Phase 2.C-1: Inter Variable as the UI font.
+       font-sans is wired to 'Inter Variable' in tailwind.config.js.
+       font-feature-settings enables tabular numerals (already used via
+       Tailwind's tabular-nums utility) at the base level. */
+    font-family: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'tnum' 0;   /* off by default — enabled via tabular-nums utility */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+
+/* ── THESYS+ Polish Layer ─────────────────────────────────────────────────
+   Component-level visual polish added as @layer components so they can
+   be overridden by utilities and keep specificity clean.
+   ─────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+
+  /* ══════════════════════════════════════════════════════════════════
+   * Phase 1.2 — Consolidated surface primitive: .thesys-surface
+   *
+   * ONE canonical surface class replaces the confusing .thesys-card /
+   * .thesys-panel split. Both old class names are kept as aliases below
+   * so existing page JSX continues to compile without any page edits.
+   *
+   * Semantic rule:
+   *   .thesys-surface   — base class (no default padding — add p-* via utility)
+   *   .thesys-card      — alias for .thesys-surface  (backward compat)
+   *   .thesys-panel     — alias for .thesys-surface + p-5 default padding
+   *   .thesys-card-lift — modifier: hover float animation on interactive surfaces
+   *
+   * Colors now read from tokens.css Tier 2 semantic variables so a single
+   * edit to tokens.css updates all surfaces at once.
+   * ══════════════════════════════════════════════════════════════════ */
+
+  /* ── Canonical surface primitive ─────────────────────────────────── */
+  .thesys-surface {
+    border-radius: 0.75rem;           /* rounded-xl */
+    border-width: 1px;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    transition-property: transform, box-shadow, border-color, background-color;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  :root .thesys-surface {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.03);
+  }
+  .dark .thesys-surface {
+    box-shadow: none;
+  }
+
+  /* ── .thesys-card — alias for .thesys-surface (no default padding) ── */
+  .thesys-card {
+    border-radius: 0.75rem;
+    border-width: 1px;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    transition-property: transform, box-shadow, border-color, background-color;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  :root .thesys-card {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.03);
+  }
+  .dark .thesys-card {
+    box-shadow: none;
+  }
+
+  /* ── .thesys-card-lift — hover float on interactive cards ─────────── */
+  .thesys-card-lift {
+    cursor: pointer;
+  }
+  :root .thesys-card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+    border-color: var(--color-border-strong);
+  }
+  .dark .thesys-card-lift:hover {
+    transform: translateY(-2px);
+    background-color: rgba(255 255 255 / 0.055);
+    border-color: var(--color-border-strong);
+    box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.4);
+  }
+
+  /* ── .thesys-panel — alias with 1.25rem default padding ──────────── */
+  /* Semantically: a data/chart container. Same surface, padded by default. */
+  .thesys-panel {
+    border-radius: 0.75rem;
+    border-width: 1px;
+    padding: 1.25rem;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+  }
+  :root .thesys-panel {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+  }
+  .dark .thesys-panel {
+    box-shadow: none;
+  }
+
+  /* ── Primary button — consistent hover + focus ring ──────────────── */
+  .thesys-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: var(--color-primary);
+    transition-property: background-color, box-shadow, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+  }
+  .thesys-btn-primary:hover {
+    background-color: var(--color-primary-hover);
+    box-shadow: 0 4px 12px -2px rgb(37 99 235 / 0.4);
+  }
+  .thesys-btn-primary:active {
+    transform: scale(0.98);
+  }
+  .thesys-btn-primary:focus-visible {
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.4);
+  }
+
+  /* ── Skeleton shimmer — replaces flat pulse for data-loading states ─ */
+  .thesys-skeleton {
+    border-radius: 0.375rem;
+    background-size: 400% 100%;
+  }
+  :root .thesys-skeleton {
+    background-image: linear-gradient(
+      90deg,
+      var(--th-slate-100) 25%,
+      var(--th-slate-200) 37%,
+      var(--th-slate-100) 63%
+    );
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  .dark .thesys-skeleton {
+    background-image: linear-gradient(
+      90deg,
+      rgba(255 255 255 / 0.05) 25%,
+      rgba(255 255 255 / 0.09) 37%,
+      rgba(255 255 255 / 0.05) 63%
+    );
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  /* ── Nav active link indicator ─────────────────────────────────────── */
+  .thesys-nav-link {
+    position: relative;
+    padding-bottom: 2px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 150ms ease;
+    outline: none;
+  }
+  .thesys-nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 9999px;
+    background-color: var(--color-primary);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .thesys-nav-link.active::after,
+  .thesys-nav-link[aria-current='page']::after {
+    transform: scaleX(1);
+  }
+  .thesys-nav-link:focus-visible {
+    outline: 2px solid rgb(59 130 246 / 0.5);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* ── Badge / chip — canonical pill primitive ───────────────────────
+   *
+   * Phase 1.3 — Chip standardization:
+   *   .thesys-chip  is the CSS-class chip primitive.
+   *   <Badge>       (shadcn/badge.jsx) is the React chip primitive.
+   *   Both share the same visual spec; use <Badge> in JSX, .thesys-chip
+   *   in plain HTML contexts or when shadcn is not available.
+   *
+   * Status variants via modifier classes:
+   *   .thesys-chip--success  (emerald — approved / safe / underexplored)
+   *   .thesys-chip--warning  (amber  — pending / emerging / balanced)
+   *   .thesys-chip--danger   (rose   — rejected / risk / saturated)
+   *   .thesys-chip--info     (blue   — informational / broad / keyword)
+   *   .thesys-chip--muted    (gray   — neutral / secondary)
+   * ─────────────────────────────────────────────────────────────────── */
+  .thesys-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;     /* 12px — matches Badge text-xs */
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--color-border);
+    background-color: var(--color-surface-secondary);
+    color: var(--color-text-body);
+    white-space: nowrap;
+    transition: opacity 120ms ease;
+  }
+
+  /* Status variants — map to the status quartet tokens */
+  .thesys-chip--success {
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-border);
+    color: var(--color-success-text);
+  }
+  .thesys-chip--warning {
+    background-color: var(--color-warning-bg);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning-text);
+  }
+  .thesys-chip--danger {
+    background-color: var(--color-danger-bg);
+    border-color: var(--color-danger-border);
+    color: var(--color-danger-text);
+  }
+  .thesys-chip--info {
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-border);
+    color: var(--color-info-text);
+  }
+  .thesys-chip--muted {
+    background-color: transparent;
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
+  }
+
+  /* ── Empty state container ─────────────────────────────────────────── */
+  .thesys-empty {
+    border-radius: 0.75rem;
+    padding: 3rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  /* ── Reading typography (Phase 2.C-2) ────────────────────────────────
+   * Source Serif 4 is applied via the font-reading Tailwind utility.
+   * Headings WITHIN a reading container revert to the UI font (Inter) so
+   * the contrast-axis pairing is maintained: serif body, sans headings.
+   * This rule is intentionally narrow — it only affects headings that are
+   * children of an element carrying Tailwind's font-reading class.
+   * ─────────────────────────────────────────────────────────────────── */
+  .font-reading h1,
+  .font-reading h2,
+  .font-reading h3,
+  .font-reading h4,
+  .font-reading h5,
+  .font-reading h6 {
+    font-family: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  .thesys-dropdown {
+    border-radius: 0.75rem;
+    padding: 0.25rem 0;
+    border-width: 1px;
+    background-color: var(--color-surface-elevated);
+    border-color: var(--color-border);
+    animation: fade-in 0.15s ease-out forwards;
+    transform-origin: top right;
+  }
+  :root .thesys-dropdown {
+    box-shadow: 0 8px 30px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.08);
+  }
+  .dark .thesys-dropdown {
+    box-shadow: 0 8px 30px -4px rgb(0 0 0 / 0.6);
+  }
+
+}
+
+
+/* ── SimilaritySlider cross-browser thumb ─────────────────────────────────
+   Cross-browser range thumb polish.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* Webkit (Chrome, Safari, Edge) */
+.similarity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid currentColor;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(59, 130, 246, 0.0);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.similarity-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+.similarity-slider::-webkit-slider-thumb:active {
+  transform: scale(1.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(59, 130, 246, 0.35);
+}
+
+/* Firefox */
+.similarity-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid currentColor;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.similarity-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+.similarity-slider::-moz-range-track {
+  border: none;
+}
+.similarity-slider::-moz-focus-outer {
+  border: 0;
+}
+
+
+/* ── Toast entrance (Global Feedback) ──────────────────────────────────────
+   Slide-in + fade from the top edge. Suppressed for reduced-motion users,
+   who get an instant appearance instead. */
+@keyframes thesys-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.thesys-toast-enter {
+  animation: thesys-toast-in 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .thesys-toast-enter {
+    animation: none;
+  }
+}
+
+
+/* ── Entrance motion (Step 4: Motion & Fluidity) ───────────────────────────
+   Token-driven, transform/opacity only (no layout-property animation).
+   200ms with the standard ease-out curve. All suppressed under
+   prefers-reduced-motion below. */
+@keyframes thesys-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes thesys-modal-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes thesys-drawer-in {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.thesys-overlay-enter { animation: thesys-fade-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+.thesys-modal-enter   { animation: thesys-modal-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+.thesys-drawer-enter  { animation: thesys-drawer-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .thesys-overlay-enter,
+  .thesys-modal-enter,
+  .thesys-drawer-enter,
+  .thesys-toast-enter {
+    animation: none;
+  }
+  /* Drop the hover lift for motion-sensitive users; keep the shadow/border cue */
+  .thesys-card-lift:hover {
+    transform: none;
+  }
+}
