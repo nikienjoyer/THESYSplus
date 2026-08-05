@@ -1,0 +1,53 @@
+# THESYS+ Authentication Module — Foundation Phase backend dependencies
+# Pin all versions exactly to ensure reproducible builds.
+# See .kiro/specs/thesys-authentication/tasks.md (Task 2.1) for scope.
+
+# Core framework
+Django==5.0.9
+djangorestframework==3.15.2
+
+# CORS for the React dev server
+django-cors-headers==4.4.0
+
+# PostgreSQL driver (psycopg 3 with binary wheels)
+psycopg[binary]==3.2.3
+
+# Environment-driven settings
+django-environ==0.11.2
+
+# Password hashing — listed for later phase (Argon2id per Requirement 8.1).
+# NOT yet wired into PASSWORD_HASHERS in this Foundation Phase.
+argon2-cffi==23.1.0
+
+# JWT (HS256 access tokens) — Wave A2
+PyJWT==2.9.0
+
+# Property-based testing (Wave A2 + later) — hypothesis runs the property
+# tests under ``backend/tests/property/``. pytest + pytest-django are the
+# runner; the smoke / unit suites that arrive in later waves use them too.
+hypothesis==6.114.0
+pytest==8.3.3
+pytest-django==4.9.0
+
+# File validation and sanitization (MVP-2: Identity Verification)
+# Note: Using manual magic byte detection for cross-platform compatibility
+Pillow==10.4.0
+pikepdf==9.4.2
+
+# OCR extraction (MVP-3: Identity Verification)
+pytesseract==0.3.13
+pdf2image==1.17.0
+
+# Fuzzy string matching for OCR-tolerant institution validation (MVP-4 bugfix)
+rapidfuzz==3.9.7
+
+# Thesis text extraction (Phase 1 — Repository Foundation)
+# pypdf for machine-readable PDFs; python-docx for DOCX. Tesseract (already
+# installed for identity verification) is reused as fallback for scanned PDFs.
+pypdf==5.1.0
+python-docx==1.1.2
+
+# SBERT semantic search (Phase 2A — AI core)
+# sentence-transformers loads the all-MiniLM-L6-v2 model (~90 MB, CPU-friendly).
+# torch, numpy, scikit-learn arrive transitively.
+sentence-transformers==3.3.1

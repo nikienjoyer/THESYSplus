@@ -1,0 +1,28 @@
+# Optional Postgres stack for the THESYS+ Authentication Module Foundation Phase.
+# Contributors who already run PostgreSQL 14+ locally can ignore this file.
+# Bring the database up with:  docker compose up -d postgres
+# Tear it down with:           docker compose down -v   (removes the named volume)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: thesys-postgres
+    restart: unless-stopped
+    environment:
+      # These match backend/.env.example so ``DATABASE_URL`` works out of the box.
+      POSTGRES_USER: ${POSTGRES_USER:-thesys}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-thesys}
+      POSTGRES_DB: ${POSTGRES_DB:-thesys}
+    ports:
+      - "5432:5432"
+    volumes:
+      - thesys-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-thesys} -d ${POSTGRES_DB:-thesys}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  thesys-postgres-data:
+    name: thesys-postgres-data
