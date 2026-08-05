@@ -168,3 +168,77 @@ class ResetPasswordView(APIView):
 
         del outcome  # outcome metadata already audited inside consume_reset_token
         return Response({'status': 'ok'}, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# POST /setup-password — single-email account-activation flow
+# ---------------------------------------------------------------------------
+
+@method_decorator(require_origin_match, name='post')
+class SetupPasswordView(APIView):
+    """Complete first-time account setup from the "Set Up Your Account" email.
+
+    Shares ``consume_reset_token`` with ``ResetPasswordView`` (the token
+    row, validation, and password-set logic are identical) but is exposed
+    on its own route/response shape so the frontend's setup-account page
+    doesn't have to reason about the recovery flow's wording.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    @rate_limit_per_ip(limit=10, window_seconds=3600, error_code='RATE_LIMITED_IP')
+    @rate_limit_per_token(limit=5, window_seconds=900, error_code='RATE_LIMITED_RESET_PASSWORD')
+    def post(self, request, *args, **kwargs):
+        unknown = _reject_unknown_fields(request, allowed={'token', 'new_password'})
+        if unknown is not None:
+            return unknown
+
+        serializer = ResetPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            errors = serializer.errors
+            if 'new_password' in errors:
+                first = errors['new_password'][0]
+                code = getattr(first, 'code', 'VALIDATION_ERROR')
+                return make_error_response(
+                    code=str(code).upper(),
+                    message=str(first),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if 'token' in errors:
+                return make_error_response(
+                    code='INVALID_RESET_TOKEN',
+                    message='Setup token is missing or malformed.',
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return make_error_response(
+                code='VALIDATION_ERROR',
+                message='Setup-password payload is invalid.',
+                status=status.HTTP_400_BAD_REQUEST,
+                details=dict(errors),
+            )
+
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+
+        try:
+            outcome = consume_reset_token(token, new_password, request=request)
+        except ResetTokenInvalid:
+            audit_write(
+                'auth.password.reset_failed',
+                actor=None,
+                success=False,
+                metadata={'reason': 'invalid_or_expired_token', 'flow': 'account_setup'},
+                request=request,
+            )
+            return make_error_response(
+                code='INVALID_RESET_TOKEN',
+                message='Setup link is invalid or expired.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        del outcome  # outcome metadata already audited inside consume_reset_token
+        return Response(
+            {'message': 'Account activated successfully. You can now sign in.'},
+            status=status.HTTP_200_OK,
+        )

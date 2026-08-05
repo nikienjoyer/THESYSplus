@@ -2,7 +2,7 @@ Hi {{ first_name }},
 
 An administrator has approved your THESYS+ access request. Welcome.
 
-Click the link below to set your initial password and activate your
+Click the link below to set up your password and activate your
 account. The link is valid for 30 minutes.
 
 {{ reset_url }}

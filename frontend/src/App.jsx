@@ -25,8 +25,10 @@ import SignInPage from './pages/SignInPage';
 import RequestAccessPage from './pages/RequestAccessPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SetupAccountPage from './pages/SetupAccountPage';
 import RepositoryPage from './pages/RepositoryPage';
 import ThesisDetailPage from './pages/ThesisDetailPage';
+import PdfPreviewPage from './pages/PdfPreviewPage';
 import TitleSimilarityPage from './pages/TitleSimilarityPage';
 import TrendAnalysisPage from './pages/TrendAnalysisPage';
 import ProfilePage from './pages/ProfilePage';
@@ -103,6 +105,7 @@ export default function App() {
               <Route path="/request-access" element={<RequestAccessPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/setup-account"  element={<SetupAccountPage />} />
               <Route path="/verify-email"   element={<VerifyEmailPage />} />
             </Route>
 
@@ -110,6 +113,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/repository" element={<RepositoryPage />} />
               <Route path="/repository/:id" element={<ThesisDetailPage />} />
+              <Route path="/theses/:id/preview" element={<PdfPreviewPage />} />
               <Route path="/title-similarity" element={<TitleSimilarityPage />} />
               <Route path="/trend-analysis" element={<TrendAnalysisPage />} />
               <Route path="/analytics" element={<AnalyticsDashboardPage />} />

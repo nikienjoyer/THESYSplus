@@ -380,9 +380,10 @@ class VerifyEmailView(APIView):
     """Consume an email verification token and activate the user account.
 
     Called when the applicant clicks the link in their verification email.
-    On success, ``approve_request()`` is called (creates User + sends
-    set-password email).  The response is intentionally minimal so the
-    frontend can render the appropriate state.
+    On success, ``approve_request(..., send_email=False)`` creates the User
+    and issues a setup-password token WITHOUT emailing it — the plaintext
+    is returned as ``setup_token`` so the frontend can let the user set
+    their password inline on this same page, eliminating the second email.
     """
 
     authentication_classes: list = []
@@ -427,10 +428,8 @@ class VerifyEmailView(APIView):
             {
                 'verified': True,
                 'email': outcome.user.email,
-                'message': (
-                    'Email verified. Please check your inbox for '
-                    'instructions to set your password.'
-                ),
+                'setup_token': outcome.reset_token_plaintext,
+                'message': 'Email verified. Set your password to activate your account.',
             },
             status=status.HTTP_200_OK,
         )

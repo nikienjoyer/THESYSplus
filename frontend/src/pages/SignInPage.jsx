@@ -31,6 +31,8 @@ function getReasonBanner(reason) {
       return { message: 'Your session has expired. Please sign in again.', variant: 'info' };
     case 'password_set':
       return { message: 'Your password has been set successfully. You can now sign in.', variant: 'success' };
+    case 'account_setup':
+      return { message: 'Account activated successfully! Please sign in with your new password.', variant: 'success' };
     default:
       return null;
   }

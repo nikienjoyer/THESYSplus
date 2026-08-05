@@ -51,3 +51,8 @@ python-docx==1.1.2
 # sentence-transformers loads the all-MiniLM-L6-v2 model (~90 MB, CPU-friendly).
 # torch, numpy, scikit-learn arrive transitively.
 sentence-transformers==3.3.1
+
+# DOCX → PDF rendering for the in-browser thesis previewer (Phase 2B).
+# Converts extracted DOCX content into a real, paginated PDF so
+# /theses/{id}/download/ can always return application/pdf.
+reportlab==4.2.5

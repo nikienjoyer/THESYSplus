@@ -38,14 +38,20 @@ class IssuedResetToken:
     reset_url: str
 
 
-def _build_reset_url(plaintext: str) -> str:
-    """Return the front-end URL the user clicks to land on the reset page."""
+def _build_reset_url(plaintext: str, template: str) -> str:
+    """Return the front-end URL the user clicks to land on the reset page.
+
+    ``account_activation`` links land on the dedicated single-email
+    setup-account flow (``/setup-account``); every other template keeps
+    the recovery ``/reset-password`` route.
+    """
     base = settings.FRONTEND_BASE_URL.rstrip('/')
-    return f'{base}/reset-password?token={plaintext}'
+    path = 'setup-account' if template == 'account_activation' else 'reset-password'
+    return f'{base}/{path}?token={plaintext}'
 
 
 def issue_reset_token(user: User, *, template: str = 'password_reset', subject: str | None = None,
-                      request=None) -> IssuedResetToken:
+                      request=None, send_email: bool = True) -> IssuedResetToken:
     """Generate a reset token, persist its sha256 hash, send the email.
 
     ``template`` selects the email template (``password_reset`` for the
@@ -54,6 +60,11 @@ def issue_reset_token(user: User, *, template: str = 'password_reset', subject: 
     on email-delivery failure — it logs an audit row and returns the
     issued token so the caller can decide whether to surface a generic
     success message.
+
+    ``send_email=False`` skips dispatch entirely and just returns the
+    plaintext token — used by the email-verification flow, which hands
+    the token straight back to the browser that already proved control
+    of the address instead of relaying it through a second email.
     """
     plaintext = generate_opaque_token()
     expires_at = timezone.now() + _dt.timedelta(seconds=RESET_TOKEN_TTL_SECONDS)
@@ -63,12 +74,20 @@ def issue_reset_token(user: User, *, template: str = 'password_reset', subject: 
         expires_at=expires_at,
     )
 
-    reset_url = _build_reset_url(plaintext)
+    reset_url = _build_reset_url(plaintext, template)
+
+    if not send_email:
+        logger.info(
+            '[EMAIL] Reset token issued without dispatch (send_email=False) for %s template=%s',
+            user.email, template,
+        )
+        return IssuedResetToken(plaintext=plaintext, row=row, reset_url=reset_url)
+
     backend = default_email_backend()
     default_subject = (
         'Reset your THESYS+ password'
         if template == 'password_reset'
-        else 'Welcome to THESYS+ — set your password'
+        else 'Welcome to THESYS+ - Set Up Your Account'
     )
     delivered = backend.send(
         to=user.email,

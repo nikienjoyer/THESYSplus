@@ -20,7 +20,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import NotFound
@@ -39,6 +39,7 @@ from .serializers import (
     ThesisListItemSerializer,
     ThesisUploadSerializer,
 )
+from .services.preview_pdf import render_docx_to_pdf, render_placeholder_pdf
 from .services.text_extractor import ThesisTextExtractor
 from .validators import validate_thesis_file
 
@@ -281,22 +282,64 @@ class ThesisDetailView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# GET /theses/{id}/download/ — stream the file
+# GET /theses/{id}/download/ — inline PDF stream for the in-browser previewer
 # ---------------------------------------------------------------------------
 
+def _placeholder_pdf_response(thesis: Thesis) -> HttpResponse:
+    """Metadata-only PDF for when the real file can't be shown — never 404."""
+    pdf_bytes = render_placeholder_pdf(
+        title=thesis.title,
+        authors=thesis.authors,
+        abstract=thesis.abstract,
+        program=thesis.program,
+        year=thesis.year,
+        extracted_text=thesis.extracted_text,
+    )
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="preview-unavailable.pdf"'
+    return response
+
+
 class ThesisDownloadView(APIView):
+    """Serve the thesis document as ``application/pdf`` for inline preview.
+
+    * PDF uploads stream directly from disk.
+    * DOCX uploads are converted to PDF on the fly (never persisted).
+    * Missing/corrupt files fall back to a metadata-only placeholder PDF
+      instead of a 404, so ``/theses/:id/preview`` never dead-ends.
+
+    ``Content-Disposition: inline`` (not ``attachment``) throughout, since
+    this endpoint feeds an in-browser watermarked preview, not a download.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
-        if not thesis.uploaded_file:
-            raise NotFound(detail='File no longer available.')
-        try:
-            f = thesis.uploaded_file.open('rb')
-        except FileNotFoundError:
-            raise NotFound(detail='File no longer available.')
-        filename = Path(thesis.uploaded_file.name).name
-        return FileResponse(f, as_attachment=True, filename=filename)
+
+        if thesis.uploaded_file:
+            if thesis.file_type == FileType.PDF:
+                try:
+                    f = thesis.uploaded_file.open('rb')
+                    filename = Path(thesis.uploaded_file.name).name
+                    return FileResponse(
+                        f, as_attachment=False, filename=filename,
+                        content_type='application/pdf',
+                    )
+                except (FileNotFoundError, ValueError) as exc:
+                    logger.warning('Thesis %s: PDF file missing on disk (%s)', thesis.id, exc)
+
+            elif thesis.file_type == FileType.DOCX:
+                try:
+                    pdf_bytes = render_docx_to_pdf(thesis.uploaded_file.path)
+                    filename = f'{Path(thesis.uploaded_file.name).stem}.pdf'
+                    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                    response['Content-Disposition'] = f'inline; filename="{filename}"'
+                    return response
+                except Exception as exc:
+                    logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
+
+        return _placeholder_pdf_response(thesis)
 
 
 # ---------------------------------------------------------------------------

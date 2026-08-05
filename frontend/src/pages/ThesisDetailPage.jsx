@@ -1,5 +1,7 @@
 /**
- * ThesisDetailPage — Phase 1 thesis detail view with download.
+ * ThesisDetailPage — thesis detail view. The PDF opens in a dedicated,
+ * watermarked full-screen preview in a new tab (PdfPreviewPage) rather
+ * than inline here. Raw file download is intentionally not exposed.
  *
  * Saved theses are persisted in user-scoped localStorage:
  * "thesys.savedTheses.<userId>" or "thesys.savedTheses.<email>"
@@ -9,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Bookmark, FileText, TriangleAlert } from 'lucide-react';
+import { Bookmark, Eye, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -42,7 +44,6 @@ export default function ThesisDetailPage() {
   const [thesis, setThesis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [downloading, setDownloading] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Re-read saved status once user is available (user may be null during auth init)
@@ -74,25 +75,8 @@ export default function ThesisDetailPage() {
     return () => { cancelled = true; };
   }, [isAuthenticated, id]);
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const res = await client.get(`/theses/${id}/download/`, { responseType: 'blob' });
-      const blob = new Blob([res.data]);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const safeTitle = (thesis?.title || 'thesis').replace(/[^a-z0-9]+/gi, '_').slice(0, 60);
-      link.download = `${safeTitle}.${thesis?.file_type || 'pdf'}`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      // best-effort: silent fail
-    } finally {
-      setDownloading(false);
-    }
+  const handlePreview = () => {
+    window.open(`/theses/${id}/preview`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -277,15 +261,16 @@ export default function ThesisDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center gap-2"
+                  onClick={handlePreview}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 ${
+                    isDark
+                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Open watermarked preview in a new tab"
                 >
-                  {downloading ? (
-                    <><Spinner /> Downloading...</>
-                  ) : (
-                    <><FileText className="w-4 h-4" aria-hidden="true" /> Download {(thesis.file_type || 'pdf').toUpperCase()}</>
-                  )}
+                  <Eye className="w-4 h-4" aria-hidden="true" />
+                  Preview Document
                 </button>
               </div>
             </div>

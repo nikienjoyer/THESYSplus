@@ -12,7 +12,9 @@ When the applicant clicks the link the frontend calls:
     GET /api/v1/auth/verify-email/?token=<plaintext>
 
 Which calls ``consume_email_verification_token``, creating the user and
-sending the activation (set-password) email.
+issuing (but NOT emailing) a setup-password token. The plaintext is
+returned all the way up to ``VerifyEmailView`` so the frontend can let
+the user set their password inline on the same page — no second email.
 """
 
 from __future__ import annotations
@@ -127,11 +129,13 @@ def consume_email_verification_token(plaintext: str, *, request=None):
     Steps:
     1. Look up token by sha256(plaintext); raise EmailVerificationTokenInvalid
        for missing / expired / already-used token.
-    2. Call ``approve_request()`` — creates the User and sends the
-       set-password activation email.
+    2. Call ``approve_request(..., send_email=False)`` — creates the User
+       and issues a setup-password token without emailing it.
     3. Mark the token as used.
 
-    Returns the ``ApprovalOutcome`` from ``approve_request``.
+    Returns the ``ApprovalOutcome`` from ``approve_request`` — its
+    ``reset_token_plaintext`` field carries the setup-password token the
+    caller should return to the browser.
 
     Raises:
         EmailVerificationTokenInvalid: token missing / expired / used
@@ -169,13 +173,17 @@ def consume_email_verification_token(plaintext: str, *, request=None):
             req.status = 'processing'
             req.save(update_fields=['status'])
 
-        # Approve — creates User, sends set-password email.
+        # Approve — creates the User and issues the setup-password token,
+        # but does NOT email it: the caller (VerifyEmailView) hands the
+        # plaintext straight back to this same browser so it can set the
+        # password inline, without a second "Set Up Your Account" email.
         try:
             outcome = approve_request(
                 req,
                 reviewer=None,
                 note='Account activated via email verification.',
                 request=request,
+                send_email=False,
             )
         except AccessRequestNotPending:
             raise EmailVerificationTokenInvalid('request_not_awaiting_verification')

@@ -38,9 +38,11 @@ class ApprovalOutcome:
     request: AccessRequest
     user: User
     reset_token_id: str
+    reset_token_plaintext: str | None = None
 
 
-def approve_request(req: AccessRequest, *, reviewer: User | None, note: str = '', request=None) -> ApprovalOutcome:
+def approve_request(req: AccessRequest, *, reviewer: User | None, note: str = '', request=None,
+                     send_email: bool = True) -> ApprovalOutcome:
     """Atomically approve ``req`` per design §6.2.
 
     Steps inside ``transaction.atomic()``:
@@ -56,12 +58,17 @@ def approve_request(req: AccessRequest, *, reviewer: User | None, note: str = ''
 
     Audit row is written outside the transaction so a write failure can't
     rollback the user creation.
-    
+
     Args:
         req: AccessRequest to approve
         reviewer: User who approved (or None for system-initiated approval)
         note: Optional review note
         request: HTTP request for audit logging
+        send_email: When False, the activation token is issued but NOT
+            emailed — the caller is responsible for handing the plaintext
+            (``ApprovalOutcome.reset_token_plaintext``) to the already-open
+            browser session instead. Used by the email-verification flow
+            so verifying an address doesn't dispatch a second email.
     """
     with transaction.atomic():
         try:
@@ -99,7 +106,7 @@ def approve_request(req: AccessRequest, *, reviewer: User | None, note: str = ''
         # a backend send failure doesn't orphan a half-provisioned user.
         # ``issue_reset_token`` is itself transactional and writes the
         # reset row; the console email backend never raises.
-        issued = issue_reset_token(user, template='account_activation', request=request)
+        issued = issue_reset_token(user, template='account_activation', request=request, send_email=send_email)
 
     audit_write(
         'auth.access_request.approved',
@@ -116,7 +123,12 @@ def approve_request(req: AccessRequest, *, reviewer: User | None, note: str = ''
         request=request,
     )
 
-    return ApprovalOutcome(request=row, user=user, reset_token_id=str(issued.row.id))
+    return ApprovalOutcome(
+        request=row,
+        user=user,
+        reset_token_id=str(issued.row.id),
+        reset_token_plaintext=issued.plaintext if not send_email else None,
+    )
 
 
 @dataclass

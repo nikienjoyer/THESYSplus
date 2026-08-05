@@ -121,8 +121,10 @@ class EmailVerificationToken(models.Model):
 
     When the applicant clicks the link (``GET /auth/verify-email/?token=…``):
       1. We look up the token, check it is unused and not expired.
-      2. Call ``approve_request()`` to create the User and send the
-         activation/set-password email.
+      2. Call ``approve_request(..., send_email=False)`` to create the
+         User and issue a setup-password token without emailing it — the
+         plaintext is returned to the browser so it can set the password
+         inline, on this same page, instead of via a second email.
       3. Mark the token as ``used_at = now``.
 
     Expiry: 24 hours (``EMAIL_VERIFICATION_TTL_SECONDS``).
