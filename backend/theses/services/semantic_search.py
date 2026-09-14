@@ -163,6 +163,46 @@ def generate_thesis_embedding(thesis, *, save: bool = True) -> List[float]:
         raise
 
 
+def generate_title_embedding(thesis, *, save: bool = True) -> List[float]:
+    """Generate (and optionally persist) a **title-only** embedding.
+
+    Distinct from ``generate_thesis_embedding``: this embeds ``thesis.title``
+    alone, which is the correct signal for title-vs-title redundancy
+    detection. The composite vector inflates similarity for any thesis whose
+    abstract merely mentions related concepts.
+
+    The write is deliberately narrow — it touches ``title_embedding``,
+    ``title_embedding_generated_at``, and ``updated_at`` only, leaving the
+    composite embedding columns and ``embedding_status`` untouched. The
+    ``updated_at`` advance is what invalidates the redundancy corpus cache.
+
+    Note: ``embed_text`` returns a zero vector for empty or whitespace-only
+    input. Such a vector is stored as-is; readers treat a zero-norm vector as
+    absent rather than as a valid point on the unit sphere.
+
+    Args:
+        thesis: A ``Thesis`` instance (saved or unsaved).
+        save: When True, write the vector + timestamp back to the DB row.
+
+    Returns:
+        The title embedding vector (list of floats).
+    """
+    try:
+        vector = embed_text(thesis.title or '')
+        thesis.title_embedding = vector
+        thesis.title_embedding_generated_at = timezone.now()
+        if save:
+            thesis.save(update_fields=[
+                'title_embedding',
+                'title_embedding_generated_at',
+                'updated_at',
+            ])
+        return vector
+    except Exception as exc:
+        logger.warning('Title embedding failed for thesis %s: %s', thesis.id, exc)
+        raise
+
+
 # ---------------------------------------------------------------------------
 # Cosine similarity ranking
 # ---------------------------------------------------------------------------

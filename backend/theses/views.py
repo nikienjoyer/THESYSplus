@@ -484,12 +484,26 @@ class ThesisUploadView(APIView):
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Thesis %s text extraction crashed: %s', thesis.id, exc)
 
-        # Step 7: generate SBERT embedding (best-effort — does not block upload)
+        # Step 7: generate SBERT embeddings (best-effort — does not block upload)
+        #
+        # The composite and title-only embeddings are generated in SEPARATE
+        # try/except blocks on purpose. They serve different features
+        # (semantic search vs review-time redundancy analysis) and one
+        # failing must not skip the other. Neither blocks the 201.
+        from .services.semantic_search import (
+            generate_thesis_embedding,
+            generate_title_embedding,
+        )
+
         try:
-            from .services.semantic_search import generate_thesis_embedding
             generate_thesis_embedding(thesis)
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Thesis %s embedding generation failed: %s', thesis.id, exc)
+
+        try:
+            generate_title_embedding(thesis)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning('Thesis %s title embedding generation failed: %s', thesis.id, exc)
 
         # Step 8: respond with the detail shape
         return Response(

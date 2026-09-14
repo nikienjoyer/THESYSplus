@@ -86,6 +86,23 @@ class Thesis(models.Model):
     embedding_model = models.CharField(max_length=64, blank=True, default='')
     embedding_generated_at = models.DateTimeField(null=True, blank=True)
 
+    # ── Title-only embedding (review-time redundancy analysis) ──────────
+    # Kept separate from ``embedding_vector`` on purpose: the composite
+    # vector (title + abstract + extracted_text + keywords) inflates
+    # title-vs-title similarity for any thesis whose abstract merely
+    # mentions related concepts, producing false duplicate flags. Same
+    # rationale as ``title_similarity.rank_titles`` comparing titles only.
+    #
+    # NULL means "not computed" — every reader degrades gracefully rather
+    # than encoding text on the request path. Backfill with:
+    #   python manage.py embed_theses --titles-only
+    #
+    # No CheckConstraint: ``title_embedding_generated_at IS NOT NULL``
+    # implies ``title_embedding IS NOT NULL``, but the converse is not
+    # guaranteed, so presence must be tested by reading the vector itself.
+    title_embedding = models.JSONField(null=True, blank=True)
+    title_embedding_generated_at = models.DateTimeField(null=True, blank=True)
+
     # ── Workflow ────────────────────────────────────────────────────────
     status = models.CharField(
         max_length=16,
@@ -115,6 +132,11 @@ class Thesis(models.Model):
 
     class Meta:
         db_table = 'theses'
+        # Django's default pluraliser produces "Thesiss" in every admin
+        # breadcrumb, header, and message_user string. Both attributes are
+        # pure metadata — they must not produce a schema diff.
+        verbose_name = 'Thesis'
+        verbose_name_plural = 'Theses'
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status', '-created_at'], name='theses_status_created_idx'),
