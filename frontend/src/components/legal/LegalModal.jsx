@@ -309,7 +309,7 @@ function getContent(type) {
 
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I set my password?</h4>
           <p className="text-sm leading-relaxed mb-4">
-            After verifying your email, you will receive a second email with a link to set your password. Click the link and create a secure password for your account.
+            After clicking the verification link in your email, you'll set your password right on that same page — no second email needed.
           </p>
 
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I sign in?</h4>

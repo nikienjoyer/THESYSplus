@@ -19,6 +19,7 @@ import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { getUserData, setUserData } from '../utils/userStorage';
+import { formatFullAuthorList } from '../utils/formatters';
 
 function isSaved(id, user) {
   const arr = getUserData('savedTheses', user, []);
@@ -81,10 +82,10 @@ export default function ThesisDetailPage() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
-      <AppNavbar activePage="repository" breadcrumb="Repository" />
+      <AppNavbar activePage="repository" />
 
       <PageShell>
-        <div className="max-w-3xl">
+        <div className="max-w-4xl mx-auto px-4">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : error ? (
@@ -97,19 +98,6 @@ export default function ThesisDetailPage() {
           </div>
         ) : thesis ? (
           <>
-            {/* Back to Repository link */}
-            <Link
-              to="/repository"
-              className={`inline-flex items-center gap-1.5 text-sm font-medium mb-4 transition-colors ${
-                isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
-              </svg>
-              Back to Repository
-            </Link>
-
             {/* Embedding warning — visible to faculty/admin only when semantic search won't work */}
             {user?.role !== 'student' && thesis.status === 'approved' && thesis.embedding_status !== 'ready' && (
               <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 mb-4 text-xs ${
@@ -130,7 +118,20 @@ export default function ThesisDetailPage() {
             <article
               className="thesys-card p-6 sm:p-8"
             >
-            {/* Status + program tags */}
+              {/* Back to Repository link */}
+              <Link
+                to="/repository"
+                className={`flex w-fit items-center gap-1.5 mb-4 text-left text-sm font-medium transition-colors ${
+                  isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back to Repository
+              </Link>
+
+              {/* Status + program tags */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span
                 className={`text-xs px-2 py-0.5 rounded-md ${
@@ -170,7 +171,7 @@ export default function ThesisDetailPage() {
             </h1>
 
             <div className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              <strong>Authors:</strong> {thesis.authors.join(', ')}
+              <strong>Authors:</strong> {formatFullAuthorList(thesis.authors)}
             </div>
             {thesis.adviser && (
               <div className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>

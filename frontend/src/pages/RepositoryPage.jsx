@@ -20,6 +20,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
+import { formatScholarAuthor } from '../utils/formatters';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -174,7 +175,7 @@ function ThesisCard({ thesis, isDark }) {
       </div>
 
       <div className={`text-sm mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-        {thesis.authors.slice(0, 3).join(', ')}
+        {thesis.authors.slice(0, 3).map(formatScholarAuthor).join(', ')}
         {thesis.authors.length > 3 && ` +${thesis.authors.length - 3} more`}
       </div>
 

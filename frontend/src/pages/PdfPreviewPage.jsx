@@ -17,6 +17,27 @@ import Spinner from '../components/ui/Spinner';
 import ThesysLogo from '../components/brand/ThesysLogo';
 import WatermarkOverlay from '../components/pdf/WatermarkOverlay';
 
+/**
+ * Translate a failed preview fetch into a message that says what actually
+ * went wrong. The backend distinguishes "no such thesis" from "the thesis
+ * exists but its source document can't be served" (DOCUMENT_NOT_AVAILABLE),
+ * and the viewer must not blur the two — a reader needs to know whether
+ * they're looking at the wrong record or a repository gap.
+ */
+function describePreviewError(err) {
+  const status = err?.response?.status;
+  const code = err?.response?.data?.error?.code;
+
+  if (code === 'DOCUMENT_NOT_AVAILABLE') {
+    return 'This thesis record exists, but its source document is not available in the repository, so there is nothing to preview. Please contact the repository administrator.';
+  }
+  if (status === 404) return 'Thesis not found.';
+  if (status === 401 || status === 403) {
+    return 'You are not authorized to preview this document. Try signing in again.';
+  }
+  return 'The document preview could not be loaded. Please try again.';
+}
+
 export default function PdfPreviewPage() {
   const { id } = useParams();
   const { theme } = useTheme();
@@ -53,9 +74,7 @@ export default function PdfPreviewPage() {
         objectUrl = window.URL.createObjectURL(blob);
         setPdfUrl(`${objectUrl}#toolbar=0&navpanes=0&statusbar=0`);
       } catch (err) {
-        if (!cancelled) {
-          setError(err?.response?.status === 404 ? 'Thesis not found.' : 'Preview unavailable.');
-        }
+        if (!cancelled) setError(describePreviewError(err));
       }
     })();
     return () => {

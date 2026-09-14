@@ -1,14 +1,15 @@
 """In-memory PDF rendering for the thesis previewer (``ThesisDownloadView``).
 
-Two entry points, both returning raw PDF bytes and never touching disk:
+One entry point, returning raw PDF bytes and never touching disk:
 
 * ``render_docx_to_pdf`` — converts a .docx file's headings/paragraphs/
   tables into a paginated PDF via reportlab, so DOCX uploads can be
   previewed inline exactly like PDF uploads.
-* ``render_placeholder_pdf`` — builds a minimal PDF from a thesis's own
-  metadata (title, authors, abstract, extracted text excerpt) when the
-  real file is missing from disk or fails to convert. The previewer
-  should never dead-end on a 404.
+
+A thesis whose file is missing or unconvertible is NOT substituted with a
+metadata stand-in PDF: the previewer can't distinguish a stand-in from the
+authentic document, so the view returns a structured ``DOCUMENT_NOT_AVAILABLE``
+404 and the frontend states plainly that the document is unavailable.
 
 These PDFs are generated on the fly for preview purposes only — they are
 never persisted and never replace ``Thesis.uploaded_file``.
@@ -19,16 +20,11 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_JUSTIFY
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-
-# Cap how much of Thesis.extracted_text we dump into a placeholder PDF —
-# it can be very large (a full multi-chapter document) and this is only
-# meant to give reviewers a usable excerpt, not a full re-render.
-_PLACEHOLDER_EXCERPT_CHARS = 6000
+from reportlab.platypus import Paragraph, SimpleDocTemplate
 
 
 def _escape(text: str) -> str:
@@ -45,11 +41,6 @@ def _build_styles() -> dict:
             'PreviewBody', parent=base['BodyText'],
             alignment=TA_JUSTIFY, leading=15, spaceAfter=8,
         ),
-        'notice': ParagraphStyle(
-            'PreviewNotice', parent=base['BodyText'],
-            alignment=TA_CENTER, textColor='#b45309', spaceAfter=18,
-        ),
-        'meta': ParagraphStyle('PreviewMeta', parent=base['Normal'], alignment=TA_CENTER, spaceAfter=18),
     }
 
 
@@ -70,7 +61,7 @@ def render_docx_to_pdf(path: str | Path) -> bytes:
     Word paragraph styles named "Heading *" or "Title" render as section
     headings; everything else is a justified body paragraph. Raises on
     any failure (missing file, corrupt docx, empty content) — callers
-    should fall back to ``render_placeholder_pdf``.
+    should translate that into a structured "document unavailable" error.
     """
     from docx import Document
 
@@ -95,52 +86,5 @@ def render_docx_to_pdf(path: str | Path) -> bytes:
 
     if not story:
         raise ValueError('DOCX contains no extractable content')
-
-    return _render(story)
-
-
-def render_placeholder_pdf(
-    *, title: str, authors: list[str], abstract: str,
-    program: str = '', year: int | None = None, extracted_text: str = '',
-) -> bytes:
-    """Build a metadata-only PDF when the real file can't be shown.
-
-    Always succeeds (no external file/library dependency beyond
-    reportlab itself) so the previewer never returns a broken 404.
-    """
-    styles = _build_styles()
-    story: list = [
-        Paragraph(_escape(title) or 'Untitled Thesis', styles['title']),
-    ]
-
-    meta_bits = [b for b in (program, str(year) if year else '') if b]
-    if meta_bits:
-        story.append(Paragraph(_escape(' · '.join(meta_bits)), styles['meta']))
-
-    story.append(Paragraph(
-        'The original document could not be loaded. Showing the thesis '
-        'record’s stored metadata instead.',
-        styles['notice'],
-    ))
-
-    story.append(Paragraph('Authors', styles['heading']))
-    story.append(Paragraph(_escape(', '.join(authors)) or '—', styles['body']))
-
-    story.append(Paragraph('Abstract', styles['heading']))
-    story.append(Paragraph(_escape(abstract) or 'No abstract available.', styles['body']))
-
-    excerpt = (extracted_text or '').strip()
-    if excerpt:
-        story.append(Spacer(1, 8))
-        story.append(Paragraph('Document Text (excerpt)', styles['heading']))
-        truncated = excerpt[:_PLACEHOLDER_EXCERPT_CHARS]
-        if len(excerpt) > _PLACEHOLDER_EXCERPT_CHARS:
-            truncated += '…'
-        # Extracted text has no paragraph structure; split on blank lines
-        # so it doesn't render as one giant unbroken block.
-        for chunk in truncated.split('\n\n'):
-            chunk = chunk.strip()
-            if chunk:
-                story.append(Paragraph(_escape(chunk), styles['body']))
 
     return _render(story)

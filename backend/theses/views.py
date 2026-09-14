@@ -22,6 +22,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -39,7 +40,7 @@ from .serializers import (
     ThesisListItemSerializer,
     ThesisUploadSerializer,
 )
-from .services.preview_pdf import render_docx_to_pdf, render_placeholder_pdf
+from .services.preview_pdf import render_docx_to_pdf
 from .services.text_extractor import ThesisTextExtractor
 from .validators import validate_thesis_file
 
@@ -285,28 +286,45 @@ class ThesisDetailView(APIView):
 # GET /theses/{id}/download/ — inline PDF stream for the in-browser previewer
 # ---------------------------------------------------------------------------
 
-def _placeholder_pdf_response(thesis: Thesis) -> HttpResponse:
-    """Metadata-only PDF for when the real file can't be shown — never 404."""
-    pdf_bytes = render_placeholder_pdf(
-        title=thesis.title,
-        authors=thesis.authors,
-        abstract=thesis.abstract,
-        program=thesis.program,
-        year=thesis.year,
-        extracted_text=thesis.extracted_text,
+def _preview_filename(thesis: Thesis) -> str:
+    """Build the stable, institution-branded inline preview filename.
+
+    Shape: ``THESYSplus_<YEAR>_<SLUG>_Preview.pdf``. The slug is derived
+    from the thesis title so the tab/save-as name is meaningful instead of
+    exposing the raw stored upload name.
+    """
+    slug = slugify(thesis.title or '')[:60].strip('-') or 'thesis'
+    year = thesis.year or 'undated'
+    return f'THESYSplus_{year}_{slug}_Preview.pdf'
+
+
+def _document_unavailable_response(thesis: Thesis, reason: str):
+    """Structured 404 for a thesis whose source document can't be served.
+
+    Returned instead of a metadata-only stand-in PDF: a stand-in is
+    indistinguishable from the real document to the viewer, so a missing
+    or unconvertible file silently rendered as "the preview". Callers get
+    an explicit, machine-readable failure they can surface in the UI.
+    """
+    return make_error_response(
+        code='DOCUMENT_NOT_AVAILABLE',
+        message=(
+            'The source document for this thesis is not available for preview. '
+            'The record exists, but its uploaded file could not be read.'
+        ),
+        status=status.HTTP_404_NOT_FOUND,
+        details={'thesis_id': str(thesis.id), 'reason': reason},
     )
-    response = HttpResponse(pdf_bytes, content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="preview-unavailable.pdf"'
-    return response
 
 
 class ThesisDownloadView(APIView):
     """Serve the thesis document as ``application/pdf`` for inline preview.
 
-    * PDF uploads stream directly from disk.
+    * PDF uploads stream directly from storage.
     * DOCX uploads are converted to PDF on the fly (never persisted).
-    * Missing/corrupt files fall back to a metadata-only placeholder PDF
-      instead of a 404, so ``/theses/:id/preview`` never dead-ends.
+    * A record with no file, a file that is absent from storage, or a DOCX
+      that fails conversion yields a structured ``DOCUMENT_NOT_AVAILABLE``
+      404 — never an unhandled 500, and never a silent stand-in document.
 
     ``Content-Disposition: inline`` (not ``attachment``) throughout, since
     this endpoint feeds an in-browser watermarked preview, not a download.
@@ -317,29 +335,52 @@ class ThesisDownloadView(APIView):
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
 
-        if thesis.uploaded_file:
-            if thesis.file_type == FileType.PDF:
-                try:
-                    f = thesis.uploaded_file.open('rb')
-                    filename = Path(thesis.uploaded_file.name).name
-                    return FileResponse(
-                        f, as_attachment=False, filename=filename,
-                        content_type='application/pdf',
-                    )
-                except (FileNotFoundError, ValueError) as exc:
-                    logger.warning('Thesis %s: PDF file missing on disk (%s)', thesis.id, exc)
+        if not thesis.uploaded_file or not thesis.uploaded_file.name:
+            logger.warning('Thesis %s: no uploaded file on record', thesis.id)
+            return _document_unavailable_response(thesis, 'no_file_on_record')
 
-            elif thesis.file_type == FileType.DOCX:
-                try:
-                    pdf_bytes = render_docx_to_pdf(thesis.uploaded_file.path)
-                    filename = f'{Path(thesis.uploaded_file.name).stem}.pdf'
-                    response = HttpResponse(pdf_bytes, content_type='application/pdf')
-                    response['Content-Disposition'] = f'inline; filename="{filename}"'
-                    return response
-                except Exception as exc:
-                    logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
+        # Verify the bytes are actually retrievable before committing to a
+        # 200. ``FieldFile.storage.exists`` covers the common case (record
+        # kept, file pruned/never copied) without reading the whole file.
+        try:
+            file_present = thesis.uploaded_file.storage.exists(thesis.uploaded_file.name)
+        except (NotImplementedError, ValueError, OSError) as exc:
+            logger.warning('Thesis %s: storage existence check failed (%s)', thesis.id, exc)
+            file_present = False
 
-        return _placeholder_pdf_response(thesis)
+        if not file_present:
+            logger.warning(
+                'Thesis %s: file missing from storage (%s)',
+                thesis.id, thesis.uploaded_file.name,
+            )
+            return _document_unavailable_response(thesis, 'file_missing_from_storage')
+
+        filename = _preview_filename(thesis)
+
+        if thesis.file_type == FileType.DOCX:
+            try:
+                pdf_bytes = render_docx_to_pdf(thesis.uploaded_file.path)
+            except Exception as exc:
+                logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
+                return _document_unavailable_response(thesis, 'docx_conversion_failed')
+
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+
+        # Default/PDF path — stream the stored bytes straight through.
+        try:
+            handle = thesis.uploaded_file.open('rb')
+        except (FileNotFoundError, ValueError, OSError) as exc:
+            logger.warning('Thesis %s: PDF file could not be opened (%s)', thesis.id, exc)
+            return _document_unavailable_response(thesis, 'file_unreadable')
+
+        response = FileResponse(
+            handle, as_attachment=False, filename=filename,
+            content_type='application/pdf',
+        )
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
 
 
 # ---------------------------------------------------------------------------
@@ -457,8 +498,25 @@ class ThesisUploadView(APIView):
         )
 
     @staticmethod
+    def _parse_author_input(value: str) -> list[str]:
+        """Split a legacy raw author field without corrupting inverted names.
+
+        Semicolons are unambiguous author separators when names use an
+        internal comma (``Lastname, Firstname``). For comma-only values we
+        accept the natural-order form and split only before a capitalized
+        next name (``Juan Dela Cruz, Maria Santos``).
+        """
+        import re
+
+        value = (value or '').strip()
+        if not value:
+            return []
+        delimiter = r';' if ';' in value else r',\s*(?=[A-Z])'
+        return [' '.join(part.split()) for part in re.split(delimiter, value) if part.strip()]
+
+    @staticmethod
     def _coerce_list_fields(raw):
-        """Multipart fields arrive as strings — decode JSON for list-shaped fields."""
+        """Decode multipart list fields and normalize legacy raw input."""
         import json as _json
 
         # Handle QueryDict properly - get single values for scalar fields
@@ -470,25 +528,31 @@ class ThesisUploadView(APIView):
             else:
                 # For other fields (authors, keywords), get as-is
                 out[key] = raw.get(key)
-        
-        # Now coerce authors and keywords from JSON strings to lists
+
+        # Frontend multipart submissions use JSON arrays. For legacy raw
+        # strings, author names need their own parser so `Lastname, Firstname`
+        # remains a single contributor; keywords retain comma separation.
         for key in ('authors', 'keywords'):
             value = out.get(key)
-            if isinstance(value, str):
-                value = value.strip()
-                if value.startswith('['):
-                    try:
-                        out[key] = _json.loads(value)
-                    except _json.JSONDecodeError:
-                        # Comma-separated fallback: "Foo, Bar, Baz"
-                        out[key] = [v.strip() for v in value.split(',') if v.strip()]
-                else:
-                    out[key] = [v.strip() for v in value.split(',') if v.strip()]
-        
+            if not isinstance(value, str):
+                continue
+            value = value.strip()
+            if value.startswith('['):
+                try:
+                    out[key] = _json.loads(value)
+                    continue
+                except _json.JSONDecodeError:
+                    pass
+            out[key] = (
+                ThesisUploadView._parse_author_input(value)
+                if key == 'authors'
+                else [part.strip() for part in value.split(',') if part.strip()]
+            )
+
         # year arrives as string in multipart - convert to int
         if isinstance(out.get('year'), str) and out['year'].isdigit():
             out['year'] = int(out['year'])
-        
+
         return out
 
 

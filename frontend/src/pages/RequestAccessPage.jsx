@@ -244,7 +244,7 @@ export default function RequestAccessPage() {
                   <div className="flex flex-col items-center gap-2">
                     {decision === 'pending_email_verification' && (
                       <p className={`text-sm text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        After clicking the verification link, you will receive a second email to set your password.
+                        After clicking the verification link, you'll set your password right on that same page — no second email needed.
                       </p>
                     )}
                     {decision === 'rejected' && (

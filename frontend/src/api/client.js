@@ -59,6 +59,29 @@ client.interceptors.request.use(
   },
 );
 
+/**
+ * Replace a Blob error body with its parsed JSON equivalent, in place.
+ *
+ * Axios honours `responseType: 'blob'` for error responses too, so a failed
+ * blob request yields `response.data` as a Blob even when the server sent
+ * `application/json`. Left as-is, every consumer that reads
+ * `error.response.data.error.code` sees `undefined`.
+ *
+ * Non-JSON bodies and unparseable payloads are left untouched.
+ */
+async function normalizeBlobErrorBody(error) {
+  const data = error?.response?.data;
+  if (typeof Blob === 'undefined' || !(data instanceof Blob)) return;
+  // PDF/octet-stream error bodies aren't envelopes — leave them alone.
+  if (data.type && !data.type.includes('json') && data.type !== '') return;
+
+  try {
+    error.response.data = JSON.parse(await data.text());
+  } catch {
+    // Body wasn't JSON after all — keep the original Blob.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Response interceptor - handle 401 with single-flight refresh
 // ---------------------------------------------------------------------------
@@ -72,6 +95,13 @@ client.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // Binary requests (responseType: 'blob' — e.g. the inline PDF preview)
+    // deliver error envelopes as a Blob, not parsed JSON. Decode it up front
+    // so the ACCESS_TOKEN_EXPIRED check below and every downstream
+    // `error.response.data.error.code` reader behave identically to a
+    // normal JSON request.
+    await normalizeBlobErrorBody(error);
 
     // Check if this is a 401 with ACCESS_TOKEN_EXPIRED
     // Backend returns errors in format: {"error": {"code": "...", "message": "..."}}

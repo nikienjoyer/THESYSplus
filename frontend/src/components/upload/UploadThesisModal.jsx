@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Clock, Lock, X } from 'lucide-react';
 import client from '../../api/client';
 import { clearAllCaches } from '../../utils/appCaches';
+import { parseAuthorInput } from '../../utils/formatters';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../hooks/useToast';
@@ -200,7 +201,7 @@ export default function UploadThesisModal() {
     setFieldErrors({});
 
     if (!file) { setError('Please attach a PDF or DOCX file.'); return; }
-    const authorsList  = authors.split(',').map((a) => a.trim()).filter(Boolean);
+    const authorsList  = parseAuthorInput(authors);
     const keywordsList = keywords.split(',').map((k) => k.trim()).filter(Boolean);
     if (authorsList.length === 0)  { setError('At least one author is required.'); return; }
     if (keywordsList.length === 0) { setError('At least one keyword is required.'); return; }
@@ -398,9 +399,11 @@ export default function UploadThesisModal() {
               </div>
 
               <div>
-                <label className={labelCls}>Authors (comma-separated)</label>
+                <label className={labelCls}>Authors (separate multiple authors with semicolons or commas)</label>
                 <input type="text" value={authors} onChange={(e) => setAuthors(e.target.value)}
-                  placeholder="Dela Cruz, Juan; Santos, Maria" required disabled={submitting} className={inputCls} />
+                  placeholder="Dela Cruz, Juan M.; Santos, Maria A." required disabled={submitting} className={inputCls} />
+                <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                </p>
                 {fieldErrors.authors && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.authors}</p>}
               </div>
 

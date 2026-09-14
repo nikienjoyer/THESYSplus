@@ -16,7 +16,6 @@
  *
  * Props:
  *   activePage (string) — highlights the matching nav link
- *   breadcrumb (string | null) — optional breadcrumb text after logo
  *
  * Phase 1.1 Step 1: isDark ternaries replaced with semantic token utilities
  * from tokens.css. Layout, spacing, behaviour, and routes are unchanged.
@@ -195,7 +194,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
 }
 
 
-export default function AppNavbar({ activePage = '', breadcrumb = null }) {
+export default function AppNavbar({ activePage = '' }) {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const { open: openUpload } = useUploadModal();
@@ -253,17 +252,11 @@ export default function AppNavbar({ activePage = '', breadcrumb = null }) {
 
         {/* ── DESKTOP row (≥ lg): 3-column grid ───────────────────────── */}
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
-          {/* COL 1 — Logo + breadcrumb */}
+          {/* COL 1 — Logo */}
           <div className="flex items-center gap-2 select-none">
             <Link to="/" className="flex items-center gap-2">
               <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
             </Link>
-            {breadcrumb && (
-              <>
-                <span className="text-sm text-subtle">/</span>
-                <span className="text-sm font-medium text-body">{breadcrumb}</span>
-              </>
-            )}
           </div>
 
           {/* COL 2 — Centered nav links */}
