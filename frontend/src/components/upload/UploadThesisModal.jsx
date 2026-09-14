@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, Lock, X } from 'lucide-react';
+import { CheckCircle2, Clock, X } from 'lucide-react';
 import client from '../../api/client';
 import { clearAllCaches } from '../../utils/appCaches';
 import { parseAuthorInput } from '../../utils/formatters';
@@ -53,55 +53,37 @@ function fmtBytes(b) {
 // ---------------------------------------------------------------------------
 // Upload progress indicator
 // ---------------------------------------------------------------------------
-function UploadProgress({ stageIndex, isDark }) {
+function UploadProgress({ stageIndex, progress, isDark }) {
   const current = UPLOAD_STAGES[Math.min(stageIndex, UPLOAD_STAGES.length - 1)];
-  const pct = Math.round(((stageIndex + 1) / UPLOAD_STAGES.length) * 100);
-  const done = stageIndex >= UPLOAD_STAGES.length - 1;
+  const pct = Math.max(0, Math.min(100, Math.round(progress)));
+  const done = pct === 100;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] p-5">
-      <div className="flex items-center gap-3 mb-3">
-        {done ? (
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isDark ? 'bg-emerald-500/20' : 'bg-emerald-50'
-          }`}>
-            <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
-            </svg>
-          </div>
-        ) : (
-          <Spinner size="sm" className="text-primary" />
-        )}
-        <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+    <div className="rounded-lg border border-[var(--color-border)] px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <p
+          aria-live="polite"
+          className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+        >
           {current.label}
         </p>
+        <span className={`shrink-0 text-sm font-semibold tabular-nums ${done ? 'text-emerald-500' : 'text-blue-500'}`}>
+          {pct}%
+        </span>
       </div>
-
-      <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.08]' : 'bg-gray-100'}`}>
+      <div
+        aria-label="Upload progress"
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={pct}
+        role="progressbar"
+        className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/[0.08]' : 'bg-gray-100'}`}
+      >
         <div
-          className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
+          className={`h-full rounded-full transition-[width] duration-300 ease-out ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-
-      <div className="flex items-center gap-1.5 mt-3">
-        {UPLOAD_STAGES.map((s, i) => (
-          <div
-            key={s.label}
-            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-              i <= stageIndex
-                ? done ? 'bg-emerald-500' : 'bg-blue-500'
-                : isDark ? 'bg-white/[0.08]' : 'bg-gray-200'
-            }`}
-          />
-        ))}
-      </div>
-
-      {!done && (
-        <p className={`text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-          Progress shown is an estimated guide while the system processes your submission.
-        </p>
-      )}
     </div>
   );
 }
@@ -128,20 +110,21 @@ export default function UploadThesisModal() {
   const [file, setFile]         = useState(null);
   const [fileError, setFileError] = useState('');
 
-  const [submitting, setSubmitting]   = useState(false);
-  const [stageIndex, setStageIndex]   = useState(-1); // -1 = not started
-  const [error, setError]             = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [success, setSuccess]         = useState(null);
+  const [submitting, setSubmitting]         = useState(false);
+  const [stageIndex, setStageIndex]         = useState(-1); // -1 = not started
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError]                   = useState('');
+  const [fieldErrors, setFieldErrors]       = useState({});
+  const [success, setSuccess]               = useState(null);
 
-  const stageTimerRef = useRef(null);
+  const progressFrameRef = useRef(null);
   const panelRef = useFocusTrap(isOpen);
 
   const resetForm = () => {
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
     setProgram(PROGRAMS[0]); setYear(new Date().getFullYear()); setAdviser('');
     setFile(null); setFileError(''); setError(''); setFieldErrors({});
-    setStageIndex(-1); setSuccess(null);
+    setStageIndex(-1); setUploadProgress(0); setSuccess(null);
   };
 
   // Reset everything whenever the modal is dismissed so it reopens fresh
@@ -157,20 +140,35 @@ export default function UploadThesisModal() {
     return () => { document.body.style.overflow = prev; };
   }, [isOpen]);
 
-  // Advance through simulated stages while submitting
+  // Animate visual progress while the server receives and processes the upload.
+  // Keep the simulated value below 100% until the server confirms success.
   useEffect(() => {
-    if (!submitting) return;
-    setStageIndex(0);
-    let idx = 0;
-    const advance = () => {
-      idx += 1;
-      if (idx < UPLOAD_STAGES.length - 1) {
-        setStageIndex(idx);
-        stageTimerRef.current = setTimeout(advance, UPLOAD_STAGES[idx].duration);
+    if (!submitting) return undefined;
+
+    const totalDuration = UPLOAD_STAGES.slice(0, -1)
+      .reduce((total, stage) => total + stage.duration, 0);
+    const startedAt = performance.now();
+
+    const updateProgress = (now) => {
+      const elapsed = Math.min(now - startedAt, totalDuration);
+      setUploadProgress((elapsed / totalDuration) * 90);
+
+      let accumulatedDuration = 0;
+      let nextStage = 0;
+      for (let index = 0; index < UPLOAD_STAGES.length - 1; index += 1) {
+        accumulatedDuration += UPLOAD_STAGES[index].duration;
+        if (elapsed < accumulatedDuration) break;
+        nextStage = Math.min(index + 1, UPLOAD_STAGES.length - 2);
+      }
+      setStageIndex(nextStage);
+
+      if (elapsed < totalDuration) {
+        progressFrameRef.current = requestAnimationFrame(updateProgress);
       }
     };
-    stageTimerRef.current = setTimeout(advance, UPLOAD_STAGES[0].duration);
-    return () => clearTimeout(stageTimerRef.current);
+
+    progressFrameRef.current = requestAnimationFrame(updateProgress);
+    return () => cancelAnimationFrame(progressFrameRef.current);
   }, [submitting]);
 
   const requestClose = () => {
@@ -206,6 +204,8 @@ export default function UploadThesisModal() {
     if (authorsList.length === 0)  { setError('At least one author is required.'); return; }
     if (keywordsList.length === 0) { setError('At least one keyword is required.'); return; }
 
+    setStageIndex(0);
+    setUploadProgress(0);
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -222,13 +222,16 @@ export default function UploadThesisModal() {
         headers: { 'Content-Type': undefined },
       });
 
-      clearTimeout(stageTimerRef.current);
+      cancelAnimationFrame(progressFrameRef.current);
       setStageIndex(UPLOAD_STAGES.length - 1);
+      setUploadProgress(100);
       clearAllCaches();
-      setTimeout(() => setSuccess(res.data), 600);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setSuccess(res.data);
     } catch (err) {
-      clearTimeout(stageTimerRef.current);
+      cancelAnimationFrame(progressFrameRef.current);
       setStageIndex(-1);
+      setUploadProgress(0);
       const code = err?.response?.data?.error?.code;
       const msg  = err?.response?.data?.error?.message;
       const details = err?.response?.data?.error?.details;
@@ -366,20 +369,16 @@ export default function UploadThesisModal() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`mb-6 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               {user?.role === 'student'
                 ? 'Your submission will be reviewed by a faculty member before being published.'
                 : 'Your thesis will be published immediately upon upload.'}
             </p>
-            <p className={`text-xs flex items-center gap-1.5 mt-1 mb-6 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-              <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
-              Uploaded theses are reviewed before publication.
-            </p>
 
             {/* Upload progress — shown while submitting */}
             {submitting && stageIndex >= 0 && (
-              <div className="mb-5">
-                <UploadProgress stageIndex={stageIndex} isDark={isDark} />
+              <div className="mb-4">
+                <UploadProgress stageIndex={stageIndex} progress={uploadProgress} isDark={isDark} />
               </div>
             )}
 
