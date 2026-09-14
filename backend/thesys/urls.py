@@ -10,6 +10,8 @@ Also wires the ``GET /api/v1/health`` smoke endpoint so Task 6.2 can
 verify end-to-end boot against a real PostgreSQL connection.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
@@ -31,3 +33,20 @@ urlpatterns = [
     path('api/v1/admin/', include('access_requests.urls_admin')),
     path('api/v1/admin/', include('audit.urls')),
 ]
+
+# ---------------------------------------------------------------------------
+# Media files (development only)
+# ---------------------------------------------------------------------------
+#
+# Serves MEDIA_ROOT under MEDIA_URL when DEBUG is on. Django's ``static``
+# helper is a deliberate no-op when DEBUG is False, so this is safe to leave
+# unconditional — but the explicit guard documents the intent.
+#
+# NOTE: the thesis previewer does NOT depend on this. ``ThesisDownloadView``
+# streams bytes through an authenticated view because the frontend must send
+# an Authorization header, which a plain <iframe src="/media/..."> cannot do.
+# This route exists for direct media inspection during development, not for
+# the preview path. Thesis documents remain reachable only through the
+# authenticated endpoint in production, where this block is inert.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
