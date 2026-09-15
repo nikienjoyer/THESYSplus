@@ -25,6 +25,7 @@ from theses.services.topic_analysis import (
     _classify_trend,
     _label_cluster,
     analyze_topics,
+    get_topic_trends_queryset,
 )
 
 
@@ -138,6 +139,30 @@ class TestLabelCluster:
 
     def test_empty_keywords_returns_general(self):
         assert _label_cluster([]) == 'General Research'
+
+
+# ---------------------------------------------------------------------------
+# get_topic_trends_queryset — shared queryset helper
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestGetTopicTrendsQueryset:
+    def test_returns_only_approved(self, make_thesis):
+        approved = make_thesis('Approved Thesis On Recognition')
+        make_thesis('Pending Thesis', status=ThesisStatus.PENDING_REVIEW)
+        make_thesis('Rejected Thesis', status=ThesisStatus.REJECTED)
+
+        ids = [str(t.id) for t in get_topic_trends_queryset()]
+        assert ids == [str(approved.id)]
+
+    def test_deterministic_ordering_across_calls(self, make_thesis):
+        for i in range(5):
+            make_thesis(f'Thesis Number {i}')
+
+        first_call = [str(t.id) for t in get_topic_trends_queryset()]
+        second_call = [str(t.id) for t in get_topic_trends_queryset()]
+        assert first_call == second_call
+        assert len(first_call) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -349,3 +374,124 @@ class TestTopicTrendsEndpoint:
         response = client.get(f'{url}?k=abc', HTTP_AUTHORIZATION=f'Bearer {token}')
         assert response.status_code == 400
         assert response.json()['error']['code'] == 'INVALID_K'
+
+
+# ---------------------------------------------------------------------------
+# Cross-endpoint consistency — /topic-trends/ vs /analytics/'s topic_summary
+#
+# Regression guard for the bug where each view built its own independent
+# Thesis queryset (different .only() field sets, and critically no shared
+# ordering), which let K-Means see the corpus in a different row order on
+# each endpoint and silently produce different SATURATED / EMERGING /
+# UNDEREXPLORED counts for identical underlying data. Both views must now
+# route through the single get_topic_trends_queryset() helper.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestAnalyticsTrendConsistency:
+    @staticmethod
+    def _bearer(user):
+        from auth_service.services import issue_token_pair
+        return issue_token_pair(user, request=None, remember_me=False).access_token
+
+    def _seed_dynamic_mode_corpus(self, make_thesis):
+        """Seed >= 15 approved theses (the dynamic mean-relative threshold
+        boundary) across varied keyword clusters, so K-Means has multiple
+        non-trivial clusters and ordering-sensitivity has room to bite.
+        """
+        clusters = [
+            (
+                'Face Recognition Attendance System Using Deep Learning CNN',
+                'A deep learning CNN facial recognition system for classroom attendance.',
+                ['face recognition', 'deep learning', 'cnn', 'attendance'],
+            ),
+            (
+                'IoT Greenhouse Monitoring with ESP32 Sensors over MQTT',
+                'ESP32 sensors stream temperature and humidity data over MQTT.',
+                ['iot', 'esp32', 'mqtt', 'sensors'],
+            ),
+            (
+                'Web-Based Inventory Management System with Barcode Tracking',
+                'A Laravel web inventory management application with barcode tracking.',
+                ['web', 'inventory', 'management', 'laravel'],
+            ),
+            (
+                'Blockchain-Based Academic Credential Verification Platform',
+                'A Hyperledger blockchain platform for verifying academic credentials.',
+                ['blockchain', 'hyperledger', 'credential', 'verification'],
+            ),
+            (
+                'Mobile Flutter Application for Campus Navigation',
+                'A cross-platform Flutter mobile app for navigating the campus.',
+                ['mobile', 'flutter', 'android', 'ios'],
+            ),
+        ]
+        # 15 theses: 3 rounds through the 5 topic clusters above so each
+        # cluster has enough members to be meaningfully classified.
+        titles = []
+        for round_num in range(3):
+            for title, abstract, keywords in clusters:
+                titles.append(
+                    make_thesis(f'{title} (v{round_num + 1})', abstract=abstract, keywords=keywords)
+                )
+        return titles
+
+    def test_counts_match_between_endpoints(self, client, faculty_user, make_thesis):
+        self._seed_dynamic_mode_corpus(make_thesis)
+
+        token = self._bearer(faculty_user)
+        trends_response = client.get(
+            reverse('thesis-topic-trends'), HTTP_AUTHORIZATION=f'Bearer {token}'
+        )
+        analytics_response = client.get(
+            reverse('thesis-analytics'), HTTP_AUTHORIZATION=f'Bearer {token}'
+        )
+        assert trends_response.status_code == 200
+        assert analytics_response.status_code == 200
+
+        trends_body = trends_response.json()
+        analytics_body = analytics_response.json()
+        topic_summary = analytics_body['topic_summary']
+
+        assert trends_body['saturated_count'] == topic_summary['saturated_count']
+        assert trends_body['emerging_count'] == topic_summary['emerging_count']
+        assert trends_body['underexplored_count'] == topic_summary['underexplored_count']
+
+        # Sanity check on scope: both endpoints must have analysed the same
+        # number of theses, not just coincidentally agreeing counts.
+        assert trends_body['total_theses'] == 15
+        assert analytics_body['approved_theses'] == 15
+
+    def test_counts_match_on_small_cold_start_corpus(self, client, faculty_user, make_thesis):
+        # Below the 15-thesis dynamic-mode boundary — exercises the static
+        # threshold branch instead.
+        make_thesis(
+            'AI-Powered Attendance Monitoring Using Facial Recognition',
+            abstract='Deep learning facial recognition for student attendance.',
+            keywords=['face recognition', 'attendance', 'deep learning'],
+        )
+        make_thesis(
+            'IoT Greenhouse Monitoring with ESP32',
+            abstract='Sensors over MQTT for greenhouse environment data.',
+            keywords=['IoT', 'sensors', 'MQTT'],
+        )
+        make_thesis(
+            'Web-Based Inventory Management System',
+            abstract='A Laravel inventory system with barcode tracking.',
+            keywords=['web', 'inventory', 'management'],
+        )
+
+        token = self._bearer(faculty_user)
+        trends_body = client.get(
+            reverse('thesis-topic-trends'), HTTP_AUTHORIZATION=f'Bearer {token}'
+        ).json()
+        analytics_body = client.get(
+            reverse('thesis-analytics'), HTTP_AUTHORIZATION=f'Bearer {token}'
+        ).json()
+        topic_summary = analytics_body['topic_summary']
+
+        assert trends_body['saturated_count'] == topic_summary['saturated_count']
+        assert trends_body['emerging_count'] == topic_summary['emerging_count']
+        assert trends_body['underexplored_count'] == topic_summary['underexplored_count']
+        assert trends_body['total_theses'] == 3
+        assert analytics_body['approved_theses'] == 3

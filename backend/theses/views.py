@@ -775,16 +775,6 @@ class ThesisTopicTrendsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        approved = (
-            Thesis.objects
-            .filter(status=ThesisStatus.APPROVED)
-            .only(
-                'id', 'title', 'abstract', 'extracted_text',
-                'keywords', 'program', 'year', 'status',
-            )
-            .order_by('created_at')
-        )
-
         # Optional override of k via ?k=N (clamped server-side in service)
         k = None
         k_param = request.query_params.get('k')
@@ -798,10 +788,10 @@ class ThesisTopicTrendsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        from .services.topic_analysis import analyze_topics, to_dict
+        from .services.topic_analysis import analyze_topics, get_topic_trends_queryset, to_dict
 
         try:
-            result = analyze_topics(approved, k=k)
+            result = analyze_topics(get_topic_trends_queryset(), k=k)
         except Exception as exc:  # pragma: no cover — defensive
             logger.warning('Topic analysis failed: %s', exc)
             return make_error_response(
@@ -1152,10 +1142,11 @@ class ThesisAnalyticsView(APIView):
         # without hitting the network; silently degrade if it fails.
         topic_summary = {'emerging_count': 0, 'saturated_count': 0, 'underexplored_count': 0}
         try:
-            from .services.topic_analysis import analyze_topics
-            trend_result = analyze_topics(approved.only(
-                'title', 'abstract', 'extracted_text', 'keywords', 'status',
-            ))
+            from .services.topic_analysis import analyze_topics, get_topic_trends_queryset
+            # Use the shared queryset helper (same scope/fields/order as the
+            # /topic-trends/ endpoint) so both pages cluster identical input
+            # and never drift apart on SATURATED/EMERGING/UNDEREXPLORED counts.
+            trend_result = analyze_topics(get_topic_trends_queryset())
             topic_summary = {
                 'emerging_count': trend_result.emerging_count,
                 'saturated_count': trend_result.saturated_count,

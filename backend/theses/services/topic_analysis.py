@@ -201,6 +201,41 @@ class TopicTrendsResult:
 # Pipeline
 # ---------------------------------------------------------------------------
 
+def get_topic_trends_queryset():
+    """Single source of truth for the topic-trend-analysis queryset.
+
+    Both ``ThesisTopicTrendsView`` and ``ThesisAnalyticsView`` must feed
+    ``analyze_topics()`` with the *exact* same rows in the *exact* same
+    order — K-Means clustering (even with a fixed ``random_state``) is
+    sensitive to input row order, so two independently-built querysets
+    over the identical underlying data can silently produce different
+    cluster compositions, and therefore different SATURATED / EMERGING /
+    UNDEREXPLORED counts on the two pages. Routing both views through
+    this one helper eliminates that drift by construction.
+
+    Ordered by ``created_at`` with ``id`` as a tie-break, since
+    ``created_at`` alone is not guaranteed unique (e.g. bulk-seeded rows
+    sharing a timestamp), and Django querysets without an explicit
+    ``order_by()`` have no guaranteed row order at all.
+
+    Lazy-imports the ``Thesis``/``ThesisStatus`` models (matching this
+    module's existing lazy-import style for heavy/app-coupled
+    dependencies) to keep this service module import-safe regardless of
+    Django app-registry readiness.
+    """
+    from theses.models import Thesis, ThesisStatus
+
+    return (
+        Thesis.objects
+        .filter(status=ThesisStatus.APPROVED)
+        .only(
+            'id', 'title', 'abstract', 'extracted_text',
+            'keywords', 'program', 'year', 'status',
+        )
+        .order_by('created_at', 'id')
+    )
+
+
 def _compose_thesis_text(thesis) -> str:
     """Combine title + abstract + truncated extracted_text + keywords."""
     title = (thesis.title or '').strip()

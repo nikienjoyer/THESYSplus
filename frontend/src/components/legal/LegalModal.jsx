@@ -6,9 +6,11 @@
 import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
 import useFocusTrap from '../../hooks/useFocusTrap';
+import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 
 export default function LegalModal({ isOpen, onClose, type, isDark }) {
   const panelRef = useFocusTrap(isOpen);
+  const backdropRef = useBodyScrollLock(isOpen);
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -17,71 +19,62 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   const content = getContent(type);
 
   const modalContent = (
-    <>
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop — sole element behind the panel, so clicks/taps anywhere
+          outside the panel land on it directly (no sibling overlay stealing
+          the hit-test), and useBodyScrollLock's touchmove guard actually
+          receives touch events instead of being obscured. */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] thesys-overlay-enter"
+        ref={backdropRef}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm thesys-overlay-enter"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-        <div
-          ref={panelRef}
-          className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl thesys-modal-enter"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 backdrop-blur-sm">
-            <h2 className="text-xl font-bold text-ink">
-              {content.title}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
-              aria-label="Close"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
+      <div
+        ref={panelRef}
+        className="relative w-full max-w-3xl max-h-[85vh] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] overflow-hidden shadow-2xl thesys-modal-enter"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]/95 backdrop-blur-sm">
+          <h2 className="text-xl font-bold text-ink">
+            {content.title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
 
-          {/* Content */}
-          <div className="overflow-y-auto px-6 py-6" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-            {/* Reading column: Source Serif 4 for legal prose body (Phase 2.C-2).
-                font-reading = Source Serif 4 Variable, applied to this wrapper only.
-                max-w-[65ch] constrains prose to the approved reading measure.
-                text-[1.0625rem]/leading-[1.65] = 17px at 1.65 line-height.
-                Prose headings (h3/h4) inside content.body carry their own
-                Inter class names and override font-family at element level. */}
-            <div
-              className={`max-w-[65ch] font-reading text-[1.0625rem] leading-[1.65] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
-              style={{ textWrap: 'pretty' }}
-            >
-              {content.body}
-            </div>
+        {/* Content */}
+        <div className="custom-modal-scroll overflow-y-auto px-6 py-6" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+          {/* Reading column: Source Serif 4 for legal prose body (Phase 2.C-2).
+              font-reading = Source Serif 4 Variable, applied to this wrapper only.
+              max-w-[65ch] constrains prose to the approved reading measure.
+              text-[1.0625rem]/leading-[1.65] = 17px at 1.65 line-height.
+              Prose headings (h3/h4) inside content.body carry their own
+              Inter class names and override font-family at element level. */}
+          <div
+            className={`max-w-[65ch] font-reading text-[1.0625rem] leading-[1.65] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+            style={{ textWrap: 'pretty' }}
+          >
+            {content.body}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return createPortal(modalContent, document.body);

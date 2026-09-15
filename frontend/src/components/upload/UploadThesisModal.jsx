@@ -23,6 +23,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../hooks/useToast';
 import { useUploadModal } from '../../hooks/useUploadModal';
 import useFocusTrap from '../../hooks/useFocusTrap';
+import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import Spinner from '../ui/Spinner';
 import FileDropzone from '../ui/FileDropzone';
 
@@ -119,6 +120,7 @@ export default function UploadThesisModal() {
 
   const progressFrameRef = useRef(null);
   const panelRef = useFocusTrap(isOpen);
+  const backdropRef = useBodyScrollLock(isOpen);
 
   const resetForm = () => {
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
@@ -130,14 +132,6 @@ export default function UploadThesisModal() {
   // Reset everything whenever the modal is dismissed so it reopens fresh
   useEffect(() => {
     if (!isOpen) resetForm();
-  }, [isOpen]);
-
-  // Lock body scroll while open
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
   }, [isOpen]);
 
   // Animate visual progress while the server receives and processes the upload.
@@ -282,13 +276,14 @@ export default function UploadThesisModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="upload-modal-title"
     >
       {/* Backdrop — dimmed, blurred app context */}
       <div
+        ref={backdropRef}
         className="absolute inset-0 bg-canvas/80 backdrop-blur-sm thesys-overlay-enter"
         onClick={requestClose}
         aria-hidden="true"
@@ -297,7 +292,7 @@ export default function UploadThesisModal() {
       {/* Surface — clean elevated panel, no nested cards */}
       <div
         ref={panelRef}
-        className="relative w-full max-w-2xl my-4 rounded-2xl border border-[var(--color-border)] bg-surface-elevated shadow-2xl thesys-modal-enter"
+        className="relative w-full max-w-2xl rounded-2xl border border-[var(--color-border)] bg-surface-elevated shadow-2xl thesys-modal-enter"
       >
         {success ? (
           /* ── Success state ── */
@@ -355,7 +350,7 @@ export default function UploadThesisModal() {
           </div>
         ) : (
           /* ── Form state ── */
-          <div className="max-h-[88vh] overflow-y-auto p-6 sm:p-8">
+          <div className="custom-modal-scroll max-h-[88vh] overflow-y-auto p-6 sm:p-8">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-1">
               <h2 id="upload-modal-title" className="text-2xl font-bold text-ink">Upload Thesis</h2>

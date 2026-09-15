@@ -419,6 +419,41 @@
 }
 
 
+/* ── Modal scrollbar hiding (Modal Scrollbar & Scroll-Lock Fixes) ─────────
+   Hides scrollbar chrome (thumb/track/stepper buttons) on scrollable modal
+   surfaces while fully preserving wheel/trackpad/touch scroll behavior.
+   Covers Firefox (scrollbar-width), IE/Edge legacy (-ms-overflow-style),
+   and WebKit/Blink (::-webkit-scrollbar*). !important guards the WebKit
+   rules against Tailwind utility conflicts (e.g. accidental scrollbar
+   utilities re-applied by a later class).
+   ─────────────────────────────────────────────────────────────────────── */
+.custom-modal-scroll,
+.no-scrollbar {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE / legacy Edge */
+}
+.custom-modal-scroll::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+.custom-modal-scroll::-webkit-scrollbar-thumb,
+.no-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent !important;
+}
+.custom-modal-scroll::-webkit-scrollbar-track,
+.no-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.custom-modal-scroll::-webkit-scrollbar-button,
+.no-scrollbar::-webkit-scrollbar-button {
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+
+
 /* ── Toast entrance (Global Feedback) ──────────────────────────────────────
    Slide-in + fade from the top edge. Suppressed for reduced-motion users,
    who get an instant appearance instead. */
