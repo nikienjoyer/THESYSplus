@@ -134,7 +134,7 @@ export default function PdfPreviewPage() {
               title={`${title || 'Thesis'} — preview`}
               className="w-full h-full min-h-full border-0"
             />
-            <WatermarkOverlay isDark={isDark} />
+            <WatermarkOverlay />
           </>
         ) : (
           <div className="flex justify-center items-center h-full"><Spinner /></div>
