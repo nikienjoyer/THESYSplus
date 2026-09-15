@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
@@ -31,6 +32,8 @@ import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
 import { Badge } from '../components/shadcn/badge';
+import AnimatedCounter from '../components/ui/AnimatedCounter';
+import { useMotionVariants, useAnimatedCounterValue } from '../lib/motion';
 import { CHART_PALETTE } from '../styles/tokens';
 
 // ---------------------------------------------------------------------------
@@ -145,18 +148,32 @@ function buildDoughnutSegments(clusters, isDark, maxSlices = MAX_DOUGHNUT_SLICES
 // ---------------------------------------------------------------------------
 
 function DoughnutChart({ segments, isDark }) {
+  const { fadeIn, drawArc } = useMotionVariants();
   const total = segments.reduce((sum, s) => sum + s.thesis_count, 0);
+  // Drives the center total count-up. The SVG <text> node can't host
+  // AnimatedCounter's <span> markup, so we consume the shared tween hook
+  // directly and render a plain text node (aria-hidden — the surrounding
+  // <svg role="img"> already carries the full accessible summary).
+  const { hasNumericValue, displayValue } = useAnimatedCounterValue(total, 0.5);
+  const centerCountDisplay = hasNumericValue ? displayValue : total;
   if (total === 0) return null;
 
   const radius = 60;
   const stroke = 22;
   const circumference = 2 * Math.PI * radius;
-  let cumulative = 0;
 
   // Accessible summary for the chart's aria-label
   const summary = segments
     .map((s) => `${s.topic} ${s.thesis_count}`)
     .join(', ');
+
+  // Prefix sums of thesis_count so each segment's cumulative offset can be
+  // looked up by index instead of mutating a running total during render
+  // (keeps the mapping pure — no `let` reassignment inside the JSX map).
+  const prefixTotals = segments.reduce((acc, s, idx) => {
+    acc.push((idx === 0 ? 0 : acc[idx - 1]) + s.thesis_count);
+    return acc;
+  }, []);
 
   return (
     <div className="flex items-center justify-center">
@@ -166,40 +183,53 @@ function DoughnutChart({ segments, isDark }) {
         role="img"
         aria-label={`Topic distribution across ${segments.length} segments, ${total} theses total: ${summary}`}
       >
-        {/* Background ring */}
+        {/* Background ring — static */}
         <circle
           cx="80" cy="80" r={radius}
           fill="none" stroke={isDark ? '#1e293b' : '#e5e7eb'}
           strokeWidth={stroke}
         />
-        {segments.map((s) => {
+        {segments.map((s, idx) => {
+          const priorTotal = idx === 0 ? 0 : prefixTotals[idx - 1];
           const fraction = s.thesis_count / total;
           const dash = fraction * circumference;
-          const offset = -((cumulative / total) * circumference);
-          cumulative += s.thesis_count;
+          // strokeDashoffset stays fixed per segment — only the dash LENGTH
+          // animates, so segments draw in at their correct angular position
+          // rather than sweeping around the ring.
+          const offset = -((priorTotal / total) * circumference);
           return (
-            <circle
+            <m.circle
               key={s.id}
               cx="80" cy="80" r={radius}
               fill="none"
               stroke={s.color}
               strokeWidth={stroke}
-              strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={offset}
               strokeLinecap="butt"
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: idx * 0.06 }}
+              variants={drawArc(dash, circumference)}
             >
               <title>{`${s.topic} — ${s.thesis_count} thes${s.thesis_count === 1 ? 'is' : 'es'}`}</title>
-            </circle>
+            </m.circle>
           );
         })}
-        {/* Center label */}
-        <g transform="rotate(90, 80, 80)">
+        {/* Center label — static geometry, fades in once arcs finish drawing */}
+        <m.g
+          transform="rotate(90, 80, 80)"
+          initial="hidden"
+          animate="visible"
+          transition={{ delay: segments.length * 0.06 + 0.1 }}
+          variants={fadeIn}
+        >
           <text
             x="80" y="74" textAnchor="middle"
             className={`font-bold ${isDark ? 'fill-white' : 'fill-gray-900'}`}
             style={{ fontSize: '22px' }}
+            aria-hidden="true"
           >
-            {total}
+            {centerCountDisplay}
           </text>
           <text
             x="80" y="92" textAnchor="middle"
@@ -208,7 +238,7 @@ function DoughnutChart({ segments, isDark }) {
           >
             THESES
           </text>
-        </g>
+        </m.g>
       </svg>
     </div>
   );
@@ -220,15 +250,19 @@ function DoughnutChart({ segments, isDark }) {
 // ---------------------------------------------------------------------------
 
 function CountsBarChart({ clusters, isDark }) {
+  const { staggerContainer, growWidth } = useMotionVariants();
   if (clusters.length === 0) return null;
   const max = Math.max(...clusters.map((c) => c.thesis_count), 1);
   const summary = clusters.map((c) => `${c.topic} ${c.thesis_count}`).join(', ');
 
   return (
-    <div
+    <m.div
       className="space-y-2"
       role="img"
       aria-label={`Theses per topic: ${summary}`}
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
     >
       {clusters.map((c, idx) => {
         const pct = (c.thesis_count / max) * 100;
@@ -248,9 +282,10 @@ function CountsBarChart({ clusters, isDark }) {
                 isDark ? 'bg-white/[0.05]' : 'bg-gray-100'
               }`}
             >
-              <div
-                className="h-full transition-all duration-300"
-                style={{ width: `${pct}%`, backgroundColor: color }}
+              <m.div
+                className="h-full"
+                variants={growWidth(pct)}
+                style={{ backgroundColor: color }}
               />
             </div>
             <span
@@ -263,7 +298,7 @@ function CountsBarChart({ clusters, isDark }) {
           </div>
         );
       })}
-    </div>
+    </m.div>
   );
 }
 
@@ -273,13 +308,14 @@ function CountsBarChart({ clusters, isDark }) {
 // ---------------------------------------------------------------------------
 
 function StatCard({ label, value, sublabel, isDark, accent }) {
+  const isNumeric = typeof value === 'number' && Number.isFinite(value);
   return (
     <div>
       <div
         className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
         style={accent ? { color: accent } : undefined}
       >
-        {value}
+        {isNumeric ? <AnimatedCounter value={value} /> : value}
       </div>
       <div className={`text-xs font-semibold uppercase tracking-wider mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
@@ -299,9 +335,17 @@ function StatCard({ label, value, sublabel, isDark, accent }) {
 // ---------------------------------------------------------------------------
 
 function ClusterCard({ cluster, isDark, paletteColor }) {
+  const { fadeUp } = useMotionVariants();
   const styles = trendStyles(cluster.trend, isDark);
   return (
     <article className="thesys-panel thesys-card-lift">
+      {/* Entrance animation lives on this inner wrapper, not the <article>
+          itself — the outer element owns the CSS hover lift (transform)
+          and its own reduced-motion suppression via .thesys-card-lift in
+          index.css. Animating `transform` on both the outer element (CSS
+          hover) and an inner Framer Motion wrapper would fight each other;
+          keeping them on separate elements avoids that entirely. */}
+      <m.div variants={fadeUp}>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -370,6 +414,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
             </ul>
           </div>
         )}
+      </m.div>
     </article>
   );
 }
@@ -383,6 +428,7 @@ export default function TrendAnalysisPage() {
   const { theme } = useTheme();
   const { isAuthenticated, isInitializing } = useAuth();
   const isDark = theme === 'dark';
+  const { staggerContainer } = useMotionVariants();
 
   // Seed state from cache immediately — avoids blank flash on revisit
   const [data, setData] = useState(() => getTrendsCached());
@@ -437,6 +483,7 @@ export default function TrendAnalysisPage() {
   );
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="trends" />
 
@@ -565,7 +612,13 @@ export default function TrendAnalysisPage() {
               >
                 Topic Clusters ({data.clusters.length})
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <m.div
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-80px' }}
+                variants={staggerContainer}
+              >
                 {data.clusters.map((c, idx) => (
                   <ClusterCard
                     key={c.cluster_id}
@@ -574,7 +627,7 @@ export default function TrendAnalysisPage() {
                     paletteColor={colourFor(idx)}
                   />
                 ))}
-              </div>
+              </m.div>
             </div>
 
             {/* ── How this works ───────────────────────────────────── */}
@@ -603,5 +656,6 @@ export default function TrendAnalysisPage() {
         ) : null}
       </PageShell>
     </div>
+    </LazyMotion>
   );
 }

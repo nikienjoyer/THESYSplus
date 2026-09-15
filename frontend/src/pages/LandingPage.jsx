@@ -1,22 +1,27 @@
 /**
  * LandingPage — THESYS+ public landing page.
  *
- * Layout (reference: attached screenshot):
- *   Sticky Navbar · Split Hero (left: text+search / right: CCS building photo) ·
+ * Layout:
+ *   Sticky Navbar · Hero (full-bleed CCS building photo dark island) ·
  *   Repository Snapshot · Feature Showcase (4-col) ·
  *   [Trending Topics Preview + Why THESYS+] side-by-side · Dark Footer
  *
  * Privacy: logged-out users see aggregate-only data. No thesis titles,
  * abstracts, authors, or documents are exposed.
  *
- * Building image: public/ccs-bldg.jpg — rendered directly in the right
- * panel with only a subtle left-edge fade for blending. Falls back to a
- * light-blue institutional tint when absent.
+ * Hero: permanent dark island. Art-directed building photo — landscape
+ * crop at lg+ (1024px), portrait crop below — behind a soft multi-stop
+ * scrim (see HERO_SCRIM_DESKTOP / HERO_SCRIM_MOBILE), with hardcoded
+ * light text in both themes. Theme-invariant throughout: only the
+ * breakpoint (not the theme) changes the crop, scrim shape, or text
+ * anchor. Falls back to a solid dark surface if the asset fails to
+ * load, since the text treatment doesn't adapt to a light background.
  */
 
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { LazyMotion, domAnimation, m } from 'framer-motion';
 import {
   Sun, Moon, Search, ShieldCheck, TrendingUp, BarChart3,
   ArrowRight, BookOpen, GraduationCap, LayoutDashboard,
@@ -29,6 +34,8 @@ import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
+import AnimatedCounter from '../components/ui/AnimatedCounter';
+import { useMotionVariants } from '../lib/motion';
 
 const CORE_NAV = [
   { label: 'Home',             to: '/',                 implemented: true },
@@ -38,7 +45,18 @@ const CORE_NAV = [
   { label: 'Analytics',        to: '/analytics',        implemented: true },
 ];
 
-const CCS_BUILDING_IMG = '/ccs-bldg.jpg';
+// Hero scrim — soft multi-stop gradients. Many closely-spaced stops so there
+// is no visible seam (an earlier hard-stop version produced a hard vertical
+// edge across the photo).
+//
+// Desktop: dense on the left where the text sits, fully clear by 88% so the
+// entrance arch stays sunlit. Angled 100deg so it doesn't read as a band.
+// Mobile: dense at the bottom, because mobile text is bottom-anchored.
+const HERO_SCRIM_DESKTOP =
+  'linear-gradient(100deg, rgba(2,6,23,0.92) 0%, rgba(2,6,23,0.80) 28%, rgba(2,6,23,0.58) 52%, rgba(2,6,23,0.15) 76%, transparent 90%)';
+
+const HERO_SCRIM_MOBILE =
+  'linear-gradient(0deg, rgba(2,6,23,0.94) 0%, rgba(2,6,23,0.86) 32%, rgba(2,6,23,0.70) 60%, rgba(2,6,23,0.28) 80%, transparent 94%)';
 
 // Feature cards — "Learn more" only links to pages that actually exist.
 const FEATURES = [
@@ -90,9 +108,10 @@ export default function LandingPage() {
   const [topics, setTopics]             = useState(null);
   const [legalModal, setLegalModal]     = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [hasBuildingImg, setHasBuildingImg] = useState(false);
+  const [heroImgFailed, setHeroImgFailed] = useState(false);
   const isDark = theme === 'dark';
   const drawerRef = useFocusTrap(mobileMenuOpen);
+  const { fadeUp, staggerContainer } = useMotionVariants();
 
   // Escape closes mobile menu
   useEffect(() => {
@@ -100,16 +119,6 @@ export default function LandingPage() {
     if (mobileMenuOpen) document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [mobileMenuOpen]);
-
-  // Probe whether the building photo is available
-  useEffect(() => {
-    let cancelled = false;
-    const img = new Image();
-    img.onload  = () => { if (!cancelled) setHasBuildingImg(true);  };
-    img.onerror = () => { if (!cancelled) setHasBuildingImg(false); };
-    img.src = CCS_BUILDING_IMG;
-    return () => { cancelled = true; };
-  }, []);
 
   // Public thesis count — aggregate only, no auth required
   useEffect(() => {
@@ -137,8 +146,6 @@ export default function LandingPage() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isAuthenticated, isInitializing]);
-
-  const thesisCountLabel = thesisCount !== null ? String(thesisCount) : '…';
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -294,138 +301,129 @@ export default function LandingPage() {
       )}
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          HERO — split layout: left text+search / right building photo
+          HERO — permanent dark island: full-bleed, art-directed building
+          photo (landscape crop at lg+, portrait crop below) behind a soft
+          multi-stop scrim, with hardcoded light text in both themes. The
+          photo, scrim, and text are all theme-invariant — what changes
+          between breakpoints is the image crop, the scrim's shape, and
+          where the text anchors (centered at lg+, bottom-anchored on
+          mobile since the portrait crop puts the entrance lower in frame).
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <main>
-        <section className={`relative overflow-hidden ${isDark ? 'bg-[#080d24]' : 'bg-[#eef3fb]'}`}>
-          {/* Mobile building strip — visible only below lg, gives the hero institutional
-              presence on phones without the full split layout (m2 fix) */}
-          {hasBuildingImg && (
-            <div className="lg:hidden relative h-36 overflow-hidden" aria-hidden="true">
+        <LazyMotion features={domAnimation}>
+        <section className="relative w-full min-h-[100svh] flex items-end lg:items-center overflow-hidden">
+          {/* Background photo — decorative, never animated (avoids layout jank).
+              Art-directed crops: landscape (16:9, entrance right-of-center)
+              at lg+ (1024px, matches Tailwind's lg — kept in sync with the
+              scrim/text-anchor breakpoint below), portrait (9:16, entrance
+              centered) below that. WebP first, JPEG fallback per crop. */}
+          {heroImgFailed ? (
+            // Fallback if the asset fails to load — solid dark surface, since
+            // the scrim + hardcoded light text depend on a dark base
+            // regardless of theme (a light fallback would put white text on
+            // a light background).
+            <div className="absolute inset-0 w-full h-full bg-slate-950 z-0" aria-hidden="true" />
+          ) : (
+            <picture>
+              <source media="(min-width: 1024px)" type="image/webp" srcSet="/ccsdesktop.webp" />
+              <source media="(min-width: 1024px)" type="image/jpeg" srcSet="/ccsdesktop.jpeg" />
+              <source type="image/webp" srcSet="/ccsmobile.webp" />
               <img
-                src={CCS_BUILDING_IMG}
+                src="/ccsmobile.jpeg"
                 alt=""
-                className="w-full h-full object-cover"
-                style={{ objectPosition: '60% 30%' }}
+                className="absolute inset-0 w-full h-full object-cover object-[center_40%] z-0"
                 loading="eager"
+                fetchPriority="high"
                 draggable="false"
+                aria-hidden="true"
+                onError={() => setHeroImgFailed(true)}
               />
-              <div className="absolute inset-0" style={{
-                background: isDark
-                  ? 'linear-gradient(180deg, rgba(8,13,36,0.2) 0%, rgba(8,13,36,0.85) 100%)'
-                  : 'linear-gradient(180deg, rgba(238,243,251,0.1) 0%, rgba(238,243,251,0.9) 100%)',
-              }} />
-            </div>
+            </picture>
           )}
-          {/* Full-width grid — no max-w cap on the hero itself so it fills the viewport */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] min-h-[min(68vh,520px)]">
 
-            {/* LEFT — text + search: padded column, inner content capped so it reads
-                  toward the center seam rather than drifting to the outer edge on
-                  wide viewports (m3 fix) */}
-            <div className="relative z-10 flex flex-col justify-center px-8 sm:px-12 lg:px-16 xl:px-20 py-12 lg:py-16 max-w-3xl lg:max-w-none lg:ml-auto lg:mr-0 lg:w-full">
-              <div className="lg:max-w-2xl lg:ml-auto lg:mr-8">
-              {/* Breadcrumb eyebrow */}
-              <p className={`text-xs font-medium mb-4 ${isDark ? 'text-blue-300' : 'text-primary'}`}>
-                Pampanga State University
-                <span className={`mx-1.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>•</span>
-                College of Computing Studies
-              </p>
+          {/* Scrim — soft multi-stop gradients (see HERO_SCRIM_* above), one
+              shape per breakpoint rather than per theme: dense at the
+              bottom on mobile (text is bottom-anchored there), dense on
+              the left at lg+ (text is left-aligned and vertically
+              centered there). Two plain divs instead of Tailwind
+              arbitrary values — keeps the gradient strings readable and
+              avoids the arbitrary-value parser tripping on nested commas. */}
+          <div
+            className="absolute inset-0 z-0 lg:hidden"
+            style={{ backgroundImage: HERO_SCRIM_MOBILE }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 z-0 hidden lg:block"
+            style={{ backgroundImage: HERO_SCRIM_DESKTOP }}
+            aria-hidden="true"
+          />
 
-              {/* Headline — "undergraduate research" emphasized via weight + ink-blue,
-                  deliberately NOT the link/action blue so it doesn't read as clickable */}
-              <h1 className={`font-bold tracking-tight mb-4 leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
-                style={{ fontSize: 'clamp(1.75rem, 2.8vw, 3rem)' }}>
-                Explore, validate, and discover{' '}
-                <span className={`font-extrabold ${isDark ? 'text-blue-200' : 'text-[#1e3a8a]'}`}>undergraduate research</span>{' '}
-                within PampangaStateU CCS.
-              </h1>
+          {/* Text container */}
+          <m.div
+            className="relative z-10 max-w-2xl px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            {/* Breadcrumb eyebrow */}
+            <m.p variants={fadeUp} className="text-xs font-medium mb-4 text-slate-300">
+              Pampanga State University
+              <span className="mx-1.5 text-slate-500">•</span>
+              College of Computing Studies
+            </m.p>
 
-              {/* Supporting text */}
-              <p className={`text-sm sm:text-base leading-relaxed mb-7 max-w-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                Search previous studies by meaning, check title originality,
-                and analyze emerging research trends through AI-assisted retrieval.
-              </p>
+            {/* Headline — "undergraduate research" emphasized in the blue accent */}
+            <m.h1 variants={fadeUp} className="font-bold tracking-tight mb-4 leading-tight text-white"
+              style={{ fontSize: 'clamp(1.75rem, 2.8vw, 3rem)' }}>
+              Explore, validate, and discover{' '}
+              <span className="font-extrabold text-blue-400">undergraduate research</span>{' '}
+              within PampangaStateU CCS.
+            </m.h1>
 
-              {/* Unified search unit: input + trailing Search Semantically button read
-                  as one control. Stacks the button below the field only on the
-                  narrowest screens (flex-wrap). Enter / form submission unchanged. */}
-              <form id="hero-search-form" onSubmit={handleSearchSubmit}
-                className="mb-4 max-w-xl flex flex-wrap sm:flex-nowrap items-stretch gap-2">
-                <div
-                  className={`flex items-center rounded-lg px-4 py-2.5 border transition-all duration-200 flex-1 min-w-0 ${
-                    isDark
-                      ? 'bg-white/[0.07] border-white/15 hover:border-white/25 focus-within:border-blue-500/60 focus-within:bg-white/[0.09]'
-                      : 'bg-white border-gray-300 shadow-sm hover:border-gray-400 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'
-                  }`}>
-                  <Search className={`w-4 h-4 mr-3 flex-shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} aria-hidden="true" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for thesis topics, keywords, or authors..."
-                    className={`flex-1 bg-transparent text-sm outline-none min-w-0 ${isDark ? 'text-gray-100 placeholder-gray-500' : 'text-gray-700 placeholder-gray-400'}`}
-                    aria-label="Search thesis topics, keywords, or authors"
-                  />
-                </div>
-                <button type="submit"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                  <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                  Search Semantically
-                </button>
-              </form>
+            {/* Supporting text */}
+            <m.p variants={fadeUp} className="text-sm sm:text-base leading-relaxed mb-7 max-w-lg text-slate-200">
+              Search previous studies by meaning, check title originality,
+              and analyze emerging research trends through AI-assisted retrieval.
+            </m.p>
 
-              {/* Secondary CTA */}
-              <div className="flex flex-wrap gap-3">
-                <Link to="/title-similarity"
-                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                    isDark
-                      ? 'border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30'
-                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
-                  }`}>
-                  <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                  Check Title Similarity
-                </Link>
+            {/* Unified search unit — kept as-is; handles its own states well. */}
+            <m.form variants={fadeUp} id="hero-search-form" onSubmit={handleSearchSubmit}
+              className="mb-4 max-w-xl flex flex-wrap sm:flex-nowrap items-stretch gap-2">
+              <div className="flex items-center rounded-lg px-4 py-2.5 border transition-all duration-200 flex-1 min-w-0 bg-white/[0.07] border-white/15 hover:border-white/25 focus-within:border-blue-500/60 focus-within:bg-white/[0.09]">
+                <Search className="w-4 h-4 mr-3 flex-shrink-0 text-gray-400" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search for thesis topics, keywords, or authors..."
+                  className="flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500"
+                  aria-label="Search thesis topics, keywords, or authors"
+                />
               </div>
-              </div>
-            </div>
+              <button type="submit"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                Search Semantically
+              </button>
+            </m.form>
 
-            {/* RIGHT — CCS building photo: fills the full grid column */}
-            <div className="relative hidden lg:block overflow-hidden" aria-hidden="true">
-              {hasBuildingImg ? (
-                <>
-                  <img
-                    src={CCS_BUILDING_IMG}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    style={{ objectPosition: '60% 40%' }}
-                    loading="eager"
-                    draggable="false"
-                  />
-                  {/* Left-edge fade: extended multi-stop blend so the panel and photo
-                      read as one cohesive hero. Transparent stop pushed ~25% further
-                      right while keeping the façade recognizable. */}
-                  <div className="absolute inset-0" style={{
-                    background: isDark
-                      ? 'linear-gradient(90deg, rgba(8,13,36,1) 0%, rgba(8,13,36,0.9) 18%, rgba(8,13,36,0.6) 38%, rgba(8,13,36,0.28) 58%, rgba(8,13,36,0.08) 78%, transparent 92%)'
-                      : 'linear-gradient(90deg, rgba(238,243,251,1) 0%, rgba(238,243,251,0.9) 16%, rgba(238,243,251,0.6) 36%, rgba(238,243,251,0.28) 56%, rgba(238,243,251,0.08) 76%, transparent 90%)',
-                  }} />
-                  {/* Bottom vignette to blend with snapshot section */}
-                  <div className="absolute inset-0" style={{
-                    background: 'linear-gradient(180deg, transparent 62%, rgba(0,0,0,0.16) 100%)',
-                  }} />
-                </>
-              ) : (
-                <div className={`absolute inset-0 ${isDark ? 'bg-blue-950/40' : 'bg-blue-100/60'}`} />
-              )}
-            </div>
-          </div>
+            {/* Secondary CTA */}
+            <m.div variants={fadeUp} className="flex flex-wrap gap-3">
+              <Link to="/title-similarity"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30">
+                <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                Check Title Similarity
+              </Link>
+            </m.div>
+          </m.div>
         </section>
+        </LazyMotion>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             REPOSITORY SNAPSHOT — enough bottom padding to seal the fold
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section className={`border-t border-b ${isDark ? 'border-white/[0.06] bg-[#0c1228]' : 'border-gray-200 bg-white'}`}>
+        <section className={isDark ? 'bg-[#0c1228]' : 'bg-white'}>
           <div className="max-w-7xl mx-auto px-8 sm:px-12 lg:px-16 py-10 pb-16">
             <h2 className={`text-center text-base font-semibold tracking-wide mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Repository Snapshot
@@ -440,7 +438,7 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <div className={`text-2xl font-bold leading-none ${isDark ? 'text-primary' : 'text-primary'}`}>
-                    {thesisCountLabel}
+                    <AnimatedCounter value={thesisCount} />
                   </div>
                   <div className={`text-xs font-semibold mt-0.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     Undergraduate Theses Indexed
@@ -492,6 +490,7 @@ export default function LandingPage() {
         </section>
       </main>
 
+      <LazyMotion features={domAnimation}>
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           FEATURE SHOWCASE — begins below first fold (scroll-reveal point)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -500,9 +499,15 @@ export default function LandingPage() {
           <h2 className={`text-center text-base font-semibold tracking-wide mb-8 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             Research tools built for CCS
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <m.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-80px' }}
+            variants={staggerContainer}
+          >
             {FEATURES.map(({ icon: Icon, iconBg, iconColor, title, desc, to, linkLabel }) => (
-              <div key={title} className="flex flex-col gap-3">
+              <m.div key={title} variants={fadeUp} className="flex flex-col gap-3">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? iconBg.dark : iconBg.light}`}>
                   <Icon className={`w-5 h-5 ${isDark ? iconColor.dark : iconColor.light}`} aria-hidden="true" />
                 </div>
@@ -514,9 +519,9 @@ export default function LandingPage() {
                   className={`inline-flex items-center gap-1 text-xs font-semibold mt-auto ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-primary hover:opacity-80'}`}>
                   {linkLabel} <ArrowRight className="w-3 h-3" aria-hidden="true" />
                 </Link>
-              </div>
+              </m.div>
             ))}
-          </div>
+          </m.div>
         </div>
       </section>
 
@@ -535,11 +540,17 @@ export default function LandingPage() {
               Aggregate topic clusters — labels and counts only.
             </p>
 
-            <div className="space-y-2">
+            <m.div
+              className="space-y-2"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              variants={staggerContainer}
+            >
               {trendList.map((t) => {
                 const chip = trendChip(t.trend);
                 return (
-                  <div key={t.topic}
+                  <m.div key={t.topic} variants={fadeUp}
                     className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border ${
                       isDark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-white border-gray-200'
                     }`}>
@@ -552,10 +563,10 @@ export default function LandingPage() {
                         {chip.label}
                       </span>
                     </div>
-                  </div>
+                  </m.div>
                 );
               })}
-            </div>
+            </m.div>
 
             <Link to="/trend-analysis"
               className={`inline-flex items-center gap-1.5 mt-5 text-xs font-semibold ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-primary hover:opacity-80'}`}>
@@ -572,8 +583,14 @@ export default function LandingPage() {
               Built to support the CCS undergraduate thesis lifecycle.
             </p>
 
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
+            <m.div
+              className="space-y-6"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              variants={staggerContainer}
+            >
+              <m.div variants={fadeUp} className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/15' : 'bg-blue-50'}`}>
                   <ShieldCheck className={`w-5 h-5 ${isDark ? 'text-blue-300' : 'text-primary'}`} aria-hidden="true" />
                 </div>
@@ -583,9 +600,9 @@ export default function LandingPage() {
                     Validate thesis titles early to avoid duplication and ensure research originality.
                   </p>
                 </div>
-              </div>
+              </m.div>
 
-              <div className="flex items-start gap-4">
+              <m.div variants={fadeUp} className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/15' : 'bg-blue-50'}`}>
                   <Search className={`w-5 h-5 ${isDark ? 'text-blue-300' : 'text-primary'}`} aria-hidden="true" />
                 </div>
@@ -595,9 +612,9 @@ export default function LandingPage() {
                     Make completed CCS theses findable by meaning, not just by exact keywords.
                   </p>
                 </div>
-              </div>
+              </m.div>
 
-              <div className="flex items-start gap-4">
+              <m.div variants={fadeUp} className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'}`}>
                   <TrendingUp className={`w-5 h-5 ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`} aria-hidden="true" />
                 </div>
@@ -607,12 +624,13 @@ export default function LandingPage() {
                     Identify saturated and emerging research areas to guide future thesis topics.
                   </p>
                 </div>
-              </div>
-            </div>
+              </m.div>
+            </m.div>
           </div>
 
         </div>
       </section>
+      </LazyMotion>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           FOOTER — dark band with institutional links

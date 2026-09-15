@@ -26,6 +26,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
@@ -35,6 +36,8 @@ import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+import AnimatedCounter from '../components/ui/AnimatedCounter';
+import { useMotionVariants } from '../lib/motion';
 import { CHART_PALETTE } from '../styles/tokens';
 
 
@@ -69,12 +72,20 @@ const PALETTE = CHART_PALETTE;
 // ---------------------------------------------------------------------------
 
 function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
+  const { staggerContainer, growWidth } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const items = data.slice(0, maxBars);
   const maxVal = Math.max(...items.map((d) => d[valueField]), 1);
   const summary = items.map((d) => `${d[keyField]} ${d[valueField]}`).join(', ');
   return (
-    <div className="space-y-2" role="img" aria-label={`Bar chart: ${summary}`}>
+    <m.div
+      className="space-y-2"
+      role="img"
+      aria-label={`Bar chart: ${summary}`}
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
       {items.map((d, idx) => {
         const pct = (d[valueField] / maxVal) * 100;
         return (
@@ -86,9 +97,10 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
               {d[keyField]}
             </span>
             <div className={`flex-1 h-3 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.05]' : 'bg-gray-100'}`}>
-              <div
-                className="h-full transition-all duration-300"
-                style={{ width: `${pct}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
+              <m.div
+                className="h-full"
+                variants={growWidth(pct)}
+                style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
               />
             </div>
             <span className={`text-xs tabular-nums w-6 text-right flex-shrink-0 font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -97,18 +109,26 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
           </div>
         );
       })}
-    </div>
+    </m.div>
   );
 }
 
 function YearBarChart({ data, isDark }) {
+  const { staggerContainer, growHeight } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const maxVal = Math.max(...data.map((d) => d.count), 1);
   const summary = data.map((d) => `${d.year}: ${d.count}`).join(', ');
   return (
-    <div className="flex items-end gap-1 sm:gap-2 h-28 w-full" role="img" aria-label={`Research growth by year: ${summary}`}>
+    <m.div
+      className="flex items-end gap-1 sm:gap-2 h-28 w-full"
+      role="img"
+      aria-label={`Research growth by year: ${summary}`}
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
       {data.map((d, idx) => {
-        const heightPct = (d.count / maxVal) * 100;
+        const heightPct = Math.max((d.count / maxVal) * 100, 4);
         return (
           <div key={d.year} className="flex flex-col items-center flex-1 min-w-0 h-full">
             <span className={`text-[9px] mb-0.5 font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -116,9 +136,10 @@ function YearBarChart({ data, isDark }) {
             </span>
             {/* Bar track — flex-1 gives the percentage-height bar a real basis */}
             <div className="flex-1 w-full flex items-end">
-              <div
-                className="w-full rounded-t-sm transition-all duration-300"
-                style={{ height: `${Math.max(heightPct, 4)}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
+              <m.div
+                className="w-full rounded-t-sm"
+                variants={growHeight(heightPct)}
+                style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
                 title={`${d.year}: ${d.count}`}
               />
             </div>
@@ -128,7 +149,7 @@ function YearBarChart({ data, isDark }) {
           </div>
         );
       })}
-    </div>
+    </m.div>
   );
 }
 
@@ -137,13 +158,14 @@ function YearBarChart({ data, isDark }) {
 // Stat card — uses shadcn Card
 // ---------------------------------------------------------------------------
 function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
+  const isNumeric = typeof value === 'number' && Number.isFinite(value);
   const card = (
     <div>
       <div
         className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
         style={accent ? { color: accent } : undefined}
       >
-        {value ?? '—'}
+        {isNumeric ? <AnimatedCounter value={value} /> : (value ?? '—')}
       </div>
       <div className={`text-xs font-semibold uppercase tracking-wider mt-2 flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
@@ -291,6 +313,7 @@ export default function AnalyticsDashboardPage() {
   const sectionHeader = `text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`;
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="analytics" />
 
@@ -456,5 +479,6 @@ export default function AnalyticsDashboardPage() {
         )}
       </PageShell>
     </div>
+    </LazyMotion>
   );
 }

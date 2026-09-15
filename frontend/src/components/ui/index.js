@@ -4,3 +4,4 @@ export { default as Checkbox } from './Checkbox';
 export { default as Alert } from './Alert';
 export { default as Spinner } from './Spinner';
 export { default as Logo } from './Logo';
+export { default as AnimatedCounter } from './AnimatedCounter';
