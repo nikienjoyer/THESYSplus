@@ -9,13 +9,15 @@
  * Privacy: logged-out users see aggregate-only data. No thesis titles,
  * abstracts, authors, or documents are exposed.
  *
- * Hero: permanent dark island. Art-directed building photo — landscape
- * crop at lg+ (1024px), portrait crop below — behind a soft multi-stop
- * scrim (see HERO_SCRIM_DESKTOP / HERO_SCRIM_MOBILE), with hardcoded
- * light text in both themes. Theme-invariant throughout: only the
- * breakpoint (not the theme) changes the crop, scrim shape, or text
- * anchor. Falls back to a solid dark surface if the asset fails to
- * load, since the text treatment doesn't adapt to a light background.
+ * Hero: art-directed building photo — landscape crop at lg+ (1024px),
+ * portrait crop below. Mobile (< lg) is theme-invariant: dark scrim,
+ * light text, in both light and dark mode (see HERO_SCRIM_MOBILE).
+ * Desktop (lg+) inverts in light mode — white scrim, near-black text,
+ * brand-blue accent (see HERO_SCRIM_DESKTOP_LIGHT and the heroEyebrowCls
+ * etc. constants) — so light/dark mode are visually distinct at desktop
+ * widths while mobile stays untouched. Falls back to a solid dark
+ * surface if the asset fails to load, since the mobile-first light text
+ * doesn't adapt to a light background.
  */
 
 import { Link, useNavigate } from 'react-router-dom';
@@ -57,6 +59,14 @@ const HERO_SCRIM_DESKTOP =
 
 const HERO_SCRIM_MOBILE =
   'linear-gradient(0deg, rgba(2,6,23,0.94) 0%, rgba(2,6,23,0.86) 32%, rgba(2,6,23,0.70) 60%, rgba(2,6,23,0.28) 80%, transparent 94%)';
+
+// Light-mode desktop scrim — white wash mirroring the dark gradient's falloff
+// shape. Holds ~0.62 alpha out to 58% so the near-black eyebrow/paragraph and
+// the #1e40af accent clear WCAG AA over the photo's dark window bands, then
+// clears to 0.12 by 74% so the entrance arch stays visible.
+// Mobile has no light variant — the mobile scrim stays dark in both themes.
+const HERO_SCRIM_DESKTOP_LIGHT =
+  'linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 32%, rgba(255,255,255,0.62) 58%, rgba(255,255,255,0.12) 74%, transparent 88%)';
 
 // Feature cards — "Learn more" only links to pages that actually exist.
 const FEATURES = [
@@ -112,6 +122,24 @@ export default function LandingPage() {
   const isDark = theme === 'dark';
   const drawerRef = useFocusTrap(mobileMenuOpen);
   const { fadeUp, staggerContainer } = useMotionVariants();
+
+  // ── Hero text + chrome classes ─────────────────────────────────────────
+  // Mobile (< lg) keeps light-on-dark in BOTH themes because the mobile scrim
+  // stays dark. Only desktop light mode inverts, hence the lg: scoping.
+  const heroEyebrowCls   = isDark ? 'text-slate-300' : 'text-slate-300 lg:text-ink';
+  const heroDotCls       = isDark ? 'text-slate-500' : 'text-slate-500 lg:text-body';
+  const heroHeadingCls   = isDark ? 'text-white'     : 'text-white lg:text-ink';
+  const heroAccentCls    = isDark ? 'text-primary'   : 'text-blue-400 lg:text-primary';
+  const heroParagraphCls = isDark ? 'text-slate-200' : 'text-slate-200 lg:text-ink';
+
+  const heroInputWrapCls = isDark
+    ? ''
+    : 'lg:bg-white lg:border-gray-300 lg:hover:border-gray-400 lg:focus-within:border-blue-400 lg:focus-within:ring-2 lg:focus-within:ring-blue-100';
+  const heroInputIconCls = isDark ? '' : 'lg:text-muted';
+  const heroInputTextCls = isDark ? '' : 'lg:text-gray-700 lg:placeholder-gray-500';
+  const heroOutlineBtnCls = isDark
+    ? ''
+    : 'lg:border-gray-300 lg:text-ink lg:hover:bg-gray-50 lg:hover:border-gray-400';
 
   // Escape closes mobile menu
   useEffect(() => {
@@ -301,13 +329,14 @@ export default function LandingPage() {
       )}
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          HERO — permanent dark island: full-bleed, art-directed building
-          photo (landscape crop at lg+, portrait crop below) behind a soft
-          multi-stop scrim, with hardcoded light text in both themes. The
-          photo, scrim, and text are all theme-invariant — what changes
-          between breakpoints is the image crop, the scrim's shape, and
-          where the text anchors (centered at lg+, bottom-anchored on
-          mobile since the portrait crop puts the entrance lower in frame).
+          HERO — full-bleed, art-directed building photo (landscape crop
+          at lg+, portrait crop below). Mobile (< lg) keeps a dark scrim
+          with light text in BOTH themes — unaffected by this change.
+          Desktop (lg+) inverts in light mode: white scrim, near-black
+          text, brand-blue accent, so light and dark mode read as visibly
+          distinct at desktop widths. Every light-mode desktop override
+          is `lg:`-scoped (see heroEyebrowCls etc. above) so mobile light
+          mode never inherits a dark-on-dark override meant for desktop.
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <main>
         <LazyMotion features={domAnimation}>
@@ -355,7 +384,7 @@ export default function LandingPage() {
           />
           <div
             className="absolute inset-0 z-0 hidden lg:block"
-            style={{ backgroundImage: HERO_SCRIM_DESKTOP }}
+            style={{ backgroundImage: isDark ? HERO_SCRIM_DESKTOP : HERO_SCRIM_DESKTOP_LIGHT }}
             aria-hidden="true"
           />
 
@@ -367,22 +396,22 @@ export default function LandingPage() {
             variants={staggerContainer}
           >
             {/* Breadcrumb eyebrow */}
-            <m.p variants={fadeUp} className="text-xs font-medium mb-4 text-slate-300">
+            <m.p variants={fadeUp} className={`text-xs font-medium mb-4 ${heroEyebrowCls}`}>
               Pampanga State University
-              <span className="mx-1.5 text-slate-500">•</span>
+              <span className={`mx-1.5 ${heroDotCls}`}>•</span>
               College of Computing Studies
             </m.p>
 
             {/* Headline — "undergraduate research" emphasized in the blue accent */}
-            <m.h1 variants={fadeUp} className="font-bold tracking-tight mb-4 leading-tight text-white"
+            <m.h1 variants={fadeUp} className={`font-bold tracking-tight mb-4 leading-tight ${heroHeadingCls}`}
               style={{ fontSize: 'clamp(1.75rem, 2.8vw, 3rem)' }}>
               Explore, validate, and discover{' '}
-              <span className="font-extrabold text-blue-400">undergraduate research</span>{' '}
+              <span className={`font-extrabold ${heroAccentCls}`}>undergraduate research</span>{' '}
               within PampangaStateU CCS.
             </m.h1>
 
             {/* Supporting text */}
-            <m.p variants={fadeUp} className="text-sm sm:text-base leading-relaxed mb-7 max-w-lg text-slate-200">
+            <m.p variants={fadeUp} className={`text-sm sm:text-base leading-relaxed mb-7 max-w-lg ${heroParagraphCls}`}>
               Search previous studies by meaning, check title originality,
               and analyze emerging research trends through AI-assisted retrieval.
             </m.p>
@@ -390,14 +419,14 @@ export default function LandingPage() {
             {/* Unified search unit — kept as-is; handles its own states well. */}
             <m.form variants={fadeUp} id="hero-search-form" onSubmit={handleSearchSubmit}
               className="mb-4 max-w-xl flex flex-wrap sm:flex-nowrap items-stretch gap-2">
-              <div className="flex items-center rounded-lg px-4 py-2.5 border transition-all duration-200 flex-1 min-w-0 bg-white/[0.07] border-white/15 hover:border-white/25 focus-within:border-blue-500/60 focus-within:bg-white/[0.09]">
-                <Search className="w-4 h-4 mr-3 flex-shrink-0 text-gray-400" aria-hidden="true" />
+              <div className={`flex items-center rounded-lg px-4 py-2.5 border transition-all duration-200 flex-1 min-w-0 bg-white/[0.07] border-white/15 hover:border-white/25 focus-within:border-blue-500/60 focus-within:bg-white/[0.09] ${heroInputWrapCls}`}>
+                <Search className={`w-4 h-4 mr-3 flex-shrink-0 text-gray-400 ${heroInputIconCls}`} aria-hidden="true" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for thesis topics, keywords, or authors..."
-                  className="flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500"
+                  className={`flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
                   aria-label="Search thesis topics, keywords, or authors"
                 />
               </div>
@@ -411,7 +440,7 @@ export default function LandingPage() {
             {/* Secondary CTA */}
             <m.div variants={fadeUp} className="flex flex-wrap gap-3">
               <Link to="/title-similarity"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30">
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Check Title Similarity
               </Link>
