@@ -23,6 +23,8 @@ from theses.services.metadata_extraction import (
     MAX_AUTHORS,
     MAX_KEYWORDS,
     METADATA_FIELDS,
+    MIN_ABSTRACT_WORDS,
+    MIN_PROSE_ALPHA_RATIO,
     MIN_YEAR,
     detect_abstract,
     detect_authors,
@@ -424,10 +426,13 @@ class TestDetectAbstract:
         assert 'system for undergraduate theses' in abstract
 
     def test_hyphenated_line_break_is_rejoined(self):
+        # Padded past MIN_ABSTRACT_WORDS so this exercises hyphen rejoining
+        # rather than tripping the prose floor.
         text = (
             'ABSTRACT\n'
             'The researchers evaluated the develop-\n'
-            'ment of a records platform for three rural clinics in the province.\n'
+            'ment of a records platform for three rural clinics in the province\n'
+            'of Pampanga and measured staff adoption over two academic terms.\n'
         )
         abstract, _ = detect_abstract(text)
 
@@ -448,6 +453,181 @@ class TestDetectAbstract:
     @pytest.mark.parametrize('text', ['', '   '])
     def test_degenerate_input(self, text):
         assert detect_abstract(text) == ('', 'low')
+
+
+# ---------------------------------------------------------------------------
+# Table-of-contents dot leaders must never reach the Abstract field
+# ---------------------------------------------------------------------------
+
+# Real abstract prose, 150+ words, used as the "this must still work" control.
+REAL_ABSTRACT_PROSE = (
+    'This study designed and evaluated a semantic retrieval system for the '
+    'undergraduate thesis collection of the College of Computing Studies. '
+    'The researchers observed that keyword matching alone failed to surface '
+    'related work when authors described the same concept with different '
+    'terminology, which led students to duplicate topics that already existed '
+    'in the archive. To address this, the system encodes each submitted '
+    'document with a sentence transformer and ranks results by cosine '
+    'similarity against the resulting vectors, rather than by lexical overlap '
+    'alone. A term frequency analysis is layered on top to group approved '
+    'submissions into topic clusters, allowing faculty to see which research '
+    'areas are saturated and which remain underexplored across academic '
+    'years. The researchers followed an iterative development methodology and '
+    'evaluated the platform with faculty reviewers and graduating students '
+    'over two academic terms, gathering both task completion times and '
+    'perceived usefulness ratings through a descriptive survey instrument. '
+    'Results indicate that retrieval relevance improved substantially over '
+    'the previous keyword search, that reviewers located comparable prior '
+    'work more quickly, and that respondents rated the topic trend view as '
+    'useful for advising. The researchers recommend extending the corpus to '
+    'earlier academic years and periodically retraining the encoder as the '
+    'archive grows.'
+)
+
+# The exact structure that produced the bug: a contents listing whose ABSTRACT
+# row carries dot leaders and a roman page number. ``{leader}`` is substituted
+# per-case so the same document can be rendered with different leader glyphs.
+_TOC_TEMPLATE = """\
+TABLE OF CONTENTS
+
+TITLE PAGE {leader} i
+APPROVAL SHEET {leader} ii
+ACKNOWLEDGEMENT {leader} iv
+ABSTRACT {leader} viii
+CHAPTER I: THE PROBLEM AND ITS BACKGROUND {leader} 1
+"""
+
+ASCII_LEADER = '.' * 41
+ELLIPSIS_LEADER = '…' * 14
+MIDDLE_DOT_LEADER = '·' * 20
+
+
+class TestAbstractRejectsTableOfContents:
+    """Regression: a contents row auto-filled the Abstract with dot leaders.
+
+    The row "ABSTRACT ......... viii" matched the run-in heading pattern, so
+    the leader text became the abstract body. It was reported at medium
+    confidence, which corroborated the cause — medium is only emitted below
+    200 characters, and a leader-plus-page-number string lands in that range.
+    """
+
+    def test_ascii_period_leader_row_is_rejected(self):
+        abstract, confidence = detect_abstract(
+            _TOC_TEMPLATE.format(leader=ASCII_LEADER)
+        )
+
+        assert abstract == ''
+        assert confidence == 'low'
+
+    @pytest.mark.parametrize('leader, description', [
+        (ASCII_LEADER, 'ascii periods'),
+        (ELLIPSIS_LEADER, 'ellipsis characters'),
+        (MIDDLE_DOT_LEADER, 'middle dots'),
+    ])
+    def test_every_leader_glyph_is_rejected(self, leader, description):
+        """The point of the fix: glyph-agnostic.
+
+        The previous guard's character class only knew ASCII periods, so an
+        ellipsis or middle-dot leader sailed through. Enumerating glyphs is
+        unbounded — the next extractor will pick a fourth one — so the test
+        pins behaviour across all three rather than the character list.
+        """
+        abstract, confidence = detect_abstract(_TOC_TEMPLATE.format(leader=leader))
+
+        assert abstract == '', f'{description} leader leaked into the abstract'
+        assert confidence == 'low'
+
+    @pytest.mark.parametrize('leader', [
+        ASCII_LEADER, ELLIPSIS_LEADER, MIDDLE_DOT_LEADER,
+    ])
+    def test_no_leader_character_survives_anywhere(self, leader):
+        """Belt and braces: not merely empty, but provably leader-free."""
+        abstract, _ = detect_abstract(_TOC_TEMPLATE.format(leader=leader))
+
+        assert leader[0] not in abstract
+        assert 'viii' not in abstract
+
+    def test_arabic_page_number_row_is_rejected(self):
+        text = (
+            'TABLE OF CONTENTS\n\n'
+            f'ABSTRACT {ASCII_LEADER} 8\n'
+            f'CHAPTER I {ASCII_LEADER} 12\n'
+        )
+        abstract, confidence = detect_abstract(text)
+
+        assert abstract == ''
+        assert confidence == 'low'
+
+    def test_genuine_abstract_still_extracts(self):
+        """The control. The fix must not cost a real abstract."""
+        abstract, confidence = detect_abstract(
+            f'ABSTRACT\n\n{REAL_ABSTRACT_PROSE}\n\nCHAPTER I\n'
+        )
+
+        assert abstract.startswith('This study designed and evaluated')
+        assert len(abstract.split()) > 150
+        assert confidence == 'high'
+        assert 'CHAPTER' not in abstract
+
+    def test_toc_listing_plus_real_abstract_returns_the_real_one(self):
+        """Skipping the contents region is what makes ordering work.
+
+        Before the fix the contents row was found first and the search stopped
+        there, so the real section further down was never reached.
+        """
+        text = (
+            f'{_TOC_TEMPLATE.format(leader=ASCII_LEADER)}\n'
+            'CHAPTER I: THE PROBLEM AND ITS BACKGROUND\n\n'
+            'ABSTRACT\n\n'
+            f'{REAL_ABSTRACT_PROSE}\n\n'
+            'Keywords: semantic search, thesis repository\n'
+        )
+        abstract, confidence = detect_abstract(text)
+
+        assert abstract.startswith('This study designed and evaluated')
+        assert ASCII_LEADER[0] * 3 not in abstract
+        assert 'viii' not in abstract
+        assert confidence == 'high'
+
+    def test_document_with_no_abstract_heading_returns_empty(self):
+        text = (
+            'PAMPANGA STATE UNIVERSITY\n\n'
+            'A SEMANTIC SEARCH SYSTEM FOR THESIS RETRIEVAL\n\n'
+            'Bachelor of Science in Information Systems\n\n'
+            'by:\n\nDela Cruz, Juan M.\n\nMay 2025\n'
+        )
+        abstract, confidence = detect_abstract(text)
+
+        assert abstract == ''
+        assert confidence == 'low'
+
+    def test_leader_only_body_under_a_bare_heading_is_rejected(self):
+        """Layer 3 on its own: heading is clean, body is leaders.
+
+        Covers the case where a contents listing has no "TABLE OF CONTENTS"
+        heading to key off and the leaders land on the following line instead
+        of the heading line, so only the prose test can catch it.
+        """
+        abstract, confidence = detect_abstract(
+            f'ABSTRACT\n{ASCII_LEADER} viii\n\n\n'
+        )
+
+        assert abstract == ''
+        assert confidence == 'low'
+
+    def test_prose_floors_are_the_documented_values(self):
+        """Pin the two thresholds the rejection depends on."""
+        assert MIN_PROSE_ALPHA_RATIO == 0.6
+        assert MIN_ABSTRACT_WORDS == 20
+
+    def test_alpha_ratio_gap_between_prose_and_leaders_is_wide(self):
+        """Evidence for the threshold choice rather than a bare assertion."""
+        from theses.services.metadata_extraction import _alpha_ratio
+
+        leader_row = f'ABSTRACT {ASCII_LEADER} viii'
+
+        assert _alpha_ratio(leader_row) < 0.3
+        assert _alpha_ratio(REAL_ABSTRACT_PROSE) > 0.75
 
 
 # ---------------------------------------------------------------------------

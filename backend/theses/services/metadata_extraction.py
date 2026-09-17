@@ -70,6 +70,19 @@ MAX_TITLE_WORDS = 40
 # possible title starts.
 MAX_CANDIDATE_LINES = 40
 
+# Minimum share of characters that must be letters for text to count as prose.
+#
+# The discriminating power here is enormous and glyph-independent: English
+# prose runs near 0.8, while a table-of-contents dot-leader row
+# ("ABSTRACT ......... viii") scores about 0.08 — roughly four letters in fifty
+# characters. That gap holds whether the leader is typeset with ASCII periods,
+# an ellipsis, a middle dot, or a tab artifact, which is why this is a better
+# test than enumerating leader characters.
+#
+# Shared by title-candidate scoring and abstract validation so the two cannot
+# drift to different definitions of "looks like prose".
+MIN_PROSE_ALPHA_RATIO = 0.6
+
 
 # Section/boilerplate headings that are never themselves a title.
 #
@@ -156,6 +169,13 @@ _TITLE_KEYWORDS = frozenset({
 # ---------------------------------------------------------------------------
 # Small helpers
 # ---------------------------------------------------------------------------
+
+def _alpha_ratio(value: str) -> float:
+    """Share of characters in ``value`` that are letters, 0.0 for empty input."""
+    if not value:
+        return 0.0
+    return sum(1 for char in value if char.isalpha()) / len(value)
+
 
 def collapse_whitespace(value: str) -> str:
     """Collapse whitespace runs to single spaces and trim.
@@ -258,8 +278,7 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
     if re.fullmatch(r'[\d/\-,\s]+', line):
         return None
 
-    alpha_ratio = sum(1 for c in line if c.isalpha()) / max(len(line), 1)
-    if alpha_ratio < 0.6:
+    if _alpha_ratio(line) < MIN_PROSE_ALPHA_RATIO:
         return None
 
     score = 0
@@ -406,9 +425,68 @@ MIN_ABSTRACT_CHARS = 20
 # the damage if a stop heading is missing and the walk runs into Chapter I.
 MAX_ABSTRACT_CHARS = 6000
 
+# A real abstract is 150-300 words, so a 20-word floor has ample headroom
+# while rejecting a table-of-contents remainder — "viii" is one word.
+#
+# This is strictly stricter than MIN_ABSTRACT_CHARS, so the character floor
+# stops binding in practice. Both are kept: the character floor documents the
+# form's own minLength={20} contract, this one documents "is it prose".
+MIN_ABSTRACT_WORDS = 20
+
 # "ABSTRACT" as its own line, optionally followed by the abstract's first
 # sentence on the same line (some templates typeset it as a run-in heading).
 _ABSTRACT_HEADING = re.compile(r'^abstract\b\s*[:\.\-—]?\s*(.*)$', re.IGNORECASE)
+
+# A run of three or more of the SAME punctuation character. This is how dot
+# leaders are recognised without enumerating glyphs: "....", "………", "···",
+# "---" and anything else a PDF extractor invents all collapse to this one
+# shape. Enumerating leader characters is unbounded — the previous guard only
+# knew about ASCII periods and let an ellipsis row through into the form.
+_LEADER_RUN = re.compile(r'([^\w\s])\1{2,}')
+
+# A strict roman numeral, so ordinary words are not mistaken for page numbers.
+# Loose "[ivxlcdm]+" matches "did" and "mill"; this pattern does not.
+_ROMAN_NUMERAL = (
+    r'(?=[ivxlcdm])m*(?:c[md]|d?c{0,3})(?:x[cl]|l?x{0,3})(?:i[xv]|v?i{0,3})'
+)
+
+# A trailing page number, arabic or roman, as its own token: the tail of every
+# table-of-contents row.
+_TRAILING_PAGE_NUMBER = re.compile(
+    rf'(?:^|\s)(?:\d{{1,4}}|{_ROMAN_NUMERAL})\s*\.?\s*$',
+    re.IGNORECASE,
+)
+
+# The "TABLE OF CONTENTS" heading that opens the contents listing.
+_TOC_HEADING = re.compile(
+    r'^(table\s+of\s+contents|contents)\s*[:\.\-—]?\s*$',
+    re.IGNORECASE,
+)
+
+
+def _looks_like_toc_row(value: str) -> bool:
+    """True when ``value`` looks like a table-of-contents entry, not prose.
+
+    Three independent signals, any of which is sufficient:
+
+      1. a run of repeated punctuation (a dot leader, whatever glyph it uses)
+      2. a trailing page number, arabic or roman
+      3. an alphabetic ratio below :data:`MIN_PROSE_ALPHA_RATIO`
+
+    Deliberately character-agnostic. (2) can in principle fire on prose that
+    ends on a word which happens to be a valid roman numeral ("…in the mix"),
+    but this only ever runs against a heading line's trailing remainder, and
+    the prose test applied to the assembled abstract body is the real
+    safeguard — the cost of a false positive here is a blank field the user
+    fills in, not a wrong value that gets published.
+    """
+    if not value:
+        return False
+    if _LEADER_RUN.search(value):
+        return True
+    if _TRAILING_PAGE_NUMBER.search(value):
+        return True
+    return _alpha_ratio(value) < MIN_PROSE_ALPHA_RATIO
 
 # Headings that always come after an abstract and therefore end it.
 _ABSTRACT_STOP = re.compile(
@@ -432,6 +510,19 @@ def detect_abstract(text: str) -> tuple[str, str]:
     Line wrapping is undone (``pypdf`` breaks every ~80 characters) while
     paragraph breaks are preserved as blank lines, and end-of-line hyphenation
     is rejoined.
+
+    Table-of-contents rows are rejected on three independent layers, because a
+    row like "ABSTRACT ......... viii" otherwise reads as a run-in heading and
+    its dot leaders land in the form:
+
+      1. the contents region itself is skipped (see below),
+      2. any candidate heading whose remainder looks like a contents row is
+         passed over rather than accepted,
+      3. the assembled body must look like prose before it is returned.
+
+    Layer 1 is what makes a document that BOTH lists ABSTRACT in its contents
+    AND has a real abstract section resolve to the real one; without it the
+    contents row is found first and the search stops there.
     """
     if not text:
         return '', 'low'
@@ -440,17 +531,31 @@ def detect_abstract(text: str) -> tuple[str, str]:
 
     start = -1
     inline_remainder = ''
+    in_toc = False
     for idx, line in enumerate(lines):
         if not line:
             continue
+
+        # Skip the contents listing wholesale. It opens at the "TABLE OF
+        # CONTENTS" heading and ends at the first line that is not itself a
+        # contents row — which is exactly where a real "ABSTRACT" section
+        # heading would sit, so the real heading still terminates the region
+        # and gets evaluated normally.
+        if _TOC_HEADING.match(line):
+            in_toc = True
+            continue
+        if in_toc:
+            if _looks_like_toc_row(line):
+                continue
+            in_toc = False
+
         match = _ABSTRACT_HEADING.match(line)
         if not match:
             continue
         # A line merely *containing* the word (e.g. "Abstract screening was
         # performed…") is excluded by requiring the line to START with it.
         remainder = match.group(1).strip()
-        # Guard against a table-of-contents row: "Abstract ......... vii"
-        if remainder and re.fullmatch(r'[\.\s\d ivxlcdm]+', remainder, re.IGNORECASE):
+        if _looks_like_toc_row(remainder):
             continue
         start = idx
         inline_remainder = remainder
@@ -488,6 +593,15 @@ def detect_abstract(text: str) -> tuple[str, str]:
     joined = joined[:MAX_ABSTRACT_CHARS].strip()
 
     if len(joined) < MIN_ABSTRACT_CHARS:
+        return '', 'low'
+
+    # Positive prose test — the layer that does not care which glyph a dot
+    # leader used. A leader row scores ~0.08 alphabetic and one word; prose
+    # scores ~0.8 and well over twenty. Anything failing this is not an
+    # abstract, so return the not-found result rather than a wrong value.
+    if _alpha_ratio(joined) < MIN_PROSE_ALPHA_RATIO:
+        return '', 'low'
+    if len(joined.split()) < MIN_ABSTRACT_WORDS:
         return '', 'low'
 
     # A real abstract is a substantial block of prose. A short one is more
