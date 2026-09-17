@@ -30,7 +30,13 @@
     --popover-foreground: 222 47% 11%;
     /* Phase 2.B: primary updated from blue-600 (221 83% 53%) to ink-blue (#1e40af)
        HSL: hsl(226, 71%, 40%) — verified via hex conversion
-       Contrast verified: #1e40af on white = 8.72:1 AA */
+       Contrast verified: #1e40af on white = 8.72:1 AA
+       DUPLICATED VALUE — mirrors --color-primary in tokens.css (:root),
+       which is #1e40af / var(--th-prim-600) there. tailwind.config.js
+       declares this shadcn `primary` key AFTER the ...thesysColors spread,
+       so bg-primary / text-primary resolve to THIS value, not to
+       --color-primary. They currently match, but are not wired together —
+       change both together or the two will silently drift apart. */
     --primary: 226 71% 40%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
@@ -54,7 +60,9 @@
     --card-foreground: 213 31% 91%;
     --popover: 228 39% 18%;
     --popover-foreground: 213 31% 91%;
-    /* Phase 2.B: dark primary stays #60a5fa (213 97% 69%) — unchanged, 7.55:1 AA on navy */
+    /* Phase 2.B: dark primary stays #60a5fa (213 97% 69%) — unchanged, 7.55:1 AA on navy
+       DUPLICATED VALUE — mirrors --color-primary in tokens.css (.dark), same
+       caveat as the :root note above: change both together. */
     --primary: 213 97% 69%;
     --primary-foreground: 222 47% 11%;
     --secondary: 222 47% 22%;

@@ -35,10 +35,17 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
+        // NOTE: shadcn's `muted` key previously collided with the THESYS+
+        // semantic `muted` token from thesysColors (text-muted -> var(--color-text-muted),
+        // #6b7280/#9ca3af). Object spread order meant this shadcn block always
+        // won, so every `text-muted` usage app-wide silently resolved to
+        // hsl(var(--muted)) instead — a near-invisible grey in both themes.
+        // Renamed to flat keys so shadcn components get their own namespace
+        // and stop shadowing the semantic token. Update call sites via
+        // bg-muted -> bg-muted-surface and text-muted-foreground ->
+        // text-muted-surface-fg; do not reintroduce a `muted` key here.
+        'muted-surface': 'hsl(var(--muted))',
+        'muted-surface-fg': 'hsl(var(--muted-foreground))',
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',

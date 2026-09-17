@@ -36,9 +36,25 @@ const PROGRAMS = [
   'Associate in Computer Technology',
 ];
 
-// Dynamically generate years from current year back 10 years
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
+// Explicit corpus bounds, not a rolling window off the system clock.
+// A rolling `CURRENT_YEAR - i` window silently offers years the repository
+// has no theses for (e.g. on a machine clock reading 2026, it produced
+// 2026 down to 2017 — most of which return zero results). Bounded to the
+// years the CCS corpus actually contains: 2023–2025 (see LandingPage's
+// "Corpus Coverage" snapshot card), plus a couple of buffer years so the
+// filter doesn't need re-tuning the moment older records are backfilled.
+//
+// This WILL go stale the moment 2026 theses are uploaded — bump
+// YEAR_RANGE_END then. The durable fix is a small facets endpoint that
+// returns the distinct years actually present in the corpus, so this list
+// is always derived from real data instead of a hardcoded guess. Not
+// building that now; this is a stopgap.
+const YEAR_RANGE_START = 2021;
+const YEAR_RANGE_END = 2025;
+const YEARS = Array.from(
+  { length: YEAR_RANGE_END - YEAR_RANGE_START + 1 },
+  (_, i) => YEAR_RANGE_END - i,
+);
 
 const DEFAULT_THRESHOLD = 60; // 60 % — maps to 0.60 cosine score
 const PAGE_SIZE = 20;
@@ -430,30 +446,45 @@ export default function RepositoryPage() {
                 }`}
               />
 
+              {/* colorScheme tells the browser to paint its native popup
+                  (the dropdown list, not our own className) as dark/light,
+                  so the browser-inherited option text stays readable
+                  against a browser-drawn dark popup instead of light-on-
+                  light-drawn or dark-on-light. Explicit <option> colors
+                  below are a fallback for engines that ignore color-scheme
+                  on <select> — most notably macOS Safari, which largely
+                  ignores <option> styling entirely; pixel parity there is
+                  not chased, only Chromium/Firefox is guaranteed. */}
               <select
                 value={year}
                 onChange={(e) => { setPage(1); setYear(e.target.value); }}
+                style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
                 }`}
               >
-                <option value="">All years</option>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All years</option>
+                {YEARS.map((y) => (
+                  <option key={y} value={y} style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>{y}</option>
+                ))}
               </select>
 
               <select
                 value={program}
                 onChange={(e) => { setPage(1); setProgram(e.target.value); }}
+                style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
                 }`}
               >
-                <option value="">All programs</option>
-                {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All programs</option>
+                {PROGRAMS.map((p) => (
+                  <option key={p} value={p} style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>{p}</option>
+                ))}
               </select>
 
               <button

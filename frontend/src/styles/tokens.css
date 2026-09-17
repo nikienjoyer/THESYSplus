@@ -130,6 +130,12 @@
 
 :root {
   /* ── Brand / action ───────────────────────────────────────────────── */
+  /* DUPLICATED VALUE — not wired to this token. tailwind.config.js declares
+     shadcn's `primary` key AFTER the ...thesysColors spread, so bg-primary
+     and text-primary currently resolve to --primary in index.css (:root),
+     not to --color-primary here. The two happen to match today (#1e40af),
+     but they are independent declarations — editing only one will silently
+     change some of the app and not the rest. Change both together. */
   --color-primary:           var(--th-prim-600);       /* #1e40af — institutional ink-blue */
   --color-primary-hover:     var(--th-prim-700);       /* #1c3a99 */
   --color-primary-light:     var(--th-prim-50);        /* #eff6ff */
@@ -196,6 +202,8 @@
 
 .dark {
   /* ── Brand / action ───────────────────────────────────────────────── */
+  /* DUPLICATED VALUE — see the :root note above. This mirrors --primary in
+     index.css's .dark block (#60a5fa). Same caveat: change both together. */
   --color-primary:           var(--th-prim-400);       /* #60a5fa — lighter for dark bg, unchanged */
   --color-primary-hover:     var(--th-prim-500);       /* #2563eb (previous primary, now hover) */
   --color-primary-light:     rgba(30, 64, 175, 0.15);  /* ink-blue/15 */
