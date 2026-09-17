@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
@@ -338,14 +338,20 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
   const { fadeUp } = useMotionVariants();
   const styles = trendStyles(cluster.trend, isDark);
   return (
-    <article className="thesys-panel thesys-card-lift">
-      {/* Entrance animation lives on this inner wrapper, not the <article>
-          itself — the outer element owns the CSS hover lift (transform)
-          and its own reduced-motion suppression via .thesys-card-lift in
-          index.css. Animating `transform` on both the outer element (CSS
-          hover) and an inner Framer Motion wrapper would fight each other;
-          keeping them on separate elements avoids that entirely. */}
-      <m.div variants={fadeUp}>
+    // The whole card is a Link (not an onClick on the <article>) so the
+    // drill-down gets keyboard focus, Enter activation, and middle-click
+    // "open in new tab" for free. Nothing inside the card is interactive
+    // (badges are plain spans/divs), so nesting them inside the <a> is
+    // safe — no interactive-in-interactive violation.
+    <Link to={`?cluster=${cluster.cluster_id}`} className="block">
+      <article className="thesys-panel thesys-card-lift">
+        {/* Entrance animation lives on this inner wrapper, not the <article>
+            itself — the outer element owns the CSS hover lift (transform)
+            and its own reduced-motion suppression via .thesys-card-lift in
+            index.css. Animating `transform` on both the outer element (CSS
+            hover) and an inner Framer Motion wrapper would fight each other;
+            keeping them on separate elements avoids that entirely. */}
+        <m.div variants={fadeUp}>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -415,7 +421,192 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
           </div>
         )}
       </m.div>
-    </article>
+      </article>
+    </Link>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Cluster drill-down — one panel of thesis rows for a single cluster
+// ---------------------------------------------------------------------------
+
+/**
+ * ClusterThesisRow — one row: title (line 1) + program · year (line 2).
+ * Deliberately excludes status (every thesis here is APPROVED — see
+ * get_topic_trends_queryset — so a badge would be redundant), authors,
+ * keyword chips, and abstract. This is a purpose-built simpler layout,
+ * not RepositoryPage's ThesisCard.
+ */
+function ClusterThesisRow({ thesis, isDark }) {
+  return (
+    <Link
+      to={`/repository/${thesis.id}`}
+      className={`block px-4 py-3 transition-colors ${
+        isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-gray-50'
+      }`}
+    >
+      <h3
+        className={`font-bold text-sm leading-snug line-clamp-2 hover:underline ${
+          isDark ? 'text-white' : 'text-gray-900'
+        }`}
+      >
+        {thesis.title}
+      </h3>
+      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        {thesis.program} · {thesis.year}
+      </p>
+    </Link>
+  );
+}
+
+/**
+ * ClusterDetailView — renders in place of the overview when ``?cluster``
+ * resolves to a real cluster in the already-loaded topic-trends response.
+ *
+ * Fetches the full membership list in one request via the `ids` filter
+ * added to GET /theses/ (Task 1) — no new backend endpoint. Owns its own
+ * loading/error state, independent of the overview's.
+ */
+function ClusterDetailView({ cluster, isDark, paletteColor }) {
+  const thesisIds = cluster.thesis_ids || [];
+  const hasIds = thesisIds.length > 0;
+
+  const [fetchedRows, setFetchedRows] = useState(null);
+  const [rowsLoading, setRowsLoading] = useState(false);
+  const [rowsError, setRowsError] = useState(false);
+
+  // Stable key for the effect below — re-fetch only when the actual set of
+  // IDs changes (e.g. navigating to a different cluster), not on every
+  // parent re-render.
+  const idsKey = thesisIds.join(',');
+
+  useEffect(() => {
+    // Empty/missing thesis_ids → empty state, no request ever fired. This
+    // branch intentionally does nothing (no setState) — the empty case is
+    // handled below via the `hasIds` render-time derivation instead of
+    // effect-driven state, so it stays correct even if this component
+    // re-renders with a different cluster's props without remounting
+    // (no `key`, so navigating cluster A → cluster B reuses the instance).
+    if (!hasIds) return undefined;
+    let cancelled = false;
+    (async () => {
+      setRowsLoading(true);
+      setRowsError(false);
+      try {
+        const res = await client.get(
+          `/theses/?ids=${thesisIds.join(',')}&page_size=100`
+        );
+        if (!cancelled) setFetchedRows(res.data.results || []);
+      } catch {
+        if (!cancelled) setRowsError(true);
+      } finally {
+        if (!cancelled) setRowsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, hasIds]);
+
+  // Derived, not effect-driven: an empty-ID cluster is unconditionally an
+  // empty list, regardless of what a *previous* cluster's fetch left in
+  // `fetchedRows`.
+  const rows = hasIds ? fetchedRows : [];
+
+  const styles = trendStyles(cluster.trend, isDark);
+  const overflowCount = Math.max(0, thesisIds.length - 100);
+
+  return (
+    <div>
+      {/* ── Panel header ──────────────────────────────────────────── */}
+      <div className="mb-6">
+        <Link
+          to="/trend-analysis"
+          className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors ${
+            isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Trend Analysis
+        </Link>
+
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: paletteColor }}
+            aria-hidden="true"
+          />
+          <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            {cluster.topic}
+          </h1>
+          <Badge
+            variant="outline"
+            className={`gap-1 text-xs px-2 py-0.5 h-auto uppercase tracking-wide whitespace-nowrap flex-shrink-0 ${styles.chip}`}
+          >
+            <span aria-hidden="true">{styles.emoji}</span>
+            {styles.label}
+          </Badge>
+        </div>
+
+        <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this cluster
+        </p>
+
+        {cluster.keywords && cluster.keywords.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {cluster.keywords.map((kw) => (
+              <Badge
+                key={kw}
+                variant="outline"
+                className={`text-xs px-2 py-0.5 h-auto ${
+                  isDark
+                    ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/10'
+                    : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50'
+                }`}
+              >
+                {kw}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {overflowCount > 0 && (
+        <p className={`text-xs mb-3 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+          Showing first 100 of {thesisIds.length} theses in this cluster.
+        </p>
+      )}
+
+      {/* ── The list — one panel containing rows ─────────────────── */}
+      {rowsLoading ? (
+        <div className="thesys-panel divide-y divide-[var(--color-border-subtle)]">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="px-4 py-3">
+              <div className="thesys-skeleton h-4 w-3/4 mb-2" />
+              <div className="thesys-skeleton h-3 w-1/3" />
+            </div>
+          ))}
+        </div>
+      ) : rowsError ? (
+        <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+          Failed to load theses for this cluster. Please try again.
+        </div>
+      ) : rows && rows.length === 0 ? (
+        <div className="thesys-empty">
+          <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            No theses found for this cluster.
+          </p>
+        </div>
+      ) : rows ? (
+        <div className="thesys-panel divide-y divide-[var(--color-border-subtle)] overflow-hidden">
+          {rows.map((thesis) => (
+            <ClusterThesisRow key={thesis.id} thesis={thesis} isDark={isDark} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -429,6 +620,7 @@ export default function TrendAnalysisPage() {
   const { isAuthenticated, isInitializing } = useAuth();
   const isDark = theme === 'dark';
   const { staggerContainer } = useMotionVariants();
+  const [searchParams] = useSearchParams();
 
   // Seed state from cache immediately — avoids blank flash on revisit
   const [data, setData] = useState(() => getTrendsCached());
@@ -481,6 +673,21 @@ export default function TrendAnalysisPage() {
     () => (data?.clusters ? buildDoughnutSegments(data.clusters, isDark) : []),
     [data, isDark]
   );
+
+  // ── Cluster drill-down resolution ───────────────────────────────────
+  // `cluster_id` is NOT stable across corpus changes (K-Means reruns per
+  // request; a URL carrying it is a session reference, not a bookmark —
+  // see topic_analysis.py notes). Resolve it against the currently-loaded
+  // `data.clusters` on every render rather than trusting it blindly; a
+  // stale/unknown value simply fails to resolve and the overview renders
+  // with a brief notice instead of crashing or showing wrong data.
+  const clusterParam = searchParams.get('cluster');
+  const resolvedClusterIndex = useMemo(() => {
+    if (clusterParam === null || !data?.clusters) return -1;
+    return data.clusters.findIndex((c) => String(c.cluster_id) === clusterParam);
+  }, [clusterParam, data]);
+  const resolvedCluster = resolvedClusterIndex >= 0 ? data.clusters[resolvedClusterIndex] : null;
+  const clusterIdStale = clusterParam !== null && !!data?.clusters && resolvedClusterIndex === -1;
 
   return (
     <LazyMotion features={domAnimation}>
@@ -537,8 +744,25 @@ export default function TrendAnalysisPage() {
               Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.
             </p>
           </div>
+        ) : data && resolvedCluster ? (
+          /* ── Cluster drill-down — replaces the overview entirely ──── */
+          <ClusterDetailView
+            cluster={resolvedCluster}
+            isDark={isDark}
+            paletteColor={colourFor(resolvedClusterIndex)}
+          />
         ) : data ? (
           <>
+            {clusterIdStale && (
+              <div className={`rounded-lg px-4 py-3 mb-6 text-sm ${
+                isDark ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25' : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}>
+                That topic cluster is no longer available — clusters are
+                recomputed as the repository changes. Showing the current
+                overview instead.
+              </div>
+            )}
+
             {/* ── Stat metrics — open, de-boxed ────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 mb-12">
               <StatCard

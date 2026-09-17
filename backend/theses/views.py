@@ -82,15 +82,35 @@ from django.db import models  # noqa: E402
 # ---------------------------------------------------------------------------
 
 class ThesisListView(APIView):
-    """List theses with filters: ``q``, ``year``, ``program``, ``status``.
+    """List theses with filters: ``q``, ``year``, ``program``, ``status``, ``mine``, ``ids``.
 
     When ``q`` is provided, the list is reranked by SBERT cosine similarity
     against the candidate set (filters are applied first to narrow the set,
     then semantic ranking sorts the survivors). When ``q`` is empty the
     standard chronological ordering is used.
+
+    ``mine=true`` narrows the result to the requesting user's own uploads.
+    It is applied on top of the role-based ``_visible_queryset``, never in
+    place of it, so it cannot surface a thesis the caller couldn't already
+    see — for a student that's just their own uploads regardless of status
+    (which ``_visible_queryset`` already includes), and for faculty/admin
+    it's the same filter over the full unrestricted set.
+
+    ``ids`` accepts a comma-separated list of thesis UUIDs and narrows the
+    result to exactly those theses — e.g. rendering a specific set of IDs
+    obtained from another endpoint (such as a topic cluster's membership
+    list). Applied on top of ``_visible_queryset`` like every other filter
+    here: unknown or non-visible IDs simply don't match any row and are
+    silently absent from the result, never an error. A malformed UUID in
+    the list, or more IDs than ``MAX_IDS``, returns ``INVALID_FILTER``.
     """
 
     permission_classes = [IsAuthenticated]
+
+    # A few hundred is enough to render any single cluster/collection in one
+    # request (the largest cluster in the current corpus is ~47) while
+    # keeping the query param from being abused as an unbounded batch load.
+    MAX_IDS = 300
 
     def get(self, request, *args, **kwargs):
         qs = _visible_queryset(request.user)
@@ -131,6 +151,48 @@ class ThesisListView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             qs = qs.filter(status=status_filter)
+
+        mine = request.query_params.get('mine')
+        if mine is not None:
+            # Parsed explicitly rather than coerced (bool('false') is True) —
+            # any value other than 'true'/'false' (case-insensitive) is a
+            # caller mistake, not a silent false. Layered on top of the
+            # already-role-scoped ``qs``, so this can only narrow further —
+            # it can never surface a thesis outside the caller's visible set.
+            mine_lower = mine.strip().lower()
+            if mine_lower not in ('true', 'false'):
+                return make_error_response(
+                    code='INVALID_FILTER',
+                    message="mine must be 'true' or 'false'.",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if mine_lower == 'true':
+                qs = qs.filter(uploaded_by=request.user)
+
+        ids_param = request.query_params.get('ids')
+        if ids_param is not None:
+            raw_ids = [v.strip() for v in ids_param.split(',') if v.strip()]
+            if len(raw_ids) > self.MAX_IDS:
+                return make_error_response(
+                    code='INVALID_FILTER',
+                    message=f'ids accepts at most {self.MAX_IDS} values.',
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            parsed_ids = []
+            for raw_id in raw_ids:
+                try:
+                    parsed_ids.append(uuid.UUID(raw_id))
+                except ValueError:
+                    return make_error_response(
+                        code='INVALID_FILTER',
+                        message=f"ids contains an invalid UUID: '{raw_id}'.",
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            # Layered on top of the role-scoped `qs` like every other filter
+            # here — an ID for a thesis outside the caller's visible set
+            # (e.g. another student's pending upload) simply matches no row,
+            # rather than being an error or a visibility bypass.
+            qs = qs.filter(id__in=parsed_ids)
 
         # ── No query → chronological listing ────────────────────────────
         if not q:

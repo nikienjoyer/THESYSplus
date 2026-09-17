@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, UploadCloud } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -25,8 +25,28 @@ import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { useProfilePicture } from '../hooks/useProfilePicture';
+import { useUploadModal } from '../hooks/useUploadModal';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/shadcn/avatar';
+import { Badge } from '../components/shadcn/badge';
 import { getUserData, setUserData } from '../utils/userStorage';
+
+// Same status → color mapping as RepositoryPage's ThesisCard, so a thesis's
+// status badge looks identical whether you're looking at it from the
+// repository or from your own profile.
+function statusVariantClass(status, isDark) {
+  const map = {
+    approved: isDark
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50',
+    pending_review: isDark
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
+      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50',
+    rejected: isDark
+      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/15'
+      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50',
+  };
+  return map[status] || map.pending_review;
+}
 
 function loadSaved(user) {
   return getUserData('savedTheses', user, []);
@@ -121,7 +141,10 @@ function Sidebar({ user, stats, isDark }) {
             className="flex flex-col items-center py-3"
           >
             <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {s.value ?? 0}
+              {/* undefined = failed request or not loaded yet; a real zero
+                  count is a number (0), so `?? 0` here would otherwise make
+                  a failed fetch look identical to "confirmed zero uploads." */}
+              {typeof s.value === 'number' ? s.value : '—'}
             </span>
             <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               {s.label}
@@ -216,14 +239,26 @@ function SavedCard({ entry, isDark, onRemove }) {
 export default function ProfilePage() {
   const { theme } = useTheme();
   const { isAuthenticated, user } = useAuth();
+  const { open: openUpload } = useUploadModal();
   const [searchParams] = useSearchParams();
   const isDark = theme === 'dark';
 
   const initialSection = searchParams.get('section') === 'saved' ? 'saved' : 'overview';
   const [activeTab, setActiveTab] = useState(initialSection);
   const [savedTheses, setSavedTheses] = useState(() => loadSaved(user));
-  const [uploadedTheses, setUploadedTheses] = useState([]);
+  // myUploads: the 5 most recent theses uploaded by this user (for the list).
+  // myUploadsCount: the TOTAL count of this user's uploads (for the stat) —
+  // comes from the paginated response's `count`, never from
+  // `myUploads.length`, since that's always <= page_size and was the root
+  // cause of the count being permanently capped at 5.
+  // myUploadsCount starts `null`, not 0 — a real "zero uploads" and "haven't
+  // loaded / failed to load yet" must render differently, so a failed
+  // request can't masquerade as a confident zero.
+  const [myUploads, setMyUploads] = useState([]);
+  const [myUploadsCount, setMyUploadsCount] = useState(null);
   const [uploadsLoading, setUploadsLoading] = useState(false);
+  const [uploadsError, setUploadsError] = useState(false);
+  const [uploadsRetryKey, setUploadsRetryKey] = useState(0);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Read profile extra fields from user-scoped localStorage (set by Settings page)
@@ -235,23 +270,37 @@ export default function ProfilePage() {
     if (sec === 'saved') setActiveTab('saved');
   }, [searchParams]);
 
-  // Load user's uploaded theses
+  // Load this user's own uploads — one request drives both the "Uploaded"
+  // stat and the recent-uploads list below it. `mine=true` scopes the
+  // query server-side to the requesting user (layered on top of the
+  // role-based visible queryset, so a student's own pending/rejected
+  // uploads still show up). `count` is the filtered total across all
+  // pages — not `results.length`, which is capped at page_size and was
+  // the original bug (every account read the same repo-wide min(5, total)).
   useEffect(() => {
     if (!isAuthenticated || activeTab !== 'overview') return;
     let cancelled = false;
     (async () => {
       setUploadsLoading(true);
+      setUploadsError(false);
       try {
-        const res = await client.get('/theses/?page_size=5');
-        if (!cancelled) setUploadedTheses(res.data.results || []);
+        const res = await client.get('/theses/?mine=true&page_size=5');
+        if (!cancelled) {
+          setMyUploads(res.data.results || []);
+          setMyUploadsCount(res.data.count ?? 0);
+        }
       } catch {
-        // silent
+        // A failed request must not render a confident 0 — leave
+        // myUploadsCount at its current value (null on first load) and
+        // flag the error so the UI can show a dash/retry instead of
+        // silently implying "you have no uploads."
+        if (!cancelled) setUploadsError(true);
       } finally {
         if (!cancelled) setUploadsLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, uploadsRetryKey]);
 
   const handleRemoveSaved = (id) => {
     const next = removeSaved(id, user);
@@ -266,7 +315,11 @@ export default function ProfilePage() {
 
   const stats = {
     saved: savedTheses.length,
-    uploaded: uploadedTheses.length,
+    // null/undefined here (still loading, or the request failed) is
+    // intentionally distinct from 0 (confirmed zero uploads) — see the
+    // Sidebar stat tile below, which renders a dash instead of "0" for
+    // the former.
+    uploaded: uploadsError ? undefined : myUploadsCount,
     bio: profileExtra.bio || '',
   };
 
@@ -340,28 +393,63 @@ export default function ProfilePage() {
                   </dl>
                 </section>
 
-                {/* Recent uploads — open section */}
+                {/* Your recent uploads — open section */}
                 <section>
                   <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                    Recent Theses in Repository
+                    Your Recent Uploads
                   </h3>
                   {uploadsLoading ? (
                     <div className="flex justify-center py-4"><Spinner /></div>
-                  ) : uploadedTheses.length === 0 ? (
-                    <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>No theses in repository yet.</p>
+                  ) : uploadsError ? (
+                    <div className={`rounded-lg p-3 text-sm flex items-center justify-between gap-3 ${
+                      isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      <span>Couldn&apos;t load your uploads. Please try again.</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadsRetryKey((k) => k + 1)}
+                        className="font-semibold underline flex-shrink-0"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : myUploads.length === 0 ? (
+                    <div className={`rounded-lg border border-dashed p-6 flex flex-col items-center text-center gap-2 ${
+                      isDark ? 'border-white/15 bg-white/[0.02]' : 'border-gray-300 bg-gray-50/50'
+                    }`}>
+                      <UploadCloud className={`w-7 h-7 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} aria-hidden="true" />
+                      <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        You haven&apos;t uploaded any theses yet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openUpload}
+                        className="mt-1 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                      >
+                        Upload Your First Thesis
+                      </button>
+                    </div>
                   ) : (
                     <ul className="space-y-2">
-                      {uploadedTheses.slice(0, 5).map((t) => (
-                        <li key={t.id}>
-                          <Link
-                            to={`/repository/${t.id}`}
-                            className="text-sm hover:underline line-clamp-1 text-primary"
+                      {myUploads.map((t) => (
+                        <li key={t.id} className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <Link
+                              to={`/repository/${t.id}`}
+                              className="text-sm hover:underline line-clamp-1 text-primary"
+                            >
+                              {t.title}
+                            </Link>
+                            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {' '}· {t.program} · {t.year}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide flex-shrink-0 ${statusVariantClass(t.status, isDark)}`}
                           >
-                            {t.title}
-                          </Link>
-                          <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                            {' '}· {t.program} · {t.year}
-                          </span>
+                            {t.status.replace('_', ' ')}
+                          </Badge>
                         </li>
                       ))}
                     </ul>

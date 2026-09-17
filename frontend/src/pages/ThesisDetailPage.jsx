@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Bookmark, Eye, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
@@ -40,6 +40,8 @@ export default function ThesisDetailPage() {
   const { id } = useParams();
   const { theme } = useTheme();
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const isDark = theme === 'dark';
 
   const [thesis, setThesis] = useState(null);
@@ -80,6 +82,27 @@ export default function ThesisDetailPage() {
     window.open(`/theses/${id}/preview`, '_blank', 'noopener,noreferrer');
   };
 
+  // "Go back" has no single stable destination — this page is reachable
+  // from Repository, Title Similarity match cards, Profile uploads, and
+  // cluster drill-down lists, so a hardcoded destination link is wrong
+  // from most entry points. `navigate(-1)` returns to whichever of those
+  // the visitor actually came from (e.g. /trend-analysis?cluster=N with
+  // that cluster view still resolved, since the state lives in the URL).
+  //
+  // Guard against having no in-app history: React Router gives the very
+  // first history entry of a session `key === 'default'` — that's a
+  // direct link, bookmark, or fresh tab with nothing to go back to.
+  // Without this guard, navigate(-1) there would exit the app entirely
+  // (or land on about:blank / do nothing), so we fall back to a known
+  // destination instead.
+  const handleBack = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/repository');
+    }
+  };
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
       <AppNavbar activePage="repository" />
@@ -118,9 +141,12 @@ export default function ThesisDetailPage() {
             <article
               className="thesys-card p-6 sm:p-8"
             >
-              {/* Back to Repository link */}
-              <Link
-                to="/repository"
+              {/* Back — an action with no stable destination, so a button
+                  (not a Link with a fixed href) is the correct element.
+                  See handleBack for the history-aware navigation logic. */}
+              <button
+                type="button"
+                onClick={handleBack}
                 className={`flex w-fit items-center gap-1.5 mb-4 text-left text-sm font-medium transition-colors ${
                   isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
@@ -128,8 +154,8 @@ export default function ThesisDetailPage() {
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
                 </svg>
-                Back to Repository
-              </Link>
+                Back
+              </button>
 
               {/* Status + program tags */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
