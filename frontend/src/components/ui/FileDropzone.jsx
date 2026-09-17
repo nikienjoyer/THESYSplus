@@ -6,14 +6,19 @@
  * Validation failures are blocked before staging and reported via a toast,
  * so the file (and any downstream network request) never proceeds.
  *
- * Canonical limits (THESYS+): PDF / DOCX only, 15 MB max.
+ * Canonical limits (THESYS+): PDF / DOCX only, capped at MAX_UPLOAD_BYTES
+ * from lib/upload.js — the single shared limit that matches the backend.
+ *
+ * This component is the ONLY client-side gate for thesis file type/size:
+ * invalid files are rejected here and never reach `onFileSelect`, so
+ * callers must not re-implement their own type/size checks.
  *
  * Props:
  *   file          — the currently staged File (controlled by the parent)
  *   onFileSelect  — called with a VALID File once it passes validation
  *   onRemove      — called when the user removes the staged file
  *   disabled      — disables interaction (e.g. while submitting)
- *   maxBytes      — size cap (default 15 MB)
+ *   maxBytes      — size cap (defaults to the shared MAX_UPLOAD_BYTES)
  *   accept        — array of allowed extensions (default ['pdf','docx'])
  *   idleTitle / idleHint — copy for the empty state
  *   inputId       — id for the hidden <input> (label association)
@@ -26,26 +31,19 @@
 import { useRef, useState, useId } from 'react';
 import { UploadCloud, FileText, X } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
-
-const DEFAULT_MAX_BYTES = 15 * 1024 * 1024; // 15 MB — canonical THESYS+ limit
+import { MAX_UPLOAD_BYTES, formatBytes as fmtBytes } from '../../lib/upload';
 
 const MIME_BY_EXT = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
-function fmtBytes(b) {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default function FileDropzone({
   file,
   onFileSelect,
   onRemove,
   disabled = false,
-  maxBytes = DEFAULT_MAX_BYTES,
+  maxBytes = MAX_UPLOAD_BYTES,
   accept = ['pdf', 'docx'],
   idleTitle = 'Drag & drop your file here',
   idleHint,

@@ -885,23 +885,6 @@ class ThesisExtractTitleView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    # Noise words that appear as section headings — never the actual title.
-    _SECTION_NOISE = frozenset({
-        'abstract', 'introduction', 'table of contents', 'chapter',
-        'acknowledgements', 'acknowledgment', 'dedication', 'preface',
-        'references', 'bibliography', 'appendix', 'index',
-        'list of figures', 'list of tables', 'methodology',
-        'review of related literature', 'related literature',
-        'background of the study', 'statement of the problem',
-        'scope and limitations', 'significance of the study',
-        'definition of terms', 'theoretical framework',
-        'conceptual framework', 'college of computing studies',
-        'pampanga state university', 'psu', 'ccs', 'dhvsu',
-        'thesis', 'dissertation', 'capstone project',
-        'submitted', 'presented', 'partial fulfillment', 'degree',
-        'bachelor', 'master', 'doctor',
-    })
-
     MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024   # 25 MB
     ALLOWED_EXTS = ('pdf', 'docx')
 
@@ -938,9 +921,16 @@ class ThesisExtractTitleView(APIView):
             tmp_path = tmp.name
 
         try:
-            from .services.text_extractor import ThesisTextExtractor
+            from .services.text_extractor import (
+                FRONT_MATTER_PAGES,
+                ThesisTextExtractor,
+            )
             extractor = ThesisTextExtractor()
-            result = extractor.extract(tmp_path)
+            # Read front matter only. A title lives on page one, so parsing all
+            # 93 pages of a thesis to find it is wasted work — and on the OCR
+            # path it was wasted memory too (up to 50 pages rasterised at
+            # 200 dpi). The response contract is unchanged.
+            result = extractor.extract(tmp_path, max_pages=FRONT_MATTER_PAGES)
         finally:
             try:
                 _os.unlink(tmp_path)
@@ -995,122 +985,139 @@ class ThesisExtractTitleView(APIView):
         })
 
     def _detect_title(self, text: str) -> tuple[str, str]:
-        """Heuristic title detection from raw extracted text.
+        """Delegate to the shared metadata-extraction service.
 
-        Returns (detected_title, confidence) where confidence is one of
-        'high', 'medium', 'low'.
-
-        Strategy
-        --------
-        1. Scan the first 40 lines, score each candidate line, pick best.
-        2. Apply a document-level chapter-heading penalty: if the first
-           meaningful lines of the document are section/chapter headings,
-           the document likely has no title page → cap confidence at 'low'.
-        3. A line scores well when it:
-           - is not a noise section heading
-           - is 3–22 words
-           - appears near the top of the document (first 30 lines)
-           - starts with uppercase or is ALL-CAPS
-           - contains thesis-domain keywords
+        All title-detection logic now lives in
+        ``theses/services/metadata_extraction.py`` so it can be unit-tested
+        and reused by the metadata endpoint. This thin shim is kept so any
+        caller (including existing tests) that reaches for the view method
+        keeps working, and so this view's response contract is unchanged.
         """
-        import re
+        from .services.metadata_extraction import detect_title
+        return detect_title(text)
 
-        lines = [l.strip() for l in text.split('\n') if l.strip()]
-        candidates = lines[:40]
-        noise = self._SECTION_NOISE
 
-        # ── Document-level chapter-heading detection ─────────────────
-        # Check if the first 1–6 non-trivial lines look like chapter headings.
-        # If so, the document almost certainly has no title page; cap at 'low'.
-        _CHAPTER_PATTERNS = re.compile(
-            r'^(chapter\s+[ivxlcdm\d]+|the problem and its background|'
-            r'review of related literature|related literature|introduction|'
-            r'methodology|results and discussion|conclusion|recommendations|'
-            r'references|bibliography|appendix|abstract)[\s\.\:\-]*$',
-            re.IGNORECASE,
-        )
-        _chapter_heading_count = 0
-        for line in lines[:6]:
-            if _CHAPTER_PATTERNS.match(line.strip()):
-                _chapter_heading_count += 1
-        document_is_chapter_only = _chapter_heading_count >= 1
+# ---------------------------------------------------------------------------
+# POST /theses/extract-metadata/  — all six upload fields from the document
+# ---------------------------------------------------------------------------
 
-        # ── Per-line scoring ──────────────────────────────────────────
-        best: str | None = None
-        best_score = -1
-        best_confidence = 'low'
+class ThesisExtractMetadataView(APIView):
+    """Extract title, abstract, authors, keywords, program and year at once.
 
-        for idx, line in enumerate(candidates):
-            line_lower = line.lower().strip(' .,;:!?-')
+    Exists so the upload modal can pre-fill itself from the attached document
+    instead of asking the user to retype metadata that is already printed on
+    the title page.
 
-            # Skip noise headings
-            if any(line_lower == n or line_lower.startswith(n) for n in noise):
-                continue
-            # Skip chapter pattern even if it passed noise filter
-            if _CHAPTER_PATTERNS.match(line_lower):
-                continue
+    Deliberate duplication: ``ThesisUploadView.post`` Step 6 re-extracts the
+    document server-side on submit and stores the result in
+    ``Thesis.extracted_text``. That is kept as the authoritative extraction.
+    This endpoint is a *convenience* pass whose output the user can edit
+    freely, so the two are not expected to agree and neither depends on the
+    other. Collapsing them would either make the upload trust unvalidated
+    client input or force the user to wait for a full-document parse twice.
 
-            words = line.split()
-            n_words = len(words)
-            if n_words < 3 or n_words > 22:
-                continue
-            # Skip short lines that look like author names
-            if n_words <= 3 and not any(c in line for c in (':', '-', 'A', 'An', 'The')):
-                if all(w[0].isupper() for w in words if w):
-                    continue
-            if re.fullmatch(r'[\d/\-,\s]+', line):
-                continue
-            alpha_ratio = sum(1 for c in line if c.isalpha()) / max(len(line), 1)
-            if alpha_ratio < 0.6:
-                continue
+    Nothing is persisted. Same auth, same 25 MB cap and same accepted
+    extensions as ``/theses/extract-title/``.
+    """
 
-            score = 0
-            if idx < 5:
-                score += 3
-            elif idx < 10:
-                score += 2
-            elif idx < 20:
-                score += 1
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-            if line.isupper() and n_words >= 4:
-                score += 3
-            elif line.istitle():
-                score += 2
-            elif line[0].isupper():
-                score += 1
+    MAX_FILE_SIZE_BYTES = ThesisExtractTitleView.MAX_FILE_SIZE_BYTES
+    ALLOWED_EXTS = ThesisExtractTitleView.ALLOWED_EXTS
 
-            title_kws = {'system', 'using', 'based', 'approach', 'study',
-                         'analysis', 'design', 'development', 'implementation',
-                         'monitoring', 'detection', 'recognition', 'learning',
-                         'classification', 'prediction', 'platform', 'application',
-                         'framework', 'model', 'management', 'technology'}
-            if any(kw in line.lower() for kw in title_kws):
-                score += 2
+    def post(self, request, *args, **kwargs):
+        uploaded = request.FILES.get('file')
+        if not uploaded:
+            return make_error_response(
+                code='MISSING_FILE',
+                message='No file was uploaded.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            if 5 <= n_words <= 15:
-                score += 1
+        name = (uploaded.name or '').lower()
+        ext = name.rsplit('.', 1)[-1] if '.' in name else ''
+        if ext not in self.ALLOWED_EXTS:
+            return make_error_response(
+                code='FILE_TYPE_NOT_ALLOWED',
+                message='Only PDF and DOCX files are accepted for metadata extraction.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if uploaded.size > self.MAX_FILE_SIZE_BYTES:
+            return make_error_response(
+                code='FILE_TOO_LARGE',
+                message='File size must not exceed 25 MB.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            if score > best_score:
-                best_score = score
-                best = line
-                if score >= 7:
-                    best_confidence = 'high'
-                elif score >= 4:
-                    best_confidence = 'medium'
-                else:
-                    best_confidence = 'low'
+        import os as _os
+        import tempfile
 
-        # Normalise capitalisation
-        if best and best.isupper():
-            best = best.title()
+        with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
+            for chunk in uploaded.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
 
-        # ── Apply document-level chapter penalty ──────────────────────
-        # If the document appears to start with chapter headings (no title
-        # page), cap the confidence at 'low' regardless of per-line score.
-        if document_is_chapter_only and best_confidence in ('high', 'medium'):
-            best_confidence = 'low'
+        try:
+            from .services.text_extractor import METADATA_PAGES, ThesisTextExtractor
+            extractor = ThesisTextExtractor()
+            result = extractor.extract(tmp_path, max_pages=METADATA_PAGES)
+        finally:
+            try:
+                _os.unlink(tmp_path)
+            except OSError:
+                pass
 
-        return best or '', best_confidence
+        from .services.metadata_extraction import METADATA_FIELDS, extract_metadata
+
+        if not result.success or not result.text.strip():
+            return Response({
+                'fields': {
+                    field: {
+                        'value': [] if field in ('authors', 'keywords')
+                        else (None if field == 'year' else ''),
+                        'confidence': 'low',
+                    }
+                    for field in METADATA_FIELDS
+                },
+                'filled_fields': [],
+                'method': result.method,
+                'message': (
+                    'Could not extract readable text from the document. '
+                    'If this is a scanned image, ensure Tesseract OCR is installed. '
+                    'Please fill in the fields manually.'
+                ),
+            })
+
+        fields = extract_metadata(result.text)
+
+        # Which fields actually produced something — lets the frontend show a
+        # precise note without re-implementing emptiness rules per type.
+        filled = [
+            field for field in METADATA_FIELDS
+            if fields[field]['value'] not in ('', None, [])
+        ]
+
+        if not filled:
+            message = (
+                'No metadata could be detected in this document. '
+                'Please fill in the fields manually.'
+            )
+        elif len(filled) == len(METADATA_FIELDS):
+            message = 'All fields were detected. Please review them before uploading.'
+        else:
+            missing = [f for f in METADATA_FIELDS if f not in filled]
+            message = (
+                f'Detected {len(filled)} of {len(METADATA_FIELDS)} fields. '
+                f'Please fill in and review the rest ({", ".join(missing)}).'
+            )
+
+        return Response({
+            'fields': fields,
+            'filled_fields': filled,
+            'method': result.method,
+            'message': message,
+        })
 
 
 # ---------------------------------------------------------------------------

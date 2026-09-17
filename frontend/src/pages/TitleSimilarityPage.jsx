@@ -21,11 +21,12 @@ import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { useToast } from '../hooks/useToast';
 import FileDropzone from '../components/ui/FileDropzone';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from '../lib/upload';
 
 const CLASS_HIGH = 'HIGHLY_SIMILAR';
 const CLASS_MODERATE = 'MODERATELY_SIMILAR';
 const CLASS_LOW = 'LOW_SIMILARITY';
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 
 
 // ---------------------------------------------------------------------------
@@ -168,7 +169,7 @@ export default function TitleSimilarityPage() {
       setUploadFile(null); e.target.value = ''; return;
     }
     if (f.size > MAX_UPLOAD_BYTES) {
-      setUploadError(`File size must be less than ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`);
+      setUploadError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
       setUploadFile(null); e.target.value = ''; return;
     }
     setUploadFile(f);
@@ -191,7 +192,7 @@ export default function TitleSimilarityPage() {
       const code = err?.response?.data?.error?.code;
       const msg = err?.response?.data?.error?.message;
       if (code === 'FILE_TYPE_NOT_ALLOWED') setUploadError('Only PDF and DOCX files are accepted.');
-      else if (code === 'FILE_TOO_LARGE') setUploadError('File size must be less than 15 MB.');
+      else if (code === 'FILE_TOO_LARGE') setUploadError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
       else setUploadError(msg || 'Could not extract title. Please type the title manually.');
     } finally { setExtracting(false); }
   };
@@ -351,7 +352,7 @@ export default function TitleSimilarityPage() {
             )}
             {uploadFile && !uploadError && !extractMsg && !extracting && (
               <p className={`text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                Accepted: PDF · DOCX (max 15 MB)
+                Accepted: PDF · DOCX (max {MAX_UPLOAD_MB} MB)
               </p>
             )}
           </div>

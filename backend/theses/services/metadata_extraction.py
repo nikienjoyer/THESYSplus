@@ -1,0 +1,936 @@
+"""Front-matter metadata extraction for uploaded thesis documents.
+
+Extracted out of ``ThesisExtractTitleView._detect_title`` so the heuristics
+are unit-testable and reusable (the view keeps a thin delegating shim for
+backwards compatibility). This module is pure text analysis — it performs
+no file I/O and touches no models, so it can be exercised directly against
+strings in tests.
+
+TITLE DETECTION — why it works the way it does
+----------------------------------------------
+Thesis title pages wrap long titles across two or three physical lines.
+The previous single-line heuristic returned only the highest-scoring line,
+so every multi-line title silently truncated at the first line break.
+
+The fix is a two-stage design:
+
+1. **Score lines to find where the title STARTS** (unchanged scoring, so
+   existing behaviour on single-line titles is preserved).
+2. **Join forward from that line to find where the title ENDS.**
+
+Stage 2's primary signal is the **blank line**. A title block on a title
+page is always followed by a blank line before the next element ("A
+Capstone", "Presented to the Faculty of", the author list, etc.). This is
+the only signal that works universally — a continuation line may begin
+with a lowercase connector ("for CCS Undergraduate Theses…"), an uppercase
+connector ("WITH …"), or no connector at all (a bare "PROCESSING"), so
+connector matching alone cannot terminate the block correctly.
+
+Because ``pypdf`` emits genuinely blank-looking lines as ``' '`` or
+``'  '`` on justified text, "blank" here means *blank after stripping*.
+Whitespace runs inside real lines are collapsed to single spaces for the
+same reason.
+
+The connector list is retained only as a **secondary** signal, used when a
+document has no blank-line structure at all (some extractors drop blank
+lines entirely). In that case a following line is joined only if it opens
+with a connector.
+
+OTHER FIELDS
+------------
+``extract_metadata`` adds abstract, keywords, year, program and authors on
+top of the title. Each returns its own confidence, because the fields are
+not equally reliable: a labelled "Keywords:" line is near-certain, while an
+author block is genuinely ambiguous (a line of Title Case words could be a
+name, an affiliation, or an adviser). Every extractor returns an EMPTY value
+rather than a guess when it is not reasonably sure — an empty field leaves
+the user to fill it in, whereas a wrong value either gets published or, for
+``program``, fails server-side validation on submit.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from datetime import date
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Tunables
+# ---------------------------------------------------------------------------
+
+# Word cap for the JOINED title. Real multi-line titles in this corpus join
+# to roughly 12-18 words; 40 leaves generous headroom while still refusing
+# to swallow a runaway paragraph.
+MAX_TITLE_WORDS = 40
+
+# How many non-blank lines from the top of the document to consider as
+# possible title starts.
+MAX_CANDIDATE_LINES = 40
+
+
+# Section/boilerplate headings that are never themselves a title.
+#
+# Matched by EXACT equality (after lowercasing and stripping surrounding
+# punctuation) — deliberately NOT by prefix and NOT by containment:
+#   * prefix matching discarded any legitimate title starting with a noise
+#     word (e.g. a title beginning "Thesis Repository …")
+#   * containment matching would discard a legitimate title that merely
+#     contains one (e.g. "… AND THESIS REPOSITORY …")
+_SECTION_NOISE = frozenset({
+    'abstract', 'introduction', 'table of contents', 'chapter',
+    'acknowledgements', 'acknowledgment', 'dedication', 'preface',
+    'references', 'bibliography', 'appendix', 'index',
+    'list of figures', 'list of tables', 'methodology',
+    'review of related literature', 'related literature',
+    'background of the study', 'statement of the problem',
+    'scope and limitations', 'significance of the study',
+    'definition of terms', 'theoretical framework',
+    'conceptual framework', 'college of computing studies',
+    'pampanga state university', 'psu', 'ccs', 'dhvsu',
+    'thesis', 'dissertation', 'capstone project',
+    'submitted', 'presented', 'partial fulfillment', 'degree',
+    'bachelor', 'master', 'doctor',
+})
+
+# Words that can legitimately open a title CONTINUATION line. Compared
+# case-insensitively — a continuation may be typeset in caps ("WITH …") in
+# an all-caps title, so a case-sensitive list silently fails those.
+_CONNECTOR_WORDS = frozenset({
+    'for', 'of', 'in', 'on', 'at', 'and', 'with', 'using',
+    'toward', 'towards', 'to', 'a', 'an', 'the',
+})
+
+# Tokens preserved verbatim when normalising an ALL-CAPS title, instead of
+# being title-cased into nonsense ("(NLP)" -> "(Nlp)").
+#
+# Known limitation: a *coined* all-caps product name inside an otherwise
+# all-caps title is indistinguishable from an ordinary word without a
+# dictionary, so it will be title-cased. Add it here if that matters.
+_KNOWN_ACRONYMS = frozenset({
+    'AI', 'API', 'AR', 'BERT', 'BI', 'BSCS', 'BSIS', 'BSIT', 'CCS', 'CNN',
+    'CS', 'CSS', 'DHVSU', 'ERP', 'GAN', 'GIS', 'GPS', 'GPT', 'HTML', 'HTTP',
+    'ICT', 'IDF', 'IOT', 'IP', 'IS', 'IT', 'KNN', 'LLM', 'LSTM', 'ML',
+    'NLP', 'OCR', 'PDF', 'PSU', 'QR', 'RFID', 'RPA', 'SBERT', 'SMS', 'SQL',
+    'SVM', 'TF', 'UI', 'UX', 'VR', 'X', 'XML', 'YOLO',
+})
+
+# Chapter/section headings, used both to disqualify a line as a title and to
+# detect "this document has no title page" at the document level.
+_CHAPTER_PATTERNS = re.compile(
+    r'^(chapter\s+[ivxlcdm\d]+|the problem and its background|'
+    r'review of related literature|related literature|introduction|'
+    r'methodology|results and discussion|conclusion|recommendations|'
+    r'references|bibliography|appendix|abstract)[\s\.\:\-]*$',
+    re.IGNORECASE,
+)
+
+# "by", "by:", "submitted by" — the author block always terminates the title.
+_AUTHOR_MARKER = re.compile(
+    r'^(by|submitted\s+by|prepared\s+by|presented\s+by|researchers?)\b\s*:?',
+    re.IGNORECASE,
+)
+
+# Degree/submission boilerplate that follows the title on a title page.
+# Acts as a safety net for documents whose blank lines were lost.
+_FRONTMATTER_STOP = re.compile(
+    r'^(a|an)\s+(capstone|thesis|dissertation|research|project|'
+    r'undergraduate\s+thesis)\b'
+    r'|^(in\s+partial\s+fulfilment|in\s+partial\s+fulfillment|'
+    r'in\s+fulfilment|in\s+fulfillment|presented\s+to|submitted\s+to)\b',
+    re.IGNORECASE,
+)
+
+# Domain words that make a line more likely to be a real thesis title.
+_TITLE_KEYWORDS = frozenset({
+    'system', 'using', 'based', 'approach', 'study',
+    'analysis', 'design', 'development', 'implementation',
+    'monitoring', 'detection', 'recognition', 'learning',
+    'classification', 'prediction', 'platform', 'application',
+    'framework', 'model', 'management', 'technology',
+})
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
+def collapse_whitespace(value: str) -> str:
+    """Collapse whitespace runs to single spaces and trim.
+
+    ``pypdf`` emits double (sometimes triple) spaces on justified text, so
+    without this the extracted title carries them through to the form field.
+    """
+    return re.sub(r'\s+', ' ', value or '').strip()
+
+
+def _noise_key(line: str) -> str:
+    """Lowercased line with surrounding punctuation stripped, for noise lookup."""
+    return line.lower().strip(' .,;:!?-\'"“”()[]{}')
+
+
+def _has_interior_blank(lines: list[str]) -> bool:
+    """True when a blank line appears BETWEEN the first and last real lines.
+
+    Only interior blanks count as structure. A leading or trailing blank —
+    which every ``text.split('\\n')`` produces from a trailing newline — is
+    an artifact, not a document boundary. Treating it as structure would
+    disable the connector fallback on documents that genuinely have no
+    blank-line structure, letting the title block run on into the author
+    list.
+    """
+    first = next((i for i, line in enumerate(lines) if line), None)
+    if first is None:
+        return False
+    last = next(i for i in range(len(lines) - 1, -1, -1) if lines[i])
+    return any(lines[i] == '' for i in range(first, last + 1))
+
+
+def _is_block_terminator(line: str) -> bool:
+    """True when ``line`` cannot be part of a title block."""
+    key = _noise_key(line)
+    if key in _SECTION_NOISE:
+        return True
+    if _CHAPTER_PATTERNS.match(key):
+        return True
+    if _AUTHOR_MARKER.match(line):
+        return True
+    if _FRONTMATTER_STOP.match(line):
+        return True
+    return False
+
+
+def normalize_title_case(title: str) -> str:
+    """Title-case an ALL-CAPS title while preserving known acronyms.
+
+    A mixed-case title is returned untouched — the document's own casing is
+    already meaningful and must not be flattened. Only a title that is
+    entirely uppercase is normalised, and within it any token whose core
+    (punctuation stripped) is a known acronym stays uppercase.
+
+    Replaces a bare ``str.title()`` call, which mangled acronyms:
+    ``"(NLP)" -> "(Nlp)"``.
+    """
+    letters = [c for c in title if c.isalpha()]
+    if not letters:
+        return title
+    if not all(c.isupper() for c in letters):
+        return title
+
+    out: list[str] = []
+    for token in title.split(' '):
+        core = token.strip('()[]{}<>.,;:!?"\'“”')
+        if core and core.upper() in _KNOWN_ACRONYMS:
+            out.append(token)
+        else:
+            out.append(token.title())
+    return ' '.join(out)
+
+
+# ---------------------------------------------------------------------------
+# Title detection
+# ---------------------------------------------------------------------------
+
+def _score_candidate_line(line: str, nb_idx: int) -> int | None:
+    """Score ``line`` as a possible title START, or None if disqualified.
+
+    ``nb_idx`` is the line's index among NON-BLANK lines, preserving the
+    original position-based scoring exactly.
+    """
+    if _noise_key(line) in _SECTION_NOISE:
+        return None
+    if _CHAPTER_PATTERNS.match(_noise_key(line)):
+        return None
+
+    words = line.split()
+    n_words = len(words)
+    if n_words < 3 or n_words > MAX_TITLE_WORDS:
+        return None
+
+    # Short line of capitalised words with no title punctuation — an author
+    # name rather than a title.
+    if n_words <= 3 and not any(c in line for c in (':', '-', 'A', 'An', 'The')):
+        if all(w[0].isupper() for w in words if w):
+            return None
+
+    if re.fullmatch(r'[\d/\-,\s]+', line):
+        return None
+
+    alpha_ratio = sum(1 for c in line if c.isalpha()) / max(len(line), 1)
+    if alpha_ratio < 0.6:
+        return None
+
+    score = 0
+    if nb_idx < 5:
+        score += 3
+    elif nb_idx < 10:
+        score += 2
+    elif nb_idx < 20:
+        score += 1
+
+    if line.isupper() and n_words >= 4:
+        score += 3
+    elif line.istitle():
+        score += 2
+    elif line[0].isupper():
+        score += 1
+
+    lowered = line.lower()
+    if any(kw in lowered for kw in _TITLE_KEYWORDS):
+        score += 2
+
+    if 5 <= n_words <= 15:
+        score += 1
+
+    return score
+
+
+def _confidence_for(score: int) -> str:
+    if score >= 7:
+        return 'high'
+    if score >= 4:
+        return 'medium'
+    return 'low'
+
+
+def _join_title_block(
+    lines: list[str],
+    start_idx: int,
+    has_blank_structure: bool,
+) -> str:
+    """Join the title block starting at ``lines[start_idx]``.
+
+    Walks forward and stops at the first of:
+      * a blank line (the primary signal — end of the title block)
+      * a section heading / chapter heading
+      * an author marker ("by", "by:", "submitted by")
+      * degree/submission boilerplate ("A Capstone", "Presented to …")
+      * MAX_TITLE_WORDS words accumulated
+
+    When the document has NO blank-line structure at all, a following line
+    is additionally required to open with a connector word before it is
+    joined — otherwise the walk would run straight into the author list.
+    """
+    parts = [lines[start_idx]]
+    n_words = len(lines[start_idx].split())
+
+    for nxt in lines[start_idx + 1:]:
+        if not nxt:
+            break
+        if _is_block_terminator(nxt):
+            break
+
+        if not has_blank_structure:
+            first_word = nxt.split()[0].lower().strip('.,;:')
+            if first_word not in _CONNECTOR_WORDS:
+                break
+
+        added = len(nxt.split())
+        if n_words + added > MAX_TITLE_WORDS:
+            break
+
+        parts.append(nxt)
+        n_words += added
+
+    return ' '.join(parts)
+
+
+def detect_title(text: str) -> tuple[str, str]:
+    """Detect the thesis title from raw extracted document text.
+
+    Returns ``(title, confidence)`` where confidence is ``'high'``,
+    ``'medium'`` or ``'low'``. This is the exact return contract the
+    ``/theses/extract-title/`` endpoint already relies on.
+    """
+    if not text:
+        return '', 'low'
+
+    # Normalise whitespace WITHIN lines but preserve blank-line POSITIONS —
+    # blank lines are the primary title-block boundary and must survive.
+    lines = [collapse_whitespace(raw) for raw in text.split('\n')]
+    non_blank = [line for line in lines if line]
+    if not non_blank:
+        return '', 'low'
+
+    # A document whose front matter opens with a chapter heading has no title
+    # page; cap confidence regardless of how well a line scores. Evaluated on
+    # non-blank lines so blank-line preservation doesn't shift the window.
+    document_is_chapter_only = any(
+        _CHAPTER_PATTERNS.match(line) for line in non_blank[:6]
+    )
+
+    has_blank_structure = _has_interior_blank(lines)
+
+    best_idx = -1
+    best_score = -1
+    best_confidence = 'low'
+
+    nb_idx = -1
+    for raw_idx, line in enumerate(lines):
+        if not line:
+            continue
+        nb_idx += 1
+        if nb_idx >= MAX_CANDIDATE_LINES:
+            break
+        score = _score_candidate_line(line, nb_idx)
+        if score is None:
+            continue
+        if score > best_score:
+            best_score = score
+            best_idx = raw_idx
+            best_confidence = _confidence_for(score)
+
+    if best_idx < 0:
+        return '', 'low'
+
+    title = _join_title_block(lines, best_idx, has_blank_structure)
+    title = normalize_title_case(collapse_whitespace(title))
+
+    if document_is_chapter_only and best_confidence in ('high', 'medium'):
+        best_confidence = 'low'
+
+    return title, best_confidence
+
+
+# ---------------------------------------------------------------------------
+# Abstract
+# ---------------------------------------------------------------------------
+
+# The modal's textarea enforces minLength={20}; anything shorter would be
+# auto-filled only to be rejected on submit, so treat it as "not found".
+MIN_ABSTRACT_CHARS = 20
+
+# Abstracts run ~150-300 words. 6000 characters is well past that, and caps
+# the damage if a stop heading is missing and the walk runs into Chapter I.
+MAX_ABSTRACT_CHARS = 6000
+
+# "ABSTRACT" as its own line, optionally followed by the abstract's first
+# sentence on the same line (some templates typeset it as a run-in heading).
+_ABSTRACT_HEADING = re.compile(r'^abstract\b\s*[:\.\-—]?\s*(.*)$', re.IGNORECASE)
+
+# Headings that always come after an abstract and therefore end it.
+_ABSTRACT_STOP = re.compile(
+    r'^(keywords?|key\s*words?)\b\s*[:\-—]'
+    r'|^(table\s+of\s+contents|list\s+of\s+(figures|tables|appendices)|'
+    r'acknowledge?ments?|acknowledgment|dedication|preface|'
+    r'chapter\s+[ivxlcdm\d]+|introduction|references|bibliography|'
+    r'appendix|the\s+problem\s+and\s+its\s+background)\b',
+    re.IGNORECASE,
+)
+
+
+def detect_abstract(text: str) -> tuple[str, str]:
+    """Extract the abstract body that follows an "ABSTRACT" heading.
+
+    Returns ``(abstract, confidence)``, or ``('', 'low')`` when the document
+    has no abstract heading. Not every thesis does — the real THESYS+ document
+    in this repository has none — and inventing one from the first paragraph of
+    Chapter I would be worse than leaving the field for the user to fill.
+
+    Line wrapping is undone (``pypdf`` breaks every ~80 characters) while
+    paragraph breaks are preserved as blank lines, and end-of-line hyphenation
+    is rejoined.
+    """
+    if not text:
+        return '', 'low'
+
+    lines = [collapse_whitespace(raw) for raw in text.split('\n')]
+
+    start = -1
+    inline_remainder = ''
+    for idx, line in enumerate(lines):
+        if not line:
+            continue
+        match = _ABSTRACT_HEADING.match(line)
+        if not match:
+            continue
+        # A line merely *containing* the word (e.g. "Abstract screening was
+        # performed…") is excluded by requiring the line to START with it.
+        remainder = match.group(1).strip()
+        # Guard against a table-of-contents row: "Abstract ......... vii"
+        if remainder and re.fullmatch(r'[\.\s\d ivxlcdm]+', remainder, re.IGNORECASE):
+            continue
+        start = idx
+        inline_remainder = remainder
+        break
+
+    if start < 0:
+        return '', 'low'
+
+    paragraphs: list[list[str]] = []
+    current: list[str] = [inline_remainder] if inline_remainder else []
+    blank_run = 0
+
+    for line in lines[start + 1:]:
+        if not line:
+            blank_run += 1
+            # A single blank is a paragraph break inside the abstract; three
+            # in a row means the block is over (end of page / section gap).
+            if blank_run >= 3 and (current or paragraphs):
+                break
+            if current:
+                paragraphs.append(current)
+                current = []
+            continue
+        blank_run = 0
+        if _ABSTRACT_STOP.match(line):
+            break
+        current.append(line)
+        if sum(len(' '.join(p)) for p in paragraphs) + len(' '.join(current)) > MAX_ABSTRACT_CHARS:
+            break
+
+    if current:
+        paragraphs.append(current)
+
+    joined = '\n\n'.join(_join_wrapped_lines(p) for p in paragraphs if p).strip()
+    joined = joined[:MAX_ABSTRACT_CHARS].strip()
+
+    if len(joined) < MIN_ABSTRACT_CHARS:
+        return '', 'low'
+
+    # A real abstract is a substantial block of prose. A short one is more
+    # likely a stray heading match, so hand it over with less certainty.
+    confidence = 'high' if len(joined) >= 200 else 'medium'
+    return joined, confidence
+
+
+def _join_wrapped_lines(lines: list[str]) -> str:
+    """Rejoin PDF-wrapped lines into a single paragraph.
+
+    Reverses end-of-line hyphenation ("develop-\\nment" -> "development")
+    only when the next line starts lowercase, so a genuine trailing hyphen in
+    "Web-\\nBased" style headings is not silently welded together wrongly.
+    """
+    out = ''
+    for line in lines:
+        if not out:
+            out = line
+            continue
+        if out.endswith('-') and line[:1].islower():
+            out = out[:-1] + line
+        else:
+            out = f'{out} {line}'
+    return collapse_whitespace(out)
+
+
+# ---------------------------------------------------------------------------
+# Keywords
+# ---------------------------------------------------------------------------
+
+MAX_KEYWORDS = 15
+MAX_KEYWORD_CHARS = 64
+
+# Requires an explicit label AND a separator. "keywords, contextual meanings"
+# — a real sentence fragment inside this corpus' body text — must NOT match,
+# which is why ',' is deliberately absent from the separator class.
+_KEYWORDS_LABEL = re.compile(
+    r'^(keywords?|key\s*words?|index\s+terms?)\s*[:\-—]\s*(.*)$',
+    re.IGNORECASE,
+)
+
+_KEYWORD_SPLIT = re.compile(r'[;,·•|]+')
+
+
+def detect_keywords(text: str) -> tuple[list[str], str]:
+    """Extract the keyword list from a labelled "Keywords:" line.
+
+    Returns ``(keywords, confidence)``. Only an explicit label is trusted;
+    there is no fallback to term-frequency guessing, because a plausible-looking
+    but wrong keyword set is harder for a user to notice than an empty field.
+    """
+    if not text:
+        return [], 'low'
+
+    lines = [collapse_whitespace(raw) for raw in text.split('\n')]
+
+    raw_value = ''
+    for idx, line in enumerate(lines):
+        match = _KEYWORDS_LABEL.match(line)
+        if not match:
+            continue
+        raw_value = match.group(2).strip()
+        # Keyword lists wrap onto following lines; keep reading until the
+        # blank line or the next heading.
+        for nxt in lines[idx + 1:]:
+            if not nxt or _ABSTRACT_STOP.match(nxt) or _is_block_terminator(nxt):
+                break
+            raw_value = f'{raw_value} {nxt}'
+        break
+
+    if not raw_value:
+        return [], 'low'
+
+    seen: set[str] = set()
+    keywords: list[str] = []
+    for chunk in _KEYWORD_SPLIT.split(raw_value):
+        item = collapse_whitespace(chunk).strip(' .;:')
+        if not item or len(item) > MAX_KEYWORD_CHARS:
+            continue
+        if not any(ch.isalpha() for ch in item):
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        keywords.append(item)
+        if len(keywords) >= MAX_KEYWORDS:
+            break
+
+    if not keywords:
+        return [], 'low'
+
+    # A single item usually means the separators were lost in extraction, so
+    # the split is suspect even though the label was explicit.
+    confidence = 'high' if len(keywords) >= 3 else 'medium'
+    return keywords, confidence
+
+
+# ---------------------------------------------------------------------------
+# Year
+# ---------------------------------------------------------------------------
+
+# Matches the DB CheckConstraint's lower bound (theses_year_range_check).
+MIN_YEAR = 1980
+
+# Lines from the top of the document treated as "title page region". The
+# submission date lives here; years mentioned in body text must not compete
+# with it. 60 lines covers a title page plus its overflow comfortably.
+TITLE_PAGE_LINES = 60
+
+_MONTH_YEAR = re.compile(
+    r'\b(january|february|march|april|may|june|july|august|september|'
+    r'october|november|december)\s+(\d{4})\b',
+    re.IGNORECASE,
+)
+_BARE_YEAR = re.compile(r'\b(19\d{2}|20\d{2})\b')
+
+
+def max_year() -> int:
+    """Upper bound for an acceptable year: next calendar year.
+
+    Theses are dated by defence year, and a document submitted in December
+    is routinely dated the following year, so ``+1`` is legitimate. Anything
+    beyond that is a page number, a phone fragment, or an OCR artifact.
+    """
+    return date.today().year + 1
+
+
+def detect_year(text: str) -> tuple[int | None, str]:
+    """Detect the submission year from the title page region.
+
+    Returns ``(year, confidence)`` with ``None`` when nothing plausible is
+    found. A "May 2026" style date is the strongest signal; a bare year on
+    its own line is next; any other in-range 4-digit number is weakest and
+    the largest such value wins, since front matter cites earlier years
+    (curriculum dates, prior work) but is dated by the latest one.
+    """
+    if not text:
+        return None, 'low'
+
+    lines = [collapse_whitespace(raw) for raw in text.split('\n') if collapse_whitespace(raw)]
+    window = '\n'.join(lines[:TITLE_PAGE_LINES])
+    upper = max_year()
+
+    def in_range(value: int) -> bool:
+        return MIN_YEAR <= value <= upper
+
+    month_years = [int(m.group(2)) for m in _MONTH_YEAR.finditer(window)]
+    month_years = [y for y in month_years if in_range(y)]
+    if month_years:
+        return max(month_years), 'high'
+
+    for line in lines[:TITLE_PAGE_LINES]:
+        if re.fullmatch(r'(19\d{2}|20\d{2})', line) and in_range(int(line)):
+            return int(line), 'high'
+
+    candidates = [int(m.group(1)) for m in _BARE_YEAR.finditer(window)]
+    candidates = [y for y in candidates if in_range(y)]
+    if candidates:
+        return max(candidates), 'medium'
+
+    return None, 'low'
+
+
+# ---------------------------------------------------------------------------
+# Program
+# ---------------------------------------------------------------------------
+
+# The EXACT strings accepted by theses.models.Program. Duplicated here on
+# purpose so this module stays importable without Django's app registry;
+# test_metadata_fields.py asserts this set equals ``Program.values``, so the
+# duplication cannot drift silently.
+CANONICAL_PROGRAMS = (
+    'BS Information System',
+    'BS Information Technology',
+    'BS Computer Science',
+    'Associate in Computer Technology',
+)
+
+# A line must look like a degree statement before program matching runs.
+# Without this gate, a title containing "Information Technology" would set
+# the program from the title rather than from the degree line.
+_DEGREE_LINE = re.compile(
+    r'\b(bachelor|associate|degree|undergraduate\s+program|'
+    r'bsis|bsit|bscs|bs\s?is|bs\s?it|bs\s?cs|act)\b',
+    re.IGNORECASE,
+)
+
+# Deterministic discriminators, checked before any fuzzy matching. Ordered
+# most-specific first: "computer technology" must be tested before the looser
+# rules so an ACT degree line is not read as Computer Science.
+_PROGRAM_TOKEN_RULES: tuple[tuple[str, str], ...] = (
+    ('computer technology', 'Associate in Computer Technology'),
+    ('information system', 'BS Information System'),
+    ('information technology', 'BS Information Technology'),
+    ('computer science', 'BS Computer Science'),
+)
+
+_PROGRAM_ACRONYMS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r'\bbs\s?is\b', re.IGNORECASE), 'BS Information System'),
+    (re.compile(r'\bbs\s?it\b', re.IGNORECASE), 'BS Information Technology'),
+    (re.compile(r'\bbs\s?cs\b', re.IGNORECASE), 'BS Computer Science'),
+    (re.compile(r'\bact\b'), 'Associate in Computer Technology'),
+)
+
+# Fuzzy fallback, used ONLY when the deterministic rules find nothing — it
+# exists for OCR damage ("Informaton Systerns"), not for normal documents.
+_PROGRAM_FUZZY_ALIASES: tuple[tuple[str, str], ...] = (
+    ('bachelor of science in information systems', 'BS Information System'),
+    ('bachelor of science in information technology', 'BS Information Technology'),
+    ('bachelor of science in computer science', 'BS Computer Science'),
+    ('associate in computer technology', 'Associate in Computer Technology'),
+)
+
+# Empirically the gap between a real OCR-damaged degree line and the wrong
+# program is wide; 88 keeps "…in Information Technology" from matching the
+# Information System alias, which scores in the low 80s.
+_PROGRAM_FUZZY_THRESHOLD = 88
+
+
+def detect_program(text: str) -> tuple[str, str]:
+    """Detect the degree program, constrained to ``CANONICAL_PROGRAMS``.
+
+    Returns ``(program, confidence)`` where ``program`` is either one of the
+    exact enum strings or ``''``. It is never anything else: an out-of-enum
+    value would pass silently into the form and then fail submit with a
+    VALIDATION_ERROR, which is a worse outcome than an unfilled dropdown that
+    the user sets themselves.
+    """
+    if not text:
+        return '', 'low'
+
+    lines = [collapse_whitespace(raw) for raw in text.split('\n') if collapse_whitespace(raw)]
+
+    degree_lines = [line for line in lines[:TITLE_PAGE_LINES] if _DEGREE_LINE.search(line)]
+    if not degree_lines:
+        return '', 'low'
+
+    # Stage 1 — deterministic. Handles every well-formed document.
+    for line in degree_lines:
+        lowered = line.lower()
+        for token, canonical in _PROGRAM_TOKEN_RULES:
+            if token in lowered:
+                return _validated_program(canonical), 'high'
+
+    # Stage 2 — acronyms ("BSIT", "BS IT").
+    for line in degree_lines:
+        for pattern, canonical in _PROGRAM_ACRONYMS:
+            if pattern.search(line):
+                return _validated_program(canonical), 'high'
+
+    # Stage 3 — fuzzy, for OCR-damaged degree lines only.
+    try:
+        from rapidfuzz import fuzz, process
+    except ImportError:  # pragma: no cover - rapidfuzz is a pinned dependency
+        logger.warning('rapidfuzz unavailable; skipping fuzzy program matching')
+        return '', 'low'
+
+    best_canonical = ''
+    best_score = 0.0
+    aliases = [alias for alias, _ in _PROGRAM_FUZZY_ALIASES]
+    alias_to_canonical = dict(_PROGRAM_FUZZY_ALIASES)
+    for line in degree_lines:
+        match = process.extractOne(
+            line.lower(),
+            aliases,
+            scorer=fuzz.token_set_ratio,
+            score_cutoff=_PROGRAM_FUZZY_THRESHOLD,
+        )
+        if match and match[1] > best_score:
+            best_score = match[1]
+            best_canonical = alias_to_canonical[match[0]]
+
+    if not best_canonical:
+        return '', 'low'
+    return _validated_program(best_canonical), 'medium'
+
+
+def _validated_program(value: str) -> str:
+    """Final gate — return ``value`` only if it is an exact enum member."""
+    if value in CANONICAL_PROGRAMS:
+        return value
+    logger.warning('Program extraction produced non-enum value %r; discarding', value)
+    return ''
+
+
+# ---------------------------------------------------------------------------
+# Authors
+# ---------------------------------------------------------------------------
+
+MAX_AUTHORS = 12
+
+# Lowercase name particles and generational suffixes that legitimately break
+# the "every word is capitalised" rule.
+_NAME_PARTICLES = frozenset({
+    'de', 'del', 'dela', 'delos', 'delas', 'da', 'di', 'du', 'van', 'von',
+    'der', 'la', 'le', 'y', 'jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv',
+})
+
+# Characters allowed in a person's name. Anything else (digits, slashes,
+# parentheses) means the line is not a name.
+_NAME_DISALLOWED = re.compile(r"[^A-Za-z.,\-'\u00C0-\u024F\s]")
+
+
+def _looks_like_person_name(line: str) -> bool:
+    """Heuristic test for "this line is a person's name"."""
+    if not line or _is_block_terminator(line):
+        return False
+    if _NAME_DISALLOWED.search(line):
+        return False
+
+    words = line.split()
+    if not 2 <= len(words) <= 6:
+        return False
+    if sum(1 for ch in line if ch.isalpha()) < 4:
+        return False
+
+    for word in words:
+        core = word.strip(".,-'")
+        if not core or core.lower() in _NAME_PARTICLES:
+            continue
+        if not core[0].isupper():
+            return False
+    return True
+
+
+def detect_authors(text: str) -> tuple[list[str], str]:
+    """Extract the author block that follows a "by" / "Submitted by" marker.
+
+    Returns ``(authors, confidence)``.
+
+    Confidence is capped at ``'low'`` by design — never ``'high'`` — because
+    this is the least determinable of the six fields. A line of capitalised
+    words after "by:" is just as likely to be an adviser, a panel member, or a
+    department name as it is an author, and unlike the other fields there is no
+    label to anchor on. The UI should always prompt a review here.
+    """
+    if not text:
+        return [], 'low'
+
+    lines = [collapse_whitespace(raw) for raw in text.split('\n')]
+
+    marker_idx = -1
+    first_inline = ''
+    for idx, line in enumerate(lines[:TITLE_PAGE_LINES * 2]):
+        if not line:
+            continue
+        match = _AUTHOR_MARKER.match(line)
+        if not match:
+            continue
+        marker_idx = idx
+        remainder = line[match.end():].strip(' :,')
+        if remainder and _looks_like_person_name(remainder):
+            first_inline = remainder
+        break
+
+    if marker_idx < 0:
+        return [], 'low'
+
+    authors: list[str] = []
+    if first_inline:
+        authors.append(first_inline)
+
+    # Blanks cannot terminate the author block, only bound it. Two different
+    # real layouts require tolerating them:
+    #   * the THESYS+ PDF puts a blank line between "by:" and the first name,
+    #     then lists the names contiguously;
+    #   * DOCX extraction makes every paragraph its own block, so a blank sits
+    #     between EVERY name.
+    # Termination is therefore driven by "this line is no longer a name",
+    # with a small blank budget to bridge the gaps.
+    MAX_CONSECUTIVE_BLANKS = 2
+    blank_run = 0
+
+    for line in lines[marker_idx + 1:]:
+        if not line:
+            blank_run += 1
+            if blank_run > MAX_CONSECUTIVE_BLANKS:
+                break
+            continue
+        if not _looks_like_person_name(line):
+            break
+        blank_run = 0
+        authors.append(line)
+        if len(authors) >= MAX_AUTHORS:
+            break
+
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for name in authors:
+        cleaned = collapse_whitespace(name).rstrip(',;')
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(cleaned)
+
+    if not deduped:
+        return [], 'low'
+    return deduped, 'low'
+
+
+# ---------------------------------------------------------------------------
+# Aggregate
+# ---------------------------------------------------------------------------
+
+#: Field order used in the API response. Mirrors the upload form's layout so
+#: the frontend can iterate it directly.
+METADATA_FIELDS = ('title', 'abstract', 'authors', 'keywords', 'program', 'year')
+
+
+def extract_metadata(text: str) -> dict[str, dict]:
+    """Run every field extractor over ``text``.
+
+    Returns a mapping of field name to ``{'value': ..., 'confidence': ...}``
+    for each name in :data:`METADATA_FIELDS`. Values are already in the shape
+    the upload form needs: ``authors`` and ``keywords`` are lists, ``year`` is
+    an ``int`` or ``None``, everything else is a string.
+
+    An extractor that finds nothing yields an empty value with ``'low'``
+    confidence; no field is ever guessed. One extractor raising must not lose
+    the other five, so each is isolated.
+    """
+    extractors = {
+        'title': detect_title,
+        'abstract': detect_abstract,
+        'authors': detect_authors,
+        'keywords': detect_keywords,
+        'program': detect_program,
+        'year': detect_year,
+    }
+    empties: dict[str, object] = {
+        'title': '', 'abstract': '', 'authors': [],
+        'keywords': [], 'program': '', 'year': None,
+    }
+
+    result: dict[str, dict] = {}
+    for field in METADATA_FIELDS:
+        try:
+            value, confidence = extractors[field](text)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning('Metadata extraction failed for field %s: %s', field, exc)
+            value, confidence = empties[field], 'low'
+        result[field] = {'value': value, 'confidence': confidence}
+    return result

@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Sparkles, X } from 'lucide-react';
 import client from '../../api/client';
 import { clearAllCaches } from '../../utils/appCaches';
 import { parseAuthorInput } from '../../utils/formatters';
@@ -26,6 +26,7 @@ import useFocusTrap from '../../hooks/useFocusTrap';
 import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import Spinner from '../ui/Spinner';
 import FileDropzone from '../ui/FileDropzone';
+import { MAX_UPLOAD_MB } from '../../lib/upload';
 
 const PROGRAMS = [
   'BS Information System',
@@ -34,9 +35,14 @@ const PROGRAMS = [
   'Associate in Computer Technology',
 ];
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
-
 // Simulated frontend progress stages (purely visual — no backend changes)
+//
+// KNOWN INCONSISTENCY (flagged, deliberately not changed here): "Reading
+// document…" and "Processing thesis content…" are timed animations that run
+// AFTER submit, but the document is now actually read much earlier — on file
+// attach, by the auto-fill extraction below. The labels therefore narrate work
+// that has already finished. Rewording them is a copy decision that belongs
+// with the progress indicator, not with this task's wiring.
 const UPLOAD_STAGES = [
   { label: 'Preparing upload…',              duration: 800  },
   { label: 'Reading document…',              duration: 1200 },
@@ -45,10 +51,41 @@ const UPLOAD_STAGES = [
   { label: 'Submission complete.',           duration: 0    },
 ];
 
-function fmtBytes(b) {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+// Ceiling for the auto-fill request. The backend reads only the first
+// METADATA_PAGES pages, so a normal response is fast; this exists so a stalled
+// request cannot leave the submit button disabled indefinitely.
+const EXTRACTION_TIMEOUT_MS = 30_000;
+
+// Per-field confidence returned by /theses/extract-metadata/, rendered as a
+// call to ACTION rather than an OCR/ML confidence label — the user should not
+// have to interpret what "medium confidence" means for their own document.
+//
+// High confidence has no entry on purpose: a high-confidence field is assumed
+// correct and rendered with no indicator at all, so the form only asks for
+// attention where attention is actually warranted.
+//
+// Low uses orange, not red/rose. Low confidence means the extractor is
+// uncertain, not that the value is invalid — red/danger stays reserved for
+// actual validation errors (see fieldErrors below), so it isn't confused with
+// "something is wrong here." Orange is a deliberately small step up from
+// medium's amber, not a full jump to a danger hue.
+const CONFIDENCE_UI = {
+  medium: { tone: 'text-amber-600 dark:text-amber-400',   label: 'Please verify' },
+  low:    { tone: 'text-orange-600 dark:text-orange-400', label: 'Needs review' },
+};
+
+// ---------------------------------------------------------------------------
+// Confidence hint — quiet, inline with the field label, secondary to it
+// ---------------------------------------------------------------------------
+function ConfidenceHint({ confidence }) {
+  const ui = CONFIDENCE_UI[confidence];
+  if (!ui) return null; // high confidence, or nothing was extracted for this field
+
+  return (
+    <span className={`ml-2 text-[11px] font-medium normal-case tracking-normal ${ui.tone}`}>
+      {ui.label}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +146,6 @@ export default function UploadThesisModal() {
   const [year, setYear]         = useState(new Date().getFullYear());
   const [adviser, setAdviser]   = useState('');
   const [file, setFile]         = useState(null);
-  const [fileError, setFileError] = useState('');
 
   const [submitting, setSubmitting]         = useState(false);
   const [stageIndex, setStageIndex]         = useState(-1); // -1 = not started
@@ -118,15 +154,48 @@ export default function UploadThesisModal() {
   const [fieldErrors, setFieldErrors]       = useState({});
   const [success, setSuccess]               = useState(null);
 
+  // Confirmation step between pressing "Upload Thesis" and the actual POST.
+  const [confirmOpen, setConfirmOpen]       = useState(false);
+
+  // ── Auto-fill from the attached document ──────────────────────────────
+  const [extracting, setExtracting]         = useState(false);
+  const [autoFilled, setAutoFilled]         = useState({});   // field -> confidence
+  const [extractionNote, setExtractionNote] = useState(null); // { text, tone }
+
+  // Which fields the user has interacted with. A ref, not state: it must be
+  // readable at its CURRENT value from inside an in-flight extraction's
+  // callback. A state closure would hold whatever was true when the file was
+  // attached, and would happily overwrite something typed while the request
+  // was still running.
+  const touchedRef = useRef(new Set());
+
   const progressFrameRef = useRef(null);
+  const extractAbortRef = useRef(null);
   const panelRef = useFocusTrap(isOpen);
   const backdropRef = useBodyScrollLock(isOpen);
 
+  const markTouched = (field) => { touchedRef.current.add(field); };
+
+  const cancelExtraction = () => {
+    extractAbortRef.current?.abort();
+    extractAbortRef.current = null;
+  };
+
   const resetForm = () => {
+    // Aborted inline rather than via cancelExtraction(). resetForm is called
+    // from an effect, and react-hooks/exhaustive-deps can only stay quiet
+    // about it while its body touches nothing but refs and state setters —
+    // calling another component-scope function makes the rule treat resetForm
+    // as reactive and demand it in the dependency array.
+    extractAbortRef.current?.abort();
+    extractAbortRef.current = null;
+    touchedRef.current = new Set();
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
     setProgram(PROGRAMS[0]); setYear(new Date().getFullYear()); setAdviser('');
-    setFile(null); setFileError(''); setError(''); setFieldErrors({});
+    setFile(null); setError(''); setFieldErrors({});
     setStageIndex(-1); setUploadProgress(0); setSuccess(null);
+    setExtracting(false); setAutoFilled({}); setExtractionNote(null);
+    setConfirmOpen(false);
   };
 
   // Reset everything whenever the modal is dismissed so it reopens fresh
@@ -167,36 +236,227 @@ export default function UploadThesisModal() {
 
   const requestClose = () => {
     if (submitting) return; // don't allow closing mid-upload
+    // While the confirmation is up it is the innermost layer, so a dismiss
+    // gesture belongs to it — backing out of the prompt must not also discard
+    // the filled-in form.
+    if (confirmOpen) { setConfirmOpen(false); return; }
     close();
   };
 
-  // Escape closes the modal
+  // Escape dismisses the innermost layer: the confirmation if it is open,
+  // otherwise the modal itself.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => { if (e.key === 'Escape') requestClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, submitting]);
+  }, [isOpen, submitting, confirmOpen]);
 
-  const validateFile = (f) => {
-    if (!f) return '';
-    const ext = f.name.toLowerCase().split('.').pop();
-    if (ext !== 'pdf' && ext !== 'docx') return 'Only PDF and DOCX files are allowed.';
-    if (f.size > MAX_FILE_BYTES) return `File size must be less than 15 MB (selected: ${fmtBytes(f.size)}).`;
-    return '';
+  // NOTE: client-side file type/size validation lives entirely in
+  // FileDropzone, which rejects invalid files (with a toast) before they
+  // ever reach onFileSelect. A local validateFile() used to exist here but
+  // was unreachable — it could only ever run on files FileDropzone had
+  // already approved. Server-side file errors still surface via
+  // fieldErrors.file and the FILE_TOO_LARGE / FILE_TYPE_* branches below.
+
+  // ── Auto-fill ─────────────────────────────────────────────────────────
+
+  /**
+   * Copy extracted values into the form, filling ONLY fields the user has not
+   * supplied. Two different emptiness tests are needed:
+   *
+   *   * Text fields (title, abstract, authors, keywords) start empty, so
+   *     "still empty AND untouched" is the condition. Untouched matters on its
+   *     own: a user who typed and then cleared a field chose to leave it
+   *     blank, and that choice is respected.
+   *   * Program and year always hold a value — the select defaults to
+   *     PROGRAMS[0] and year to the current year — so emptiness is not a
+   *     meaningful test for them. Untouched is the equivalent condition.
+   */
+  const applyExtractedMetadata = (data) => {
+    const fields = data?.fields || {};
+    const touched = touchedRef.current;
+    const filled = {};
+
+    const confidenceOf = (key) => fields[key]?.confidence || 'low';
+
+    const fillText = (key, current, setter) => {
+      const raw = fields[key]?.value;
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value || touched.has(key) || current.trim() !== '') return;
+      setter(value);
+      filled[key] = confidenceOf(key);
+    };
+
+    fillText('title', title, setTitle);
+    fillText('abstract', abstract, setAbstract);
+
+    // Joined with '; ' and NOT ', ' on purpose: every extracted name already
+    // contains a comma ("Dela Cruz, Juan M."), so a comma join would make
+    // parseAuthorInput read one author as two.
+    const authorList = fields.authors?.value;
+    if (Array.isArray(authorList) && authorList.length > 0
+        && !touched.has('authors') && authors.trim() === '') {
+      setAuthors(authorList.join('; '));
+      filled.authors = confidenceOf('authors');
+    }
+
+    const keywordList = fields.keywords?.value;
+    if (Array.isArray(keywordList) && keywordList.length > 0
+        && !touched.has('keywords') && keywords.trim() === '') {
+      setKeywords(keywordList.join(', '));
+      filled.keywords = confidenceOf('keywords');
+    }
+
+    // PROGRAMS.includes is a second gate on top of the server's enum check.
+    // A value outside the list has no matching <option>, which would leave the
+    // select visually blank and then fail submit with a VALIDATION_ERROR.
+    const extractedProgram = fields.program?.value;
+    if (typeof extractedProgram === 'string' && PROGRAMS.includes(extractedProgram)
+        && !touched.has('program')) {
+      setProgram(extractedProgram);
+      filled.program = confidenceOf('program');
+    }
+
+    const extractedYear = fields.year?.value;
+    if (Number.isInteger(extractedYear) && !touched.has('year')) {
+      setYear(extractedYear);
+      filled.year = confidenceOf('year');
+    }
+
+    setAutoFilled(filled);
+
+    const count = Object.keys(filled).length;
+    if (count > 0) {
+      // needsReview mirrors CONFIDENCE_UI exactly: any confidence with an
+      // entry there (medium/low) is a field the per-label hint already
+      // flagged. Keeping this list in sync with CONFIDENCE_UI, rather than
+      // hardcoding ['medium', 'low'] a second time, means the two can't
+      // silently disagree about what counts as "needs attention".
+      const needsReview = Object.values(filled)
+        .filter((confidence) => CONFIDENCE_UI[confidence]).length;
+
+      setExtractionNote({
+        tone: 'info',
+        text: needsReview > 0
+          ? `Auto-filled ${count} field${count === 1 ? '' : 's'} from the document. `
+            + `${needsReview} field${needsReview === 1 ? '' : 's'} need${needsReview === 1 ? 's' : ''} your review.`
+          : `Auto-filled ${count} field${count === 1 ? '' : 's'} from the document. `
+            + 'Please review the values before uploading.',
+      });
+    } else if ((data?.filled_fields || []).length > 0) {
+      setExtractionNote({
+        tone: 'info',
+        text: 'Details were found in the document, but your existing entries were kept.',
+      });
+    } else {
+      setExtractionNote({
+        tone: 'warn',
+        text: 'No details could be read from this document. Please enter them manually.',
+      });
+    }
   };
 
-  const handleSubmit = async (e) => {
+  /**
+   * Read metadata from the attached file.
+   *
+   * Failure is always non-blocking: every error path leaves the form fully
+   * editable and the file still attached, so a manual upload proceeds exactly
+   * as it did before this feature existed. Nothing here can prevent an upload.
+   */
+  const runExtraction = async (selected) => {
+    cancelExtraction();
+    const controller = new AbortController();
+    extractAbortRef.current = controller;
+
+    setExtracting(true);
+    setAutoFilled({});
+    setExtractionNote(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', selected);
+
+      const res = await client.post('/theses/extract-metadata/', fd, {
+        headers: { 'Content-Type': undefined },
+        timeout: EXTRACTION_TIMEOUT_MS,
+        signal: controller.signal,
+      });
+
+      // A superseded request (file replaced or removed mid-flight) must not
+      // write into the form.
+      if (extractAbortRef.current !== controller) return;
+      applyExtractedMetadata(res.data);
+    } catch (err) {
+      if (extractAbortRef.current !== controller) return;
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+
+      const timedOut = err?.code === 'ECONNABORTED' || err?.code === 'ETIMEDOUT';
+      setExtractionNote({
+        tone: 'warn',
+        text: timedOut
+          ? 'Auto-fill timed out. Please enter the details manually — you can still upload.'
+          : 'Auto-fill is unavailable for this document. Please enter the details '
+            + 'manually — you can still upload.',
+      });
+    } finally {
+      if (extractAbortRef.current === controller) {
+        extractAbortRef.current = null;
+        setExtracting(false);
+      }
+    }
+  };
+
+  const handleFileSelect = (selected) => {
+    setFile(selected);
+    runExtraction(selected);
+  };
+
+  const handleFileRemove = () => {
+    cancelExtraction();
+    setExtracting(false);
+    setFile(null);
+    // Values that were auto-filled are KEPT. Silently clearing fields the user
+    // is looking at would be worse than dropping the provenance badges, and
+    // those values may be exactly what they want to submit. Only the markers
+    // and the note go, since they refer to a document no longer attached.
+    setAutoFilled({});
+    setExtractionNote(null);
+  };
+
+  /**
+   * Validate, then ask for confirmation. This does NOT upload.
+   *
+   * Validation runs before the confirmation on purpose: being asked "are you
+   * sure?" and then told the keywords were empty would waste the interaction.
+   * The user only sees the prompt once the submission is actually viable.
+   */
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
     setFieldErrors({});
 
     if (!file) { setError('Please attach a PDF or DOCX file.'); return; }
+    if (parseAuthorInput(authors).length === 0) {
+      setError('At least one author is required.');
+      return;
+    }
+    if (keywords.split(',').map((k) => k.trim()).filter(Boolean).length === 0) {
+      setError('At least one keyword is required.');
+      return;
+    }
+
+    setConfirmOpen(true);
+  };
+
+  const performUpload = async () => {
+    setConfirmOpen(false);
+    setError('');
+    setFieldErrors({});
+
     const authorsList  = parseAuthorInput(authors);
     const keywordsList = keywords.split(',').map((k) => k.trim()).filter(Boolean);
-    if (authorsList.length === 0)  { setError('At least one author is required.'); return; }
-    if (keywordsList.length === 0) { setError('At least one keyword is required.'); return; }
 
     setStageIndex(0);
     setUploadProgress(0);
@@ -233,7 +493,7 @@ export default function UploadThesisModal() {
       if (code === 'DUPLICATE_FILE') {
         setError('This file has already been uploaded.');
       } else if (code === 'FILE_TOO_LARGE') {
-        setError('File size must be less than 15 MB.');
+        setError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
       } else if (code === 'FILE_TYPE_NOT_ALLOWED' || code === 'FILE_TYPE_MISMATCH') {
         setError('Only PDF and DOCX files are allowed.');
       } else if (code === 'VALIDATION_ERROR' && details && typeof details === 'object') {
@@ -379,22 +639,34 @@ export default function UploadThesisModal() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className={labelCls}>Title</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                <label className={labelCls}>
+                  Title
+                  <ConfidenceHint confidence={autoFilled.title} />
+                </label>
+                <input type="text" value={title}
+                  onChange={(e) => { markTouched('title'); setTitle(e.target.value); }}
                   required minLength={5} maxLength={500} disabled={submitting} className={inputCls} />
                 {fieldErrors.title && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.title}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>Abstract</label>
-                <textarea value={abstract} onChange={(e) => setAbstract(e.target.value)}
+                <label className={labelCls}>
+                  Abstract
+                  <ConfidenceHint confidence={autoFilled.abstract} />
+                </label>
+                <textarea value={abstract}
+                  onChange={(e) => { markTouched('abstract'); setAbstract(e.target.value); }}
                   required minLength={20} rows={5} disabled={submitting} className={inputCls} />
                 {fieldErrors.abstract && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.abstract}</p>}
               </div>
 
               <div>
-                <label className={labelCls}>Authors (separate multiple authors with semicolons or commas)</label>
-                <input type="text" value={authors} onChange={(e) => setAuthors(e.target.value)}
+                <label className={labelCls}>
+                  Authors (separate multiple authors with semicolons or commas)
+                  <ConfidenceHint confidence={autoFilled.authors} />
+                </label>
+                <input type="text" value={authors}
+                  onChange={(e) => { markTouched('authors'); setAuthors(e.target.value); }}
                   placeholder="Dela Cruz, Juan M.; Santos, Maria A." required disabled={submitting} className={inputCls} />
                 <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                 </p>
@@ -402,32 +674,45 @@ export default function UploadThesisModal() {
               </div>
 
               <div>
-                <label className={labelCls}>Keywords (comma-separated)</label>
-                <input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)}
+                <label className={labelCls}>
+                  Keywords (comma-separated)
+                  <ConfidenceHint confidence={autoFilled.keywords} />
+                </label>
+                <input type="text" value={keywords}
+                  onChange={(e) => { markTouched('keywords'); setKeywords(e.target.value); }}
                   placeholder="AI, OCR, web system" required disabled={submitting} className={inputCls} />
                 {fieldErrors.keywords && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.keywords}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>Program</label>
-                  <select value={program} onChange={(e) => setProgram(e.target.value)}
+                  <label className={labelCls}>
+                    Program
+                    <ConfidenceHint confidence={autoFilled.program} />
+                  </label>
+                  <select value={program}
+                    onChange={(e) => { markTouched('program'); setProgram(e.target.value); }}
                     disabled={submitting} className={inputCls}>
                     {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                   {fieldErrors.program && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.program}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Year</label>
+                  <label className={labelCls}>
+                    Year
+                    <ConfidenceHint confidence={autoFilled.year} />
+                  </label>
                   <input type="number" min={1980} max={2100} value={year}
-                    onChange={(e) => setYear(Number(e.target.value))} required disabled={submitting} className={inputCls} />
+                    onChange={(e) => { markTouched('year'); setYear(Number(e.target.value)); }}
+                    required disabled={submitting} className={inputCls} />
                   {fieldErrors.year && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.year}</p>}
                 </div>
               </div>
 
               <div>
                 <label className={labelCls}>Adviser (optional)</label>
-                <input type="text" value={adviser} onChange={(e) => setAdviser(e.target.value)}
+                <input type="text" value={adviser}
+                  onChange={(e) => { markTouched('adviser'); setAdviser(e.target.value); }}
                   disabled={submitting} className={inputCls} />
                 {fieldErrors.adviser && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.adviser}</p>}
               </div>
@@ -435,18 +720,40 @@ export default function UploadThesisModal() {
               <div>
                 <label className={labelCls}>Thesis Document</label>
                 <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                  Accepted formats: <strong>PDF</strong> or <strong>DOCX</strong> (max 15 MB).
-                  Machine-readable documents use direct extraction; scanned files may use OCR.
+                  Accepted formats: <strong>PDF</strong> or <strong>DOCX</strong> (max {MAX_UPLOAD_MB} MB).
+                  Attaching a file fills in any details it can read from the title page —
+                  empty fields only, and you can edit everything afterwards.
                 </p>
                 <FileDropzone
                   file={file}
-                  onFileSelect={(f) => { setFile(f); setFileError(''); }}
-                  onRemove={() => { setFile(null); setFileError(''); }}
+                  onFileSelect={handleFileSelect}
+                  onRemove={handleFileRemove}
                   disabled={submitting}
                   idleTitle="Drag & drop your thesis"
                 />
-                {fileError && <p className="mt-1 text-xs text-rose-500">{fileError}</p>}
                 {fieldErrors.file && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.file}</p>}
+
+                {/* Auto-fill status — advisory only, never blocks the form */}
+                <div aria-live="polite" role="status">
+                  {extracting && (
+                    <p className={`mt-2 flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <Spinner />
+                      Reading the document to fill in what it can…
+                    </p>
+                  )}
+                  {!extracting && extractionNote && (
+                    <p className={`mt-2 flex items-start gap-1.5 text-xs ${
+                      extractionNote.tone === 'warn'
+                        ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                        : (isDark ? 'text-gray-400' : 'text-gray-600')
+                    }`}>
+                      {extractionNote.tone === 'warn'
+                        ? <AlertTriangle className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />
+                        : <Sparkles className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />}
+                      <span>{extractionNote.text}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {error && (
@@ -471,13 +778,85 @@ export default function UploadThesisModal() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !file}
+                  disabled={submitting || extracting || !file}
                   className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  {submitting ? <><Spinner /> Uploading…</> : 'Upload Thesis'}
+                  {submitting
+                    ? <><Spinner /> Uploading…</>
+                    : extracting ? <><Spinner /> Reading document…</> : 'Upload Thesis'}
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/*
+          Confirmation step. Rendered INSIDE panelRef so the existing
+          useFocusTrap(isOpen) already covers it — a separate portal would put
+          these buttons outside the trap and let Tab escape to the page behind.
+          Positioned absolutely over the panel rather than replacing it, so the
+          form is never unmounted and nothing typed can be lost.
+        */}
+        {confirmOpen && (
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="upload-confirm-title"
+            aria-describedby="upload-confirm-body"
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-canvas/85 backdrop-blur-sm p-4 sm:p-6"
+          >
+            <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-surface-elevated p-5 sm:p-6 shadow-2xl">
+              <h3 id="upload-confirm-title" className="text-lg font-bold text-ink">
+                Upload this thesis?
+              </h3>
+
+              <div id="upload-confirm-body" className="mt-3 space-y-3">
+                <div>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Title
+                  </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                    {title.trim()}
+                  </p>
+                </div>
+                <div>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    File
+                  </p>
+                  <p
+                    className={`text-sm break-all ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                    title={file?.name}
+                  >
+                    {file?.name}
+                  </p>
+                </div>
+                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {user?.role === 'student'
+                    ? 'It will be submitted for faculty review.'
+                    : 'It will be published to the repository immediately.'}
+                </p>
+              </div>
+
+              <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
+                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={performUpload}
+                  className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                >
+                  Upload
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
