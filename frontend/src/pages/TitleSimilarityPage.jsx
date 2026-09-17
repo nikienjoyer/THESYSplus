@@ -168,7 +168,7 @@ export default function TitleSimilarityPage() {
       setUploadFile(null); e.target.value = ''; return;
     }
     if (f.size > MAX_UPLOAD_BYTES) {
-      setUploadError('File size must be less than 25 MB.');
+      setUploadError(`File size must be less than ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`);
       setUploadFile(null); e.target.value = ''; return;
     }
     setUploadFile(f);
