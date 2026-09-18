@@ -22,6 +22,15 @@
  *   accept        — array of allowed extensions (default ['pdf','docx'])
  *   idleTitle / idleHint — copy for the empty state
  *   inputId       — id for the hidden <input> (label association)
+ *   statusLoading — when true, the staged-file chip's size line is replaced
+ *                   with a spinner + "Reading document…" (e.g. while a
+ *                   caller is running server-side extraction on the file).
+ *                   Optional — omitting it renders the chip exactly as
+ *                   before.
+ *   statusText    — when set (and statusLoading is false), appended after
+ *                   the file size as " · {statusText}" — e.g. "Title
+ *                   detected". Optional — omitting it renders the chip
+ *                   exactly as before.
  *
  * Accessibility: the drop area is a focusable button-role element;
  * Enter/Space open the native picker. The hidden input carries the
@@ -32,6 +41,7 @@ import { useRef, useState, useId } from 'react';
 import { UploadCloud, FileText, X } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { MAX_UPLOAD_BYTES, formatBytes as fmtBytes } from '../../lib/upload';
+import Spinner from './Spinner';
 
 const MIME_BY_EXT = {
   pdf: 'application/pdf',
@@ -48,6 +58,8 @@ export default function FileDropzone({
   idleTitle = 'Drag & drop your file here',
   idleHint,
   inputId,
+  statusLoading = false,
+  statusText,
 }) {
   const { toast } = useToast();
   const inputRef = useRef(null);
@@ -106,7 +118,23 @@ export default function FileDropzone({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate text-ink" title={file.name}>{file.name}</p>
-          <p className="text-xs text-muted">{fmtBytes(file.size)}</p>
+          {/* aria-live carries the extraction status transition (loading →
+              settled) that used to live in a separate status line elsewhere
+              on the page — this is where a sighted user actually reads it,
+              so the announcement now tracks the visible text directly. */}
+          <div aria-live="polite">
+            {statusLoading ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted">
+                <Spinner size="sm" className="h-3 w-3" />
+                Reading document…
+              </p>
+            ) : (
+              <p className="text-xs text-muted">
+                {fmtBytes(file.size)}
+                {statusText ? ` · ${statusText}` : ''}
+              </p>
+            )}
+          </div>
         </div>
         {!disabled && (
           <button

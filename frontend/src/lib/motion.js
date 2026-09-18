@@ -43,12 +43,21 @@ export const TRAVEL_PX = 8;
 
 // ── Base variants ────────────────────────────────────────────────────────
 
-/** Opacity + a small upward slide-in. The default entrance for most content. */
+/**
+ * Opacity + a small upward slide-in. The default entrance for most content.
+ *
+ * Uses an explicit `transform` string rather than Framer Motion's `y:`
+ * shorthand. The shorthand interpolates on the main thread; a raw transform
+ * string lets content that mounts at an unpredictable moment (e.g. the
+ * instant an async request resolves, exactly when frames are contended)
+ * avoid adding to that contention. Renders the identical translateY either
+ * way — this is an implementation detail, not a visual change.
+ */
 export const fadeUp = {
-  hidden:  { opacity: 0, y: TRAVEL_PX },
+  hidden:  { opacity: 0, transform: `translateY(${TRAVEL_PX}px)` },
   visible: {
     opacity: 1,
-    y: 0,
+    transform: 'translateY(0px)',
     transition: { duration: DURATION.enter, ease: EASE_OUT },
   },
 };
@@ -123,8 +132,8 @@ export function drawArc(finalDash, circumference) {
 // ── Reduced-motion-aware variants ────────────────────────────────────────
 
 const INSTANT = {
-  hidden:  { opacity: 1, y: 0 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0 } },
+  hidden:  { opacity: 1, transform: 'translateY(0px)' },
+  visible: { opacity: 1, transform: 'translateY(0px)', transition: { duration: 0 } },
 };
 
 const INSTANT_CONTAINER = {
