@@ -43,6 +43,26 @@ def uploader(db):
     )
 
 
+def _valid_pdf_bytes(label: str = 'a genuinely parseable page') -> bytes:
+    """A real, parseable one-page PDF.
+
+    The fixture below used to default to ``b'%PDF-1.4\\n%real\\n'`` — a 15-byte
+    string that starts with the right magic but is not a parseable document. It
+    passed only because ``ThesisDownloadView`` streamed stored bytes through
+    without reading them. The view now watermarks what it serves, which means it
+    parses first, so "has a file" has to mean "has a file a PDF library can
+    actually open".
+    """
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(612, 792))
+    pdf.drawString(72, 700, label)
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
 @pytest.fixture
 def make_thesis(db, uploader):
     counter = {'n': 0}
@@ -51,7 +71,7 @@ def make_thesis(db, uploader):
         title: str = 'A Thesis Without A File',
         *,
         with_file: bool = False,
-        file_bytes: bytes = b'%PDF-1.4\n%real\n',
+        file_bytes: bytes | None = None,
         status: str = ThesisStatus.APPROVED,
         **kwargs,
     ) -> Thesis:
@@ -72,8 +92,13 @@ def make_thesis(db, uploader):
             **kwargs,
         )
         if with_file:
+            # Distinct per row so sha256 (UNIQUE on the model) never collides.
+            payload_bytes = (
+                _valid_pdf_bytes(f'{title} body {n}')
+                if file_bytes is None else file_bytes
+            )
             thesis.uploaded_file.save(
-                f'real_{n}.pdf', ContentFile(file_bytes), save=False,
+                f'real_{n}.pdf', ContentFile(payload_bytes), save=False,
             )
         thesis.save()
         return thesis

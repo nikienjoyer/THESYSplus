@@ -43,3 +43,32 @@ X_FRAME_OPTIONS = 'DENY'
 # HSTS — DEFERRED (phase-1): no TLS terminator wired yet.
 # SECURE_HSTS_SECONDS, SECURE_HSTS_INCLUDE_SUBDOMAINS, SECURE_HSTS_PRELOAD,
 # and SECURE_SSL_REDIRECT will be enabled once HTTPS is terminated upstream.
+
+# ---------------------------------------------------------------------------
+# DEPLOYMENT CONSTRAINT — /media/theses/ MUST NOT be served statically
+# ---------------------------------------------------------------------------
+#
+# Do NOT add an nginx `alias`/`location` for MEDIA_ROOT, and do NOT point a CDN
+# or object-storage public bucket policy at it. Thesis documents must be served
+# exclusively through `ThesisDownloadView` (GET /api/v1/theses/<id>/download/).
+#
+# WHY, specifically:
+#
+#   1. The institutional watermark is burned into the PDF bytes at serve time by
+#      `theses/services/watermark_pdf.py`. The file on disk is intentionally
+#      NEVER modified — the stored original stays pristine so the watermark can
+#      be reworded or removed later without having damaged any archive copy.
+#      A static route therefore serves the CLEAN, UNWATERMARKED original.
+#
+#   2. The view is the only place `IsAuthenticated` and the role-scoped
+#      `_visible_queryset` are enforced. A static route serves any document to
+#      anyone who can guess or scrape a filename.
+#
+# Both failures are SILENT: nothing errors, no log line appears, and the preview
+# page keeps working normally. The only symptom is that the feature has quietly
+# stopped doing anything. Treat a static media route for theses/ as a
+# security regression, not a performance optimisation.
+#
+# The cached stamped artifacts under `theses/_watermarked/` are equally
+# non-public: they are an internal serve-time cache, addressed by content hash,
+# and must not be exposed either.

@@ -15,7 +15,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import ThesysLogo from '../components/brand/ThesysLogo';
-import WatermarkOverlay from '../components/pdf/WatermarkOverlay';
 
 /**
  * Translate a failed preview fetch into a message that says what actually
@@ -117,10 +116,10 @@ export default function PdfPreviewPage() {
 
       {/* PDF surface — fills remaining viewport. overflow-y-auto lets the
           container scroll if the embedded viewer ever reports a taller
-          intrinsic size than the viewport; the watermark below is an
-          absolutely-positioned overlay on the container itself (not inside
-          the iframe), so it stays fixed over the full viewport regardless
-          of how far the user scrolls through the document. */}
+          intrinsic size than the viewport. The watermark is now burned into
+          the PDF bytes themselves (backend theses/services/watermark_pdf.py),
+          so it scrolls with each page and marks only the paper — no DOM
+          overlay layered on top of the iframe. */}
       <div className="relative flex-1 min-h-0 h-full w-full overflow-y-auto">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
@@ -128,14 +127,11 @@ export default function PdfPreviewPage() {
             <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{error}</p>
           </div>
         ) : pdfUrl ? (
-          <>
-            <iframe
-              src={pdfUrl}
-              title={`${title || 'Thesis'} — preview`}
-              className="w-full h-full min-h-full border-0"
-            />
-            <WatermarkOverlay />
-          </>
+          <iframe
+            src={pdfUrl}
+            title={`${title || 'Thesis'} — preview`}
+            className="w-full h-full min-h-full border-0"
+          />
         ) : (
           <div className="flex justify-center items-center h-full"><Spinner /></div>
         )}

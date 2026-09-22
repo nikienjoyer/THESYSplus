@@ -1,7 +1,10 @@
 /**
  * ThesisDetailPage — thesis detail view. The PDF opens in a dedicated,
  * watermarked full-screen preview in a new tab (PdfPreviewPage) rather
- * than inline here. Raw file download is intentionally not exposed.
+ * than inline here. A Download button is also offered, but it never
+ * exposes the raw file: both paths go through GET /theses/:id/download/,
+ * which serves the document with an institutional watermark burned into
+ * the bytes — "Preview Only" inline, "Property of…" as an attachment.
  *
  * Saved theses are persisted in user-scoped localStorage:
  * "thesys.savedTheses.<userId>" or "thesys.savedTheses.<email>"
@@ -11,15 +14,36 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bookmark, Eye, TriangleAlert } from 'lucide-react';
+import { Bookmark, Download, Eye, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../hooks/useToast';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { getUserData, setUserData } from '../utils/userStorage';
 import { formatFullAuthorList } from '../utils/formatters';
+
+/**
+ * Same distinction PdfPreviewPage's describePreviewError draws, reused here
+ * for the download path so a "document unavailable" thesis gets identical
+ * wording no matter which button the user pressed.
+ */
+function describeDownloadError(err) {
+  const code = err?.response?.data?.error?.code;
+  if (code === 'DOCUMENT_NOT_AVAILABLE') {
+    return 'This thesis record exists, but its source document is not available in the repository, so there is nothing to download. Please contact the repository administrator.';
+  }
+  return 'The document could not be downloaded. Please try again.';
+}
+
+/** Best-effort filename from Content-Disposition; falls back to a safe default. */
+function filenameFromDisposition(disposition, fallback) {
+  if (!disposition) return fallback;
+  const match = /filename="([^"]+)"/.exec(disposition);
+  return match ? match[1] : fallback;
+}
 
 function isSaved(id, user) {
   const arr = getUserData('savedTheses', user, []);
@@ -44,10 +68,13 @@ export default function ThesisDetailPage() {
   const location = useLocation();
   const isDark = theme === 'dark';
 
+  const { toast } = useToast();
+
   const [thesis, setThesis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Re-read saved status once user is available (user may be null during auth init)
   useEffect(() => {
@@ -80,6 +107,42 @@ export default function ThesisDetailPage() {
 
   const handlePreview = () => {
     window.open(`/theses/${id}/preview`, '_blank', 'noopener,noreferrer');
+  };
+
+  /**
+   * Fetch the watermarked download bytes and save them via a temporary
+   * object URL. Cannot be a plain <a href>: the endpoint requires the JWT
+   * Authorization header the axios client attaches, so a bare link would
+   * 401. `disposition=attachment` asks the backend for the download
+   * watermark ("Property of…") and the non-"_Preview" filename — the same
+   * stamper PdfPreviewPage's inline fetch uses, different query param.
+   */
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    let objectUrl = '';
+    try {
+      const res = await client.get(`/theses/${id}/download/?disposition=attachment`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      objectUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filenameFromDisposition(
+        res.headers['content-disposition'],
+        `${thesis?.title || 'thesis'}.pdf`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      toast.error(describeDownloadError(err));
+    } finally {
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+      setDownloading(false);
+    }
   };
 
   // "Go back" has no single stable destination — this page is reachable
@@ -298,6 +361,20 @@ export default function ThesisDetailPage() {
                 >
                   <Eye className="w-4 h-4" aria-hidden="true" />
                   Preview Document
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isDark
+                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                  title="Download the watermarked document"
+                >
+                  {downloading ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" aria-hidden="true" />}
+                  {downloading ? 'Downloading…' : 'Download'}
                 </button>
               </div>
             </div>

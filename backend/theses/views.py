@@ -19,8 +19,10 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status
@@ -42,6 +44,14 @@ from .serializers import (
 )
 from .services.preview_pdf import render_docx_to_pdf
 from .services.text_extractor import ThesisTextExtractor
+from .services.watermark_pdf import (
+    DOWNLOAD_WATERMARK,
+    PREVIEW_WATERMARK,
+    WATERMARK_VERSION,
+    EncryptedPdfError,
+    WatermarkError,
+    stamp_pdf,
+)
 from .validators import validate_thesis_file
 
 logger = logging.getLogger(__name__)
@@ -348,16 +358,85 @@ class ThesisDetailView(APIView):
 # GET /theses/{id}/download/ — inline PDF stream for the in-browser previewer
 # ---------------------------------------------------------------------------
 
-def _preview_filename(thesis: Thesis) -> str:
-    """Build the stable, institution-branded inline preview filename.
+def _preview_filename(thesis: Thesis, *, preview: bool = True) -> str:
+    """Build the stable, institution-branded served filename.
 
-    Shape: ``THESYSplus_<YEAR>_<SLUG>_Preview.pdf``. The slug is derived
-    from the thesis title so the tab/save-as name is meaningful instead of
-    exposing the raw stored upload name.
+    Shape: ``THESYSplus_<YEAR>_<SLUG>_Preview.pdf`` for an inline preview, or
+    ``THESYSplus_<YEAR>_<SLUG>.pdf`` for an attachment download. The slug is
+    derived from the thesis title so the tab/save-as name is meaningful instead
+    of exposing the raw stored upload name.
+
+    Filename and watermark text are independent concerns: this helper knows
+    nothing about which watermark was stamped, and the stamper knows nothing
+    about the filename. Both happen to key off disposition, separately.
     """
     slug = slugify(thesis.title or '')[:60].strip('-') or 'thesis'
     year = thesis.year or 'undated'
-    return f'THESYSplus_{year}_{slug}_Preview.pdf'
+    suffix = '_Preview' if preview else ''
+    return f'THESYSplus_{year}_{slug}{suffix}.pdf'
+
+
+# Cached stamped artifacts live under their own prefix so they are never
+# confused with originals under ``theses/%Y/``. Written through the storage
+# API rather than raw paths, because this project moves to object storage later.
+WATERMARK_CACHE_PREFIX = 'theses/_watermarked'
+
+
+def _watermark_cache_name(thesis: Thesis, disposition: str) -> str:
+    """Storage name for a thesis's stamped artifact.
+
+    Keyed on the source sha256 so replacing the underlying file invalidates
+    automatically, on WATERMARK_VERSION so changing the stamp invalidates every
+    existing artifact, and on disposition because the two watermark texts
+    produce genuinely different bytes.
+    """
+    return (
+        f'{WATERMARK_CACHE_PREFIX}/{thesis.id}/'
+        f'{thesis.sha256}-v{WATERMARK_VERSION}-{disposition}.pdf'
+    )
+
+
+def _stamped_pdf_bytes(thesis: Thesis, disposition: str) -> bytes:
+    """Return watermarked PDF bytes for ``thesis``, generating on cache miss.
+
+    Stamping a 100-page thesis costs 1-2 seconds of CPU, and this endpoint is
+    hit on every preview page load, so the result is cached. Django's cache
+    framework is deliberately NOT used: the default backend is LocMemCache,
+    which is per-process and would pin ~20 MB blobs in memory per worker.
+
+    Raises:
+        WatermarkError: source encrypted, unreadable, or stamping failed.
+        Exception: DOCX conversion failed (propagated from render_docx_to_pdf).
+    """
+    cache_name = _watermark_cache_name(thesis, disposition)
+
+    try:
+        if default_storage.exists(cache_name):
+            with default_storage.open(cache_name, 'rb') as cached:
+                return cached.read()
+    except (OSError, ValueError, NotImplementedError) as exc:
+        # A broken cache must never break serving — fall through and regenerate.
+        logger.warning('Thesis %s: watermark cache read failed (%s)', thesis.id, exc)
+
+    if thesis.file_type == FileType.DOCX:
+        source_bytes = render_docx_to_pdf(thesis.uploaded_file.path)
+    else:
+        with thesis.uploaded_file.open('rb') as handle:
+            source_bytes = handle.read()
+
+    text = DOWNLOAD_WATERMARK if disposition == 'attachment' else PREVIEW_WATERMARK
+    stamped = stamp_pdf(source_bytes, text)
+
+    try:
+        # Racing requests would both generate identical bytes; the loser's
+        # save() lands under a suffixed name that is never read again. Harmless
+        # duplication, not corruption, so it isn't worth a lock.
+        if not default_storage.exists(cache_name):
+            default_storage.save(cache_name, ContentFile(stamped))
+    except (OSError, ValueError, NotImplementedError) as exc:
+        logger.warning('Thesis %s: watermark cache write failed (%s)', thesis.id, exc)
+
+    return stamped
 
 
 def _document_unavailable_response(thesis: Thesis, reason: str):
@@ -380,22 +459,38 @@ def _document_unavailable_response(thesis: Thesis, reason: str):
 
 
 class ThesisDownloadView(APIView):
-    """Serve the thesis document as ``application/pdf`` for inline preview.
+    """Serve the thesis document as watermarked ``application/pdf``.
 
-    * PDF uploads stream directly from storage.
-    * DOCX uploads are converted to PDF on the fly (never persisted).
-    * A record with no file, a file that is absent from storage, or a DOCX
-      that fails conversion yields a structured ``DOCUMENT_NOT_AVAILABLE``
-      404 — never an unhandled 500, and never a silent stand-in document.
+    * PDF uploads are stamped and served.
+    * DOCX uploads are converted to PDF on the fly, then stamped identically —
+      the conversion output is never persisted as the thesis file.
+    * A record with no file, a file absent from storage, an encrypted source,
+      or a DOCX that fails conversion yields a structured
+      ``DOCUMENT_NOT_AVAILABLE`` 404 — never an unhandled 500, and never a
+      silent stand-in document.
 
-    ``Content-Disposition: inline`` (not ``attachment``) throughout, since
-    this endpoint feeds an in-browser watermarked preview, not a download.
+    ``?disposition=attachment`` serves a download; anything else (including
+    omitting it) serves the inline preview, preserving existing behaviour for
+    every current caller.
+
+    THERE IS NO UNSTAMPED RESPONSE. Both dispositions go through the stamper,
+    because a clean inline stream would make the watermarked download pointless
+    — the original would still be one network-tab click away.
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
+
+        # Unknown values fall back to inline rather than erroring: this
+        # endpoint's existing contract is "give me the preview", and a typo in a
+        # query string should not break a page load.
+        disposition = (
+            'attachment'
+            if request.query_params.get('disposition') == 'attachment'
+            else 'inline'
+        )
 
         if not thesis.uploaded_file or not thesis.uploaded_file.name:
             logger.warning('Thesis %s: no uploaded file on record', thesis.id)
@@ -417,31 +512,29 @@ class ThesisDownloadView(APIView):
             )
             return _document_unavailable_response(thesis, 'file_missing_from_storage')
 
-        filename = _preview_filename(thesis)
+        filename = _preview_filename(thesis, preview=(disposition == 'inline'))
 
-        if thesis.file_type == FileType.DOCX:
-            try:
-                pdf_bytes = render_docx_to_pdf(thesis.uploaded_file.path)
-            except Exception as exc:
-                logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
-                return _document_unavailable_response(thesis, 'docx_conversion_failed')
-
-            response = HttpResponse(pdf_bytes, content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="{filename}"'
-            return response
-
-        # Default/PDF path — stream the stored bytes straight through.
         try:
-            handle = thesis.uploaded_file.open('rb')
+            pdf_bytes = _stamped_pdf_bytes(thesis, disposition)
+        except EncryptedPdfError as exc:
+            logger.warning('Thesis %s: source PDF is encrypted (%s)', thesis.id, exc)
+            return _document_unavailable_response(thesis, 'source_encrypted')
+        except WatermarkError as exc:
+            logger.warning('Thesis %s: watermarking failed (%s)', thesis.id, exc)
+            return _document_unavailable_response(thesis, 'watermark_failed')
         except (FileNotFoundError, ValueError, OSError) as exc:
-            logger.warning('Thesis %s: PDF file could not be opened (%s)', thesis.id, exc)
+            logger.warning('Thesis %s: source file could not be read (%s)', thesis.id, exc)
             return _document_unavailable_response(thesis, 'file_unreadable')
+        except Exception as exc:
+            # Only reachable via render_docx_to_pdf, which raises bare
+            # exceptions for a corrupt or empty .docx.
+            logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
+            return _document_unavailable_response(thesis, 'docx_conversion_failed')
 
-        response = FileResponse(
-            handle, as_attachment=False, filename=filename,
-            content_type='application/pdf',
-        )
-        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        # FileResponse's streaming is given up deliberately: stamping needs the
+        # whole document in memory anyway, so there is nothing left to stream.
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
         return response
 
 
