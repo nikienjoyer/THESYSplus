@@ -28,7 +28,13 @@ from accounts.permissions import IsAdministrator
 from common.audit_logger import write as audit_write
 from common.csrf import require_origin_match
 from common.errors import make_error_response
-from common.ratelimit import rate_limit_per_email, rate_limit_per_ip
+from common.ratelimit import (
+    _client_ip,
+    _hit_and_check,
+    rate_limit_per_email,
+    rate_limit_per_ip,
+)
+from common.tokens.opaque import sha256
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +43,8 @@ from .email_verification import (
     consume_email_verification_token,
     issue_email_verification_token,
 )
+from password_reset.services import issue_reset_token
+
 from .models import AccessRequest
 from .serializers import (
     AccessRequestListItemSerializer,
@@ -50,6 +58,80 @@ from .services import (
     approve_request,
     deny_request,
 )
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting for the claim-status poll
+# ---------------------------------------------------------------------------
+#
+# WHY THESE ARE LOCAL instead of common.ratelimit's decorators:
+#
+#   1. `rate_limit_per_token` reads the token from `request.data['token']` /
+#      `request.POST`. The claim arrives as a QUERY PARAM on a GET, so that
+#      decorator would pass through without limiting anything at all.
+#
+#   2. More importantly, `common.ratelimit._get_debug_limits` clamps EVERY
+#      requested limit down to 20 requests/60s whenever `settings.DEBUG` is
+#      true — and DEBUG is true in dev AND under pytest. This endpoint is
+#      polled ~15x/minute by design, so a 20/min ceiling would leave almost
+#      no headroom locally and would throttle the feature the moment a user
+#      had two tabs open or reloaded the page.
+#
+# The cache bucket semantics are NOT reimplemented: `_hit_and_check` is reused
+# verbatim, so the TTL-anchoring, `cache.add`/`incr` race handling and backend
+# are identical to every other limiter in the codebase. Only the DEBUG clamp
+# is skipped, deliberately.
+#
+# CHOSEN LIMITS
+#
+#   Per claim — 60 / 60s. The frontend polls every ~4s (15/min) for up to
+#   CLAIM_TTL_SECONDS. 60/min is 4x that cadence, which absorbs a reload, a
+#   second tab, or a later decision to tighten the poll interval, while still
+#   capping a single claim at one request/second. A naive reset-password-style
+#   5-per-15-minutes would break the feature on its 6th poll, ~20 seconds in.
+#
+#   Per IP — 300 / 60s. Guards against enumeration across many guessed claims
+#   and against one host hammering the DB. Deliberately well above the
+#   per-claim limit: a shared campus NAT can legitimately carry several
+#   applicants polling at once, and throttling them collectively would be a
+#   self-inflicted outage. (Guessing a claim is infeasible regardless — it is
+#   a 256-bit opaque token — so this limit is about load, not secrecy.)
+
+CLAIM_STATUS_PER_CLAIM_LIMIT = 60
+CLAIM_STATUS_PER_CLAIM_WINDOW = 60
+CLAIM_STATUS_PER_IP_LIMIT = 300
+CLAIM_STATUS_PER_IP_WINDOW = 60
+
+
+def _rate_limit_claim_status(request, claim: str):
+    """Apply the per-claim and per-IP budgets. Returns a 429 response or None."""
+    ip = _client_ip(request)
+    ip_key = f'ratelimit:ip:claim-status:{ip}'
+    allowed, retry = _hit_and_check(
+        ip_key, CLAIM_STATUS_PER_IP_LIMIT, CLAIM_STATUS_PER_IP_WINDOW,
+    )
+    if not allowed:
+        return make_error_response(
+            code='RATE_LIMITED_CLAIM_STATUS',
+            message='Too many requests. Please try again later.',
+            status=429,
+            retry_after_seconds=retry,
+        )
+
+    if claim:
+        # Key on the hash, never the plaintext — the cache is not a secret store.
+        claim_key = f'ratelimit:claim:claim-status:{sha256(claim)[:32]}'
+        allowed, retry = _hit_and_check(
+            claim_key, CLAIM_STATUS_PER_CLAIM_LIMIT, CLAIM_STATUS_PER_CLAIM_WINDOW,
+        )
+        if not allowed:
+            return make_error_response(
+                code='RATE_LIMITED_CLAIM_STATUS',
+                message='Too many requests. Please try again later.',
+                status=429,
+                retry_after_seconds=retry,
+            )
+    return None
 
 
 def _reject_unknown_fields(request, allowed: set):
@@ -147,15 +229,18 @@ class RequestAccessView(APIView):
         """Handle legacy justification-based access request (unchanged)."""
         email = validated_data['email']
         
+        req = AccessRequest(
+            email=email,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            requested_role=validated_data['requested_role'],
+            justification=validated_data['justification'],
+            status='pending',
+        )
+        # Minted before the INSERT so the hash lands in the same write.
+        claim_plaintext = req.issue_claim_token()
         try:
-            req = AccessRequest.objects.create(
-                email=email,
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                requested_role=validated_data['requested_role'],
-                justification=validated_data['justification'],
-                status='pending',
-            )
+            req.save()
         except IntegrityError:
             # Race: another concurrent submission won the partial-unique race.
             return make_error_response(
@@ -182,6 +267,12 @@ class RequestAccessView(APIView):
             {
                 'status': 'pending',
                 'submitted_at': req.created_at.isoformat(),
+                # Additive. The claim plaintext is returned here and NOWHERE
+                # else, ever — only its hash is stored. Expiry is an absolute
+                # timestamp, not a duration, so CLAIM_TTL_SECONDS can change
+                # server-side without the frontend drifting out of sync.
+                'claim': claim_plaintext,
+                'claim_expires_at': req.claim_expires_at.isoformat(),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -213,15 +304,20 @@ class RequestAccessView(APIView):
             )
         
         # Task 5.3: Create AccessRequest with status='processing'
+        req = AccessRequest(
+            email=email,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            requested_role=validated_data['requested_role'],
+            justification=None,  # No justification for document flow
+            status='processing',
+        )
+        # Minted before the INSERT so the hash lands in the same write. This is
+        # the flow the claim actually matters for: it can reach
+        # 'pending_email_verification', which is what polling waits on.
+        claim_plaintext = req.issue_claim_token()
         try:
-            req = AccessRequest.objects.create(
-                email=email,
-                first_name=validated_data['first_name'],
-                last_name=validated_data['last_name'],
-                requested_role=validated_data['requested_role'],
-                justification=None,  # No justification for document flow
-                status='processing',
-            )
+            req.save()
         except IntegrityError:
             # Race: another concurrent submission won the partial-unique race.
             return make_error_response(
@@ -362,6 +458,9 @@ class RequestAccessView(APIView):
                     'status': req.status,
                     'decision': decision,
                     'submitted_at': req.created_at.isoformat(),
+                    # Additive — see the legacy branch for the full rationale.
+                    'claim': claim_plaintext,
+                    'claim_expires_at': req.claim_expires_at.isoformat(),
                 },
                 status=status.HTTP_202_ACCEPTED,
             )
@@ -432,6 +531,133 @@ class VerifyEmailView(APIView):
                 'message': 'Email verified. Set your password to activate your account.',
             },
             status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Claim status — GET /api/v1/auth/request-access/status/?claim=<plaintext>
+# ---------------------------------------------------------------------------
+
+class RequestAccessStatusView(APIView):
+    """Report whether a submitted request's email has been verified yet.
+
+    Polled by the tab that SUBMITTED the request, which holds the claim
+    plaintext in memory. That tab never sees the emailed link, so it has no
+    other way to learn the outcome.
+
+    WHY THIS MINTS A FRESH TOKEN RATHER THAN RETURNING AN EXISTING ONE
+    ------------------------------------------------------------------
+    Password-setup tokens are stored as SHA-256 hashes. The plaintext issued
+    during email verification exists only in memory during that one request
+    and is handed to the verifying tab. It is unrecoverable afterwards — so
+    "look up the token that was already issued and return it" is not a thing
+    that can be built. On the ``verified`` branch this endpoint therefore
+    mints a NEW setup token, via the same
+    ``password_reset.services.issue_reset_token`` that forgot-password and
+    ``approve_request`` already call.
+
+    Consequence, and it is intentional: polling twice yields two valid tokens,
+    and the LATEST one is the one the frontend should use. That is what makes
+    a browser reload survivable — the reloaded tab simply polls again and gets
+    a working token instead of being stranded.
+
+    Responses (all 200 unless noted):
+        {"status": "pending_verification"}            not yet verified
+        {"status": "verified", "setup_token": "..."}   verified, password unset
+        {"status": "already_active"}                   password already set
+        {"status": "expired"}                          claim window closed
+        404                                            unknown / malformed claim
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        claim = (request.query_params.get('claim') or '').strip()
+
+        limited = _rate_limit_claim_status(request, claim)
+        if limited is not None:
+            return limited
+
+        if not claim:
+            return self._not_found()
+
+        try:
+            req = AccessRequest.objects.get(claim_token_hash=sha256(claim))
+        except AccessRequest.DoesNotExist:
+            # Same response whether the claim never existed, was malformed, or
+            # was issued and later purged. Distinguishing them would confirm to
+            # an attacker that a given claim was once real.
+            return self._not_found()
+
+        if req.claim_is_expired():
+            # No token is minted on this branch — an expired claim must not be
+            # able to produce password-setup credentials.
+            return Response({'status': 'expired'}, status=status.HTTP_200_OK)
+
+        # 'approved' is the terminal state that email verification drives the
+        # request to (via consume_email_verification_token -> approve_request).
+        # Anything else means the applicant has not clicked the link yet.
+        if req.status != 'approved':
+            return Response(
+                {'status': 'pending_verification'}, status=status.HTTP_200_OK,
+            )
+
+        user = User.objects.filter(email=req.email).first()
+        if user is None:
+            # Defensive: 'approved' without a User should be impossible, since
+            # approve_request creates both in one transaction. Report it as
+            # not-yet-verified rather than 500ing at a polling client.
+            logger.warning(
+                'Access request %s is approved but has no user row; '
+                'reporting pending_verification to the claim poller.',
+                req.id,
+            )
+            return Response(
+                {'status': 'pending_verification'}, status=status.HTTP_200_OK,
+            )
+
+        # THE STUB'S EXPIRY IN PRACTICE: once a password exists the account is
+        # live, so this refuses to mint. Chosen over expiring the stub inside
+        # the setup-password path because it keeps the whole mechanism inside
+        # this app — password_reset has no knowledge of claims and shouldn't
+        # acquire any. A stale tab left open past signup gets 'already_active'
+        # and the frontend sends that user to sign-in.
+        if user.password:
+            return Response(
+                {'status': 'already_active'}, status=status.HTTP_200_OK,
+            )
+
+        issued = issue_reset_token(
+            user,
+            template='account_activation',
+            request=request,
+            send_email=False,
+        )
+
+        audit_write(
+            'auth.access_request.claim_setup_token_issued',
+            actor=None,
+            target=user,
+            success=True,
+            metadata={
+                'access_request_id': str(req.id),
+                'reset_token_id': str(issued.row.id),
+            },
+            request=request,
+        )
+
+        return Response(
+            {'status': 'verified', 'setup_token': issued.plaintext},
+            status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _not_found():
+        return make_error_response(
+            code='CLAIM_NOT_FOUND',
+            message='This claim is not valid.',
+            status=status.HTTP_404_NOT_FOUND,
         )
 
 

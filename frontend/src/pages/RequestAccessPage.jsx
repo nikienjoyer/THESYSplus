@@ -7,16 +7,66 @@
  * Phase 2 additions:
  *   - Progress stepper showing the 4-step account activation flow
  *   - Trust cue: "Only PampangaStateU CCS students can request access."
+ *
+ * Claim polling:
+ *   The backend hands this tab a "claim" at submission. This tab then polls
+ *   GET /auth/request-access/status/ until the applicant clicks the emailed
+ *   link in some other tab, at which point the poll returns a password-setup
+ *   token and the user finishes signing up HERE — in the tab they started in.
+ *
+ *   The claim lives in sessionStorage (dies with the tab) so a reload re-enters
+ *   the waiting state instead of showing a blank form. The setup token does NOT
+ *   — it is short-lived and single-use, so it stays in component state only.
  */
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CheckCircle2, Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
+import SetPasswordForm from '../components/auth/SetPasswordForm';
 import LegalModal from '../components/legal/LegalModal';
 import AuthBranding from '../components/brand/AuthBranding';
+
+// sessionStorage, NOT localStorage: this holds a credential that can mint a
+// password-setup token, and it must die with the tab.
+const CLAIM_STORAGE_KEY = 'thesys.accessRequest.claim';
+
+// Base cadence. The server's per-claim budget is 60/min, so ~15/min leaves
+// generous headroom; the 429 branch below backs off if that ever changes.
+const POLL_INTERVAL_MS = 4000;
+const POLL_BACKOFF_CEILING_MS = 60000;
+
+function readStoredClaim() {
+  try {
+    const raw = sessionStorage.getItem(CLAIM_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.decision) return null;
+    return parsed;
+  } catch {
+    // Corrupt entry — treat as absent rather than trapping the user.
+    return null;
+  }
+}
+
+function writeStoredClaim(value) {
+  try {
+    sessionStorage.setItem(CLAIM_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage unavailable (private mode / quota). Polling still works for the
+    // life of this render; only reload-survival is lost.
+  }
+}
+
+function clearStoredClaim() {
+  try {
+    sessionStorage.removeItem(CLAIM_STORAGE_KEY);
+  } catch {
+    /* nothing to do */
+  }
+}
 
 function mapError(err) {
   const code = err?.response?.data?.error?.code;
@@ -82,51 +132,64 @@ function toneClasses(tone, isDark) {
 // ---------------------------------------------------------------------------
 // Progress stepper
 // ---------------------------------------------------------------------------
-// step: 0 = form, 1 = email verification pending, 2 = manual review, -1 = rejected
+//
+// Named steps rather than bare integers, because the mapping from flow state to
+// highlighted node is not 1:1 — manual review reuses node index 1 under a
+// different label.
+const STEP_REJECTED       = -1;
+const STEP_FORM           = 0;
+const STEP_VERIFY_EMAIL   = 1;
+const STEP_MANUAL_REVIEW  = 2;
+const STEP_SET_PASSWORD   = 3;
+const STEP_ACCOUNT_READY  = 4;
+
+// Which of the four rendered nodes each flow step highlights.
+const STEP_TO_NODE = {
+  [STEP_FORM]:          0,
+  [STEP_VERIFY_EMAIL]:  1,
+  [STEP_MANUAL_REVIEW]: 1,   // same node, relabelled below
+  [STEP_SET_PASSWORD]:  2,
+  [STEP_ACCOUNT_READY]: 3,
+};
+
 function ProgressStepper({ step, isDark }) {
-  const STEPS = [
-    { label: 'Submit Request' },
-    { label: 'Verify Email' },
-    { label: 'Set Password' },
-    { label: 'Account Ready' },
-  ];
+  if (step === STEP_REJECTED) return null; // no stepper for rejected
 
-  // For manual review we show a special "Manual Review" active step instead of step 2
-  const isManualReview = step === 2;
-  const isRejected = step === -1;
+  const isManualReview = step === STEP_MANUAL_REVIEW;
 
-  if (isRejected) return null; // no stepper for rejected
-
+  // Manual review replaces "Verify Email" — no email was sent, so waiting for
+  // one would be a lie. Pre-existing behaviour, preserved.
   const displaySteps = isManualReview
-    ? [
-        { label: 'Submit Request' },
-        { label: 'Manual Review' },
-        { label: 'Set Password' },
-        { label: 'Account Ready' },
-      ]
-    : STEPS;
+    ? ['Submit Request', 'Manual Review', 'Set Password', 'Account Ready']
+    : ['Submit Request', 'Verify Email', 'Set Password', 'Account Ready'];
 
-  // active index: 0 = form, 1 = email pending, 2 = manual review
-  const activeIdx = step === 0 ? 0 : step === 1 ? 1 : step === 2 ? 1 : 0;
-  const completedIdx = step === 0 ? -1 : 0; // step 0 (Submit) is complete once decision is shown
+  // NOTE — this replaces an off-by-one in the previous implementation, which
+  // computed `activeIdx + (step > 0 ? 1 : 0)` and so highlighted "Set Password"
+  // while the applicant was still waiting to verify their email (and again
+  // during manual review). It had to change: advancing the stepper to Set
+  // Password would otherwise be invisible, since the highlight was already
+  // sitting there.
+  const activeNode = STEP_TO_NODE[step] ?? 0;
+
+  // Account Ready is terminal, so its own node reads as complete too.
+  const isTerminal = step === STEP_ACCOUNT_READY;
 
   return (
     <div className="mb-6">
       <div className="flex items-center gap-0">
-        {displaySteps.map((s, i) => {
-          const isComplete = i <= completedIdx;
-          const isActive   = i === activeIdx + (step > 0 ? 1 : 0);
-          const isFuture   = !isComplete && !isActive;
+        {displaySteps.map((label, i) => {
+          const isComplete = i < activeNode || (isTerminal && i === activeNode);
+          const isActive   = i === activeNode && !isTerminal;
 
           return (
-            <div key={s.label} className="flex items-center flex-1 min-w-0">
+            <div key={label} className="flex items-center flex-1 min-w-0">
               {/* Node */}
               <div className="flex flex-col items-center flex-shrink-0">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
                   isComplete
-                    ? isDark ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-emerald-500 border-emerald-500 text-white'
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
                     : isActive
-                    ? isDark ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white' : 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                    ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
                     : isDark ? 'bg-transparent border-white/20 text-gray-600' : 'bg-transparent border-gray-200 text-gray-400'
                 }`}>
                   {isComplete ? (
@@ -144,15 +207,15 @@ function ProgressStepper({ step, isDark }) {
                     ? 'text-primary font-semibold'
                     : isDark ? 'text-gray-600' : 'text-gray-400'
                 }`}>
-                  {s.label}
+                  {label}
                 </span>
               </div>
 
               {/* Connector line (not after last) */}
               {i < displaySteps.length - 1 && (
                 <div className={`flex-1 h-0.5 mx-1 mb-4 rounded-full transition-colors ${
-                  i < activeIdx + (step > 0 ? 1 : 0)
-                    ? isDark ? 'bg-emerald-500' : 'bg-emerald-500'
+                  i < activeNode
+                    ? 'bg-emerald-500'
                     : isDark ? 'bg-white/10' : 'bg-gray-200'
                 }`} />
               )}
@@ -169,11 +232,27 @@ function ProgressStepper({ step, isDark }) {
 // ---------------------------------------------------------------------------
 export default function RequestAccessPage() {
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const isDark = theme === 'dark';
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState('');
-  const [decision, setDecision]   = useState(null);
   const [legalModal, setLegalModal] = useState(null); // 'privacy' | 'terms' | 'help' | null
+
+  // Restored lazily from sessionStorage so a reload re-enters the waiting state
+  // rather than showing an empty form. Lazy initialisers (not an effect) keep
+  // this out of the setState-in-effect lint category.
+  const [decision, setDecision] = useState(() => readStoredClaim()?.decision ?? null);
+  const [claim, setClaim] = useState(() => readStoredClaim()?.claim ?? '');
+  const [claimExpiresAt, setClaimExpiresAt] = useState(
+    () => readStoredClaim()?.claim_expires_at ?? '',
+  );
+
+  // 'polling' | 'verified' | 'account_ready' | 'already_active' | 'expired'
+  const [claimState, setClaimState] = useState('polling');
+
+  // Deliberately component state, never storage — short-lived and single-use.
+  const [setupToken, setSetupToken] = useState('');
 
   const handleSubmit = async (formData) => {
     setIsLoading(true);
@@ -182,7 +261,21 @@ export default function RequestAccessPage() {
       const res = await client.post('/auth/request-access/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setDecision(res.data.decision || 'pending_manual_review');
+      // Legacy branch answers 201, document-upload branch 202 — both carry the
+      // same claim fields, so read them from whichever fired.
+      const nextDecision = res.data?.decision || 'pending_manual_review';
+      const nextClaim = res.data?.claim || '';
+      const nextExpiry = res.data?.claim_expires_at || '';
+
+      setDecision(nextDecision);
+      setClaim(nextClaim);
+      setClaimExpiresAt(nextExpiry);
+      setClaimState('polling');
+      writeStoredClaim({
+        decision: nextDecision,
+        claim: nextClaim,
+        claim_expires_at: nextExpiry,
+      });
     } catch (err) {
       setError(mapError(err));
     } finally {
@@ -190,9 +283,143 @@ export default function RequestAccessPage() {
     }
   };
 
-  const cardBg = isDark
-    ? 'bg-white/[0.03] border-white/10'
-    : 'bg-white border-slate-200 shadow-card';
+  const handleTryAgain = () => {
+    clearStoredClaim();
+    setDecision(null);
+    setClaim('');
+    setClaimExpiresAt('');
+    setClaimState('polling');
+    setSetupToken('');
+  };
+
+  const handlePasswordSet = useCallback(() => {
+    // The account is live now; the claim must not linger.
+    clearStoredClaim();
+    setSetupToken('');
+    setClaimState('account_ready');
+  }, []);
+
+  // ── Claim polling ─────────────────────────────────────────────────────
+  //
+  // Only 'pending_email_verification' is pollable. 'pending_manual_review' has
+  // no email in flight and 'rejected' is terminal, so polling either would be
+  // pure noise against the server.
+  const shouldPoll = (
+    decision === 'pending_email_verification'
+    && claimState === 'polling'
+    && !!claim
+    && !!claimExpiresAt
+  );
+
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!shouldPoll) return undefined;
+
+    let cancelled = false;
+    let timerId = null;
+    let intervalMs = POLL_INTERVAL_MS;
+
+    // Absolute instant published by the server. Never a hardcoded 30 minutes —
+    // the window can change server-side without this file drifting.
+    const expiresAtMs = new Date(claimExpiresAt).getTime();
+
+    const stopWith = (nextState) => {
+      clearStoredClaim();
+      setClaimState(nextState);
+    };
+
+    const schedule = () => {
+      if (cancelled) return;
+      timerId = setTimeout(tick, intervalMs);
+    };
+
+    const tick = async () => {
+      if (cancelled || inFlightRef.current) return;
+
+      if (Number.isFinite(expiresAtMs) && Date.now() >= expiresAtMs) {
+        stopWith('expired');
+        return;
+      }
+
+      // Pause entirely while backgrounded — otherwise a forgotten tab keeps
+      // requesting for the whole 30-minute window.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule();
+        return;
+      }
+
+      inFlightRef.current = true;
+      try {
+        const res = await client.get('/auth/request-access/status/', {
+          params: { claim },
+        });
+        if (cancelled) return;
+
+        const status = res.data?.status;
+        if (status === 'verified') {
+          setSetupToken(res.data?.setup_token || '');
+          setClaimState('verified');
+          // Storage is intentionally retained here: if the user reloads before
+          // submitting a password, the restored claim lets the next poll mint a
+          // fresh setup token. It is cleared on success instead.
+          return;
+        }
+        if (status === 'already_active') { stopWith('already_active'); return; }
+        if (status === 'expired')        { stopWith('expired'); return; }
+
+        // pending_verification — reset any backoff and keep waiting.
+        intervalMs = POLL_INTERVAL_MS;
+        schedule();
+      } catch (err) {
+        if (cancelled) return;
+
+        const code = err?.response?.data?.error?.code;
+        const httpStatus = err?.response?.status;
+
+        // A claim the server no longer recognises is, from here, the same
+        // situation as an expired one.
+        if (httpStatus === 404 || code === 'CLAIM_NOT_FOUND') {
+          stopWith('expired');
+          return;
+        }
+
+        // Safety valve only — the budget is 60/min against a ~15/min cadence.
+        // Back off rather than surfacing an error the user cannot act on.
+        if (httpStatus === 429 || code === 'RATE_LIMITED_CLAIM_STATUS') {
+          intervalMs = Math.min(intervalMs * 2, POLL_BACKOFF_CEILING_MS);
+          schedule();
+          return;
+        }
+
+        // Network blip: stay silent and keep waiting. Tearing down the waiting
+        // state over one dropped request would look like the submission failed.
+        schedule();
+      } finally {
+        inFlightRef.current = false;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (cancelled) return;
+      if (document.visibilityState === 'visible') {
+        // Resume immediately rather than waiting out the remaining interval.
+        if (timerId) clearTimeout(timerId);
+        tick();
+      }
+    };
+
+    // Poll once straight away — covers the reload-after-verification case,
+    // where the answer is already waiting.
+    tick();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [shouldPoll, claim, claimExpiresAt]);
 
   const decisionInfo = decision ? (DECISIONS[decision] || {
     Icon: ClipboardList,
@@ -202,25 +429,131 @@ export default function RequestAccessPage() {
     note: '', tone: 'neutral',
   }) : null;
 
-  // Map decision → stepper step
-  const stepperStep = decision === 'pending_email_verification' ? 1
-    : decision === 'pending_manual_review' ? 2
-    : decision === 'rejected' ? -1
-    : 0;
+  // Map flow state → stepper step. Claim outcomes take precedence over the
+  // original decision, since they describe where the user actually is now.
+  let stepperStep;
+  if (claimState === 'account_ready' || claimState === 'already_active') {
+    stepperStep = STEP_ACCOUNT_READY;
+  } else if (claimState === 'verified') {
+    stepperStep = STEP_SET_PASSWORD;
+  } else if (decision === 'pending_email_verification') {
+    stepperStep = STEP_VERIFY_EMAIL;
+  } else if (decision === 'pending_manual_review') {
+    stepperStep = STEP_MANUAL_REVIEW;
+  } else if (decision === 'rejected') {
+    stepperStep = STEP_REJECTED;
+  } else {
+    stepperStep = STEP_FORM;
+  }
+
+  const cardBg = isDark
+    ? 'bg-white/[0.03] border-white/10'
+    : 'bg-white border-slate-200 shadow-card';
+
+  const showPanel = (
+    claimState === 'verified'
+    || claimState === 'account_ready'
+    || claimState === 'already_active'
+    || claimState === 'expired'
+  );
+
+  const subtitle = claimState === 'verified' ? 'Set Password'
+    : claimState === 'account_ready' ? 'Account Ready'
+    : decision ? 'Request Status'
+    : 'Request Access';
 
   return (
     <div className="relative z-10 flex flex-1 items-start justify-center px-4 py-10">
       <div className="w-full max-w-lg">
 
         {/* Branding */}
-        <AuthBranding subtitle={decision ? 'Request Status' : 'Request Access'} isDark={isDark} />
+        <AuthBranding subtitle={subtitle} isDark={isDark} />
 
         {/* Progress stepper */}
         <ProgressStepper step={stepperStep} isDark={isDark} />
 
-        {/* Form / decision result — flat on the auth background, no nested frame */}
         <div>
-          {decision ? (
+          {showPanel ? (
+            /* ── Claim outcome panels ── */
+            <div className={`rounded-2xl border p-7 sm:p-9 ${cardBg}`}>
+              {claimState === 'verified' && (
+                <SetPasswordForm
+                  setupToken={setupToken}
+                  onSuccess={handlePasswordSet}
+                  isDark={isDark}
+                  idPrefix="ra"
+                />
+              )}
+
+              {claimState === 'account_ready' && (
+                <div className="text-center">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
+                  }`}>
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Account Ready
+                  </h2>
+                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Your password has been set and your THESYS+ account is now active.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/sign-in?reason=account_setup')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    Go to Sign In
+                  </button>
+                </div>
+              )}
+
+              {claimState === 'already_active' && (
+                <div className="text-center">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
+                  }`}>
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    This account is already active.
+                  </h2>
+                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Your password has already been set, so there is nothing left to do here.
+                  </p>
+                  <Link to="/sign-in"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    Sign In
+                  </Link>
+                </div>
+              )}
+
+              {claimState === 'expired' && (
+                <div className="text-center">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    isDark ? 'bg-amber-500/15' : 'bg-amber-50'
+                  }`}>
+                    <Mail className="w-7 h-7 text-amber-500" aria-hidden="true" />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Still waiting on your email
+                  </h2>
+                  {/* Deliberately NOT "session expired, start again": the access
+                      request and the 24-hour email link are both still valid, and
+                      telling the user to resubmit would mean re-uploading their ID
+                      document for nothing. */}
+                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    This page stopped waiting for your verification. If you&apos;ve already
+                    clicked the link in your email, you can sign in now. If not, the link
+                    is still valid — click it and follow the instructions there.
+                  </p>
+                  <Link to="/sign-in"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    Sign In
+                  </Link>
+                </div>
+              )}
+            </div>
+          ) : decision ? (
             /* ── Decision result ── */
             (() => {
               const cls = toneClasses(decisionInfo.tone, isDark);
@@ -243,14 +576,18 @@ export default function RequestAccessPage() {
 
                   <div className="flex flex-col items-center gap-2">
                     {decision === 'pending_email_verification' && (
-                      <p className={`text-sm text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        After clicking the verification link, you'll set your password right on that same page — no second email needed.
+                      <p
+                        aria-live="polite"
+                        className={`text-sm text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                      >
+                        Click the link in your email to verify your address. This page
+                        will continue automatically once you do.
                       </p>
                     )}
                     {decision === 'rejected' && (
                       <button
                         type="button"
-                        onClick={() => setDecision(null)}
+                        onClick={handleTryAgain}
                         className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
                       >
                         Try Again
