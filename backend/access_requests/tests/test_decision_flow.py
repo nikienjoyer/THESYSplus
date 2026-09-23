@@ -219,12 +219,141 @@ class TestValidVerificationToken:
         body = response.json()
         assert body['verified'] is True
 
+    def test_endpoint_does_not_return_setup_token(self, client, valid_token):
+        """The verification tab is a receipt — it gets no password credential.
+
+        The setup token is minted instead by
+        ``GET /auth/request-access/status/`` for the tab that submitted the
+        request, or by forgot-password for anyone without that tab. Handing one
+        to this tab would send a credential somewhere it cannot be used.
+        """
+        url = reverse('access-request-verify-email')
+        response = client.get(f'{url}?token={valid_token}')
+
+        assert response.status_code == 200
+        assert 'setup_token' not in response.json()
+
+    def test_endpoint_response_shape(self, client, valid_token):
+        """Pin the whole envelope so a token cannot creep back in unnoticed."""
+        url = reverse('access-request-verify-email')
+        response = client.get(f'{url}?token={valid_token}')
+
+        assert set(response.json()) == {'verified', 'email', 'message'}
+
+    def test_endpoint_still_verifies_and_provisions(self, client, valid_token, pending_req):
+        """Removing the token must not weaken what verification actually does."""
+        url = reverse('access-request-verify-email')
+        response = client.get(f'{url}?token={valid_token}')
+
+        assert response.status_code == 200
+        assert response.json()['email'] == pending_req.email
+
+        pending_req.refresh_from_db()
+        assert pending_req.status == 'approved'
+
+        user = User.objects.get(email=pending_req.email)
+        assert user.is_active
+        # Password stays NULL until it is set via the polling tab or
+        # forgot-password — this is the state the escape hatch must serve.
+        assert not user.password
+
     def test_second_use_rejected(self, valid_token, pending_req):
         """After first consumption the same token must not work again."""
         consume_email_verification_token(valid_token)
         with pytest.raises(EmailVerificationTokenInvalid) as exc_info:
             consume_email_verification_token(valid_token)
         assert exc_info.value.reason == 'already_used'
+
+
+# ---------------------------------------------------------------------------
+# The escape hatch — forgot-password for a verified, password-less user
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestForgotPasswordEscapeHatch:
+    """Proves the only route forward for a user with no original tab.
+
+    Retiring the inline form on the verification page is only safe because this
+    path works. It is asserted here rather than left to manual checking, since
+    a regression would strand every user who closes the submitting tab.
+    """
+
+    def _verified_password_less_user(self, client, valid_token, pending_req):
+        client.get(
+            f'{reverse("access-request-verify-email")}?token={valid_token}'
+        )
+        user = User.objects.get(email=pending_req.email)
+        assert not user.password, 'precondition: password must still be NULL'
+        return user
+
+    def test_forgot_password_issues_a_token_for_a_null_password_user(
+        self, client, valid_token, pending_req,
+    ):
+        from password_reset.models import PasswordResetToken
+
+        user = self._verified_password_less_user(client, valid_token, pending_req)
+        before = PasswordResetToken.objects.filter(user=user).count()
+
+        response = client.post(
+            reverse('auth-forgot-password'),
+            data={'email': user.email},
+            content_type='application/json',
+            HTTP_ORIGIN='http://localhost:5173',
+        )
+
+        assert response.status_code == 200
+        assert PasswordResetToken.objects.filter(user=user).count() > before
+
+    def test_that_token_actually_sets_a_password_end_to_end(
+        self, client, valid_token, pending_req,
+    ):
+        """Click-link-twice recovery, proven rather than assumed.
+
+        Mirrors the real recovery journey: verify, lose the tab, request a
+        setup link, set a password, and end up able to authenticate.
+        """
+        from password_reset.services import issue_reset_token
+
+        user = self._verified_password_less_user(client, valid_token, pending_req)
+
+        # Stand in for the emailed link: same function forgot-password calls.
+        issued = issue_reset_token(user, template='password_reset', send_email=False)
+
+        response = client.post(
+            reverse('auth-setup-password'),
+            data={'token': issued.plaintext, 'new_password': 'Str0ng!Passw0rd!2026'},
+            content_type='application/json',
+            HTTP_ORIGIN='http://localhost:5173',
+        )
+
+        assert response.status_code == 200, response.content
+
+        user.refresh_from_db()
+        assert user.password
+        assert user.check_password('Str0ng!Passw0rd!2026')
+
+    def test_the_recovered_user_can_sign_in(self, client, valid_token, pending_req):
+        """The end of the journey — a password that actually authenticates."""
+        from password_reset.services import issue_reset_token
+
+        user = self._verified_password_less_user(client, valid_token, pending_req)
+        issued = issue_reset_token(user, template='password_reset', send_email=False)
+        client.post(
+            reverse('auth-setup-password'),
+            data={'token': issued.plaintext, 'new_password': 'Str0ng!Passw0rd!2026'},
+            content_type='application/json',
+            HTTP_ORIGIN='http://localhost:5173',
+        )
+
+        response = client.post(
+            reverse('auth-login'),
+            data={'email': user.email, 'password': 'Str0ng!Passw0rd!2026'},
+            content_type='application/json',
+            HTTP_ORIGIN='http://localhost:5173',
+        )
+
+        assert response.status_code == 200, response.content
+        assert response.json().get('access_token')
 
 
 # ---------------------------------------------------------------------------

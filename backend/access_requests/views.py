@@ -479,10 +479,28 @@ class VerifyEmailView(APIView):
     """Consume an email verification token and activate the user account.
 
     Called when the applicant clicks the link in their verification email.
-    On success, ``approve_request(..., send_email=False)`` creates the User
-    and issues a setup-password token WITHOUT emailing it — the plaintext
-    is returned as ``setup_token`` so the frontend can let the user set
-    their password inline on this same page, eliminating the second email.
+    ``approve_request(..., send_email=False)`` creates the User and marks the
+    request approved.
+
+    This endpoint is a CONFIRMATION RECEIPT ONLY. It does not hand back a
+    password-setup credential, because the tab holding the emailed link is not
+    the tab that sets the password:
+
+      * The tab that SUBMITTED the request polls
+        ``GET /auth/request-access/status/`` and hosts the password form. That
+        endpoint mints its own fresh setup token when it reports ``verified``.
+      * Anyone without that tab open uses ``POST /auth/forgot-password/``,
+        which issues a working setup link for a verified user whose password
+        is still NULL.
+
+    SECURITY NOTE — why ``setup_token`` was removed from this response: a
+    password-setup credential no longer travels to a tab that has no use for
+    it. The emailed link proves control of the address; that is all it needs
+    to do. Narrowing its blast radius means a leaked or shoulder-surfed
+    verification URL cannot itself be redeemed for a password.
+
+    ``approve_request`` still issues a reset token internally — it is simply
+    not surfaced here. That is deliberate and not worth refactoring.
     """
 
     authentication_classes: list = []
@@ -523,12 +541,18 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        # No ``setup_token`` here — see the class docstring. The polling status
+        # endpoint mints its own, and forgot-password covers everyone else.
+        # ``message`` is updated to match: telling this tab to "set your
+        # password" would be a false instruction, since it no longer can.
         return Response(
             {
                 'verified': True,
                 'email': outcome.user.email,
-                'setup_token': outcome.reset_token_plaintext,
-                'message': 'Email verified. Set your password to activate your account.',
+                'message': (
+                    'Email verified. Return to the tab where you started to '
+                    'set your password.'
+                ),
             },
             status=status.HTTP_200_OK,
         )

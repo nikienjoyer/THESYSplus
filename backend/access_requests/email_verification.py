@@ -12,9 +12,26 @@ When the applicant clicks the link the frontend calls:
     GET /api/v1/auth/verify-email/?token=<plaintext>
 
 Which calls ``consume_email_verification_token``, creating the user and
-issuing (but NOT emailing) a setup-password token. The plaintext is
-returned all the way up to ``VerifyEmailView`` so the frontend can let
-the user set their password inline on the same page — no second email.
+marking the request approved.
+
+WHERE THE PASSWORD ACTUALLY GETS SET
+------------------------------------
+Not on the page the link opens. That page is a confirmation receipt.
+
+The tab that SUBMITTED the request holds a claim stub and polls
+``GET /auth/request-access/status/``; when that reports ``verified`` it mints
+a FRESH setup token and hosts the password form. So the user finishes in the
+tab they started in, and the verification link's tab just says "done".
+
+Anyone who no longer has that tab — different device, closed window, claim
+window elapsed — uses ``POST /auth/forgot-password/``, which issues a working
+setup link for a verified user whose ``password`` column is still NULL. That
+is the fallback the whole arrangement depends on; do not remove it.
+
+``approve_request(..., send_email=False)`` still issues a reset token
+internally so no second email is dispatched. That plaintext is simply not
+surfaced to the verifying tab any more — a password-setup credential should
+not travel to a tab that cannot use it.
 """
 
 from __future__ import annotations

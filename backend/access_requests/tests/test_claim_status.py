@@ -457,13 +457,20 @@ class TestRateLimiting:
 
 
 # ---------------------------------------------------------------------------
-# Regression — the existing flow must be untouched
+# The verification endpoint is now a receipt, not a credential issuer
 # ---------------------------------------------------------------------------
+#
+# These four tests previously asserted the OPPOSITE — that
+# GET /auth/verify-email/ still returned `setup_token`. That was deliberate:
+# the claim-stub commit was required to be purely additive, so the guard held
+# it in place. Retiring the single-tab path is precisely the change that guard
+# existed to defer, so the assertions are inverted here rather than deleted —
+# the field must now be provably ABSENT, not merely unasserted.
 
 @pytest.mark.django_db
-class TestVerifyEmailUnchanged:
-    def test_verify_email_still_returns_setup_token(self, client):
-        """Commit 3 changes this. This commit must not."""
+class TestVerifyEmailIsNowAReceipt:
+    def test_verify_email_no_longer_returns_setup_token(self, client):
+        """A password credential must not reach a tab that cannot use it."""
         _submit(client)
         req = AccessRequest.objects.get()
 
@@ -473,42 +480,42 @@ class TestVerifyEmailUnchanged:
         payload = response.json()
         assert payload['verified'] is True
         assert payload['email'] == 'claimant@pampangastateu.edu.ph'
-        assert payload['setup_token']
         assert payload['message']
+        assert 'setup_token' not in payload
 
-    def test_verify_email_response_shape_is_exactly_as_before(self, client):
+    def test_verify_email_response_shape(self, client):
         _submit(client)
         response = _verify_email_for(AccessRequest.objects.get(), client=client)
 
-        assert set(response.json()) == {
-            'verified', 'email', 'setup_token', 'message',
-        }
+        assert set(response.json()) == {'verified', 'email', 'message'}
 
-    def test_verify_email_token_still_works_end_to_end(self, client):
-        """The emailed-link path stays independently sufficient.
+    def test_the_polling_path_is_what_issues_the_token_now(self, client):
+        """Replaces the old "emailed link is independently sufficient" test.
 
-        A user who never polls — or whose claim expired — must still be able
-        to set a password from the verification tab alone.
+        The link verifies; the submitting tab's poll mints the token and sets
+        the password. This is the primary journey end to end.
         """
-        _submit(client)
-        setup_token = _verify_email_for(
-            AccessRequest.objects.get(), client=client,
-        ).json()['setup_token']
+        _, body = _submit(client)
+        _verify_email_for(AccessRequest.objects.get(), client=client)
+
+        payload = _status(client, body['claim']).json()
+        assert payload['status'] == 'verified'
 
         response = client.post(
             reverse(SETUP_URL_NAME),
-            data={'token': setup_token, 'new_password': STRONG_PASSWORD},
+            data={'token': payload['setup_token'], 'new_password': STRONG_PASSWORD},
             content_type='application/json',
             HTTP_ORIGIN='http://localhost:5173',
         )
 
         assert response.status_code == 200, response.content
 
-    def test_verification_works_even_after_the_claim_expired(self, client):
+    def test_verification_still_works_after_the_claim_expired(self, client):
         """The 30-minute claim window is shorter than the 24-hour email link.
 
-        Someone who clicks the link an hour later verifies fine; only the
-        polling optimisation is lost.
+        Someone who clicks the link an hour later still verifies — they just
+        fall through to forgot-password instead of the polling tab. Losing the
+        optimisation must not cost them the verification.
         """
         _, body = _submit(client)
         req = AccessRequest.objects.get()
@@ -518,5 +525,11 @@ class TestVerifyEmailUnchanged:
         response = _verify_email_for(req, client=client)
 
         assert response.status_code == 200
-        assert response.json()['setup_token']
+        assert response.json()['verified'] is True
         assert _status(client, body['claim']).json() == {'status': 'expired'}
+
+        # The account exists and is awaiting a password — exactly the state
+        # forgot-password is there to rescue.
+        user = User.objects.get(email='claimant@pampangastateu.edu.ph')
+        assert user.is_active
+        assert not user.password
