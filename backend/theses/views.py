@@ -439,6 +439,117 @@ def _stamped_pdf_bytes(thesis: Thesis, disposition: str) -> bytes:
     return stamped
 
 
+# Which surface a gate rejection is being reported on. The refusal is
+# identical; only the remedy sentence differs, because the two surfaces ask the
+# user for different things.
+SURFACE_UPLOAD = 'upload'
+SURFACE_TITLE_CHECK = 'title_check'
+
+
+def _not_a_thesis_response(check, *, surface=SURFACE_UPLOAD):
+    """Structured 400 for a document that is not a thesis manuscript.
+
+    HARD BLOCK on every surface and for every role — there is no
+    warn-and-allow and no faculty/admin override. A Certificate of
+    Registration in the repository is a data-quality problem that outlives
+    whoever uploaded it, and a garbage "detected title" feeding a similarity
+    score is worse than a clear refusal.
+
+    WHY TWO WORDINGS EXIST — do not collapse them back into one.
+
+    The two surfaces are asking for different documents, so "what should I do
+    now?" has two different answers:
+
+    * ``SURFACE_UPLOAD`` — the user is submitting a thesis to the repository.
+      The remedy is to upload the manuscript itself.
+    * ``SURFACE_TITLE_CHECK`` — the user is checking a proposed title for
+      similarity against existing work. Telling them to "upload the thesis
+      manuscript" is wrong and confusing: at proposal stage the manuscript
+      does not exist yet. They need a document that CONTAINS their proposed
+      title.
+
+    ``surface`` defaults to the upload wording deliberately. A future caller
+    that forgets to pass it gets the stricter, manuscript-demanding sentence
+    rather than one that invites a thinner document — failing toward strict.
+
+    The unreadable case is NOT split. A scanned PDF whose OCR failed needs
+    "try a text-based copy" on both surfaces; the remedy is genuinely the same,
+    so there is nothing to differentiate.
+
+    ``found_markers`` is included so someone with a genuinely unusual thesis
+    format can see what WAS recognised and what was missing, rather than
+    facing an opaque rejection.
+    """
+    from .services.thesis_document_check import REASON_UNREADABLE
+
+    if check.reason == REASON_UNREADABLE:
+        return make_error_response(
+            code='NOT_A_THESIS_DOCUMENT',
+            message=(
+                'Could not read text from this document. If it is a scanned '
+                'image, please upload a text-based PDF or a DOCX file.'
+            ),
+            status=status.HTTP_400_BAD_REQUEST,
+            details={'reason': check.reason, 'found_markers': []},
+        )
+
+    if surface == SURFACE_TITLE_CHECK:
+        message = (
+            'This document does not appear to be a thesis. Please upload a '
+            'document containing your proposed thesis or research title.'
+        )
+    else:
+        message = (
+            'This document does not appear to be a thesis. No abstract, '
+            'keywords, chapter headings, or references section was found. '
+            'Please upload the thesis manuscript itself.'
+        )
+
+    return make_error_response(
+        code='NOT_A_THESIS_DOCUMENT',
+        message=message,
+        status=status.HTTP_400_BAD_REQUEST,
+        details={
+            'reason': check.reason,
+            'found_markers': check.marker_labels,
+            'markers_found_count': check.marker_count,
+        },
+    )
+
+
+def _gate_document(text: str, tmp_path: str | None = None, *, max_pages_used: bool = False):
+    """Run the thesis gate, re-reading the full document before any rejection.
+
+    The extraction surfaces read only the first few pages for speed. Structural
+    markers can legitimately sit deeper than that — a manuscript that opens
+    straight into "CHAPTER I" with its references 80 pages later would look
+    marker-poor in a 5-page window.
+
+    So a PASS on the truncated window is accepted immediately (the common case,
+    since title-page boilerplate is right at the front), and the expensive full
+    read happens ONLY when we are about to refuse. That keeps the page-limit
+    optimisation intact while making a false rejection impossible.
+
+    Returns the check result; callers turn a failure into a response.
+    """
+    from .services.text_extractor import ThesisTextExtractor
+    from .services.thesis_document_check import check_thesis_document
+
+    check = check_thesis_document(text)
+    if check.passed or not max_pages_used or not tmp_path:
+        return check
+
+    try:
+        full = ThesisTextExtractor().extract(tmp_path)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning('Gate full-document re-read failed for %s: %s', tmp_path, exc)
+        return check
+
+    if not full.success or not full.text.strip():
+        return check
+    return check_thesis_document(full.text)
+
+
 def _document_unavailable_response(thesis: Thesis, reason: str):
     """Structured 404 for a thesis whose source document can't be served.
 
@@ -586,7 +697,48 @@ class ThesisUploadView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Step 4: determine workflow status from uploader's role
+        # Step 4: document-type gate — MUST run before anything is persisted.
+        #
+        # ORDERING: text extraction used to happen after Thesis.objects.create(),
+        # reading the file back off disk. That is too late for a gate: rejecting
+        # there would leave behind a Thesis row and a stored file to clean up,
+        # and a failed cleanup means an orphaned COR in the repository. So the
+        # document is extracted from a temp copy of the bytes already held in
+        # memory, judged, and only then persisted.
+        #
+        # The full document is read (no page limit) because references and
+        # chapter headings sit deep in a manuscript. The text is reused as
+        # ``extracted_text`` at create time, so this replaces the old Step 6
+        # rather than adding a second full parse.
+        import os as _os
+        import tempfile
+
+        suffix = f'.{file_check.detected_type or FileType.PDF}'
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        try:
+            extraction = ThesisTextExtractor().extract(tmp_path)
+            extracted_text = extraction.text if extraction.success else ''
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning('Upload text extraction crashed: %s', exc)
+            extracted_text = ''
+        finally:
+            try:
+                _os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        gate = _gate_document(extracted_text)
+        if not gate.passed:
+            logger.warning(
+                'Upload rejected by thesis gate (reason=%s, markers=%s) for user %s',
+                gate.reason, gate.markers, request.user.id,
+            )
+            return _not_a_thesis_response(gate)
+
+        # Step 5: determine workflow status from uploader's role
         role = getattr(request.user, 'role', None)
         if role in (Role.FACULTY, Role.ADMINISTRATOR):
             initial_status = ThesisStatus.APPROVED
@@ -597,7 +749,7 @@ class ThesisUploadView(APIView):
             reviewed_by = None
             reviewed_at = None
 
-        # Step 5: persist in a transaction
+        # Step 6: persist in a transaction
         try:
             with transaction.atomic():
                 thesis = Thesis.objects.create(
@@ -616,6 +768,9 @@ class ThesisUploadView(APIView):
                     reviewed_by=reviewed_by,
                     reviewed_at=reviewed_at,
                     embedding_status=EmbeddingStatus.NOT_STARTED,
+                    # Already extracted by the Step 4 gate — reused rather
+                    # than parsed a second time.
+                    extracted_text=extracted_text,
                 )
         except IntegrityError:
             return make_error_response(
@@ -624,20 +779,11 @@ class ThesisUploadView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Step 6: extract text (best-effort — never blocks upload success)
-        try:
-            extractor = ThesisTextExtractor()
-            result = extractor.extract(thesis.uploaded_file.path)
-            if result.success:
-                thesis.extracted_text = result.text
-                thesis.save(update_fields=['extracted_text', 'updated_at'])
-            else:
-                logger.warning(
-                    'Thesis %s text extraction failed: %s',
-                    thesis.id, result.error,
-                )
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning('Thesis %s text extraction crashed: %s', thesis.id, exc)
+        # NOTE: text extraction no longer happens here. It moved to Step 4,
+        # ahead of persistence, because the document-type gate needs the text
+        # before deciding whether a row may be created at all. The result is
+        # reused above, so the document is parsed once per upload instead of
+        # twice.
 
         # Step 7: generate SBERT embeddings (best-effort — does not block upload)
         #
@@ -1016,22 +1162,32 @@ class ThesisExtractTitleView(APIView):
                 tmp.write(chunk)
             tmp_path = tmp.name
 
+        # The temp file must outlive the gate: a marker-poor front matter
+        # triggers a full-document re-read before anything is refused, and that
+        # needs the file still on disk. A single try/finally around the whole
+        # body guarantees cleanup on every exit path — there are now several
+        # returns below, and per-return unlink calls would eventually miss one.
         try:
-            from .services.text_extractor import (
-                FRONT_MATTER_PAGES,
-                ThesisTextExtractor,
-            )
-            extractor = ThesisTextExtractor()
-            # Read front matter only. A title lives on page one, so parsing all
-            # 93 pages of a thesis to find it is wasted work — and on the OCR
-            # path it was wasted memory too (up to 50 pages rasterised at
-            # 200 dpi). The response contract is unchanged.
-            result = extractor.extract(tmp_path, max_pages=FRONT_MATTER_PAGES)
+            return self._extract_and_respond(tmp_path)
         finally:
             try:
                 _os.unlink(tmp_path)
             except OSError:
                 pass
+
+    def _extract_and_respond(self, tmp_path: str):
+        """Extract, gate, then detect. Caller owns ``tmp_path``'s lifetime."""
+        from .services.text_extractor import (
+            FRONT_MATTER_PAGES,
+            ThesisTextExtractor,
+        )
+
+        extractor = ThesisTextExtractor()
+        # Read front matter only. A title lives on page one, so parsing all
+        # 93 pages of a thesis to find it is wasted work — and on the OCR
+        # path it was wasted memory too (up to 50 pages rasterised at
+        # 200 dpi). The response contract is unchanged.
+        result = extractor.extract(tmp_path, max_pages=FRONT_MATTER_PAGES)
 
         if not result.success or not result.text.strip():
             return Response({
@@ -1044,6 +1200,21 @@ class ThesisExtractTitleView(APIView):
                     'Please type the title manually.'
                 ),
             })
+
+        # Document-type gate — refuse before running title detection. Nothing
+        # persists here, but returning a garbage title that then feeds a
+        # meaningless similarity score is worse than a clear refusal: the user
+        # acts on a number that means nothing.
+        gate = _gate_document(result.text, tmp_path, max_pages_used=True)
+        if not gate.passed:
+            logger.warning(
+                'extract-title rejected by thesis gate (reason=%s, markers=%s)',
+                gate.reason, gate.markers,
+            )
+            # Title-check surface: the user is validating a PROPOSED title, so
+            # the remedy is a document containing that title, not the finished
+            # manuscript they have not written yet.
+            return _not_a_thesis_response(gate, surface=SURFACE_TITLE_CHECK)
 
         detected, confidence = self._detect_title(result.text)
 
@@ -1154,15 +1325,23 @@ class ThesisExtractMetadataView(APIView):
                 tmp.write(chunk)
             tmp_path = tmp.name
 
+        # Single try/finally around the whole body so the temp file is removed
+        # on every exit path. It has to outlive the gate: a marker-poor window
+        # triggers a full-document re-read before anything is refused.
         try:
-            from .services.text_extractor import METADATA_PAGES, ThesisTextExtractor
-            extractor = ThesisTextExtractor()
-            result = extractor.extract(tmp_path, max_pages=METADATA_PAGES)
+            return self._extract_and_respond(tmp_path)
         finally:
             try:
                 _os.unlink(tmp_path)
             except OSError:
                 pass
+
+    def _extract_and_respond(self, tmp_path: str):
+        """Extract, gate, then read all six fields. Caller owns ``tmp_path``."""
+        from .services.text_extractor import METADATA_PAGES, ThesisTextExtractor
+
+        extractor = ThesisTextExtractor()
+        result = extractor.extract(tmp_path, max_pages=METADATA_PAGES)
 
         from .services.metadata_extraction import METADATA_FIELDS, extract_metadata
 
@@ -1184,6 +1363,17 @@ class ThesisExtractMetadataView(APIView):
                     'Please fill in the fields manually.'
                 ),
             })
+
+        # Document-type gate — refuse before reading any field. Auto-filling a
+        # form from a Certificate of Registration would walk the user straight
+        # into submitting one.
+        gate = _gate_document(result.text, tmp_path, max_pages_used=True)
+        if not gate.passed:
+            logger.warning(
+                'extract-metadata rejected by thesis gate (reason=%s, markers=%s)',
+                gate.reason, gate.markers,
+            )
+            return _not_a_thesis_response(gate)
 
         fields = extract_metadata(result.text)
 

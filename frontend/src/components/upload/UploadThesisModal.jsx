@@ -162,6 +162,13 @@ export default function UploadThesisModal() {
   const [autoFilled, setAutoFilled]         = useState({});   // field -> confidence
   const [extractionNote, setExtractionNote] = useState(null); // { text, tone }
 
+  // Hard block: set when the backend gate has rejected the attached document
+  // (either from auto-fill's own probe, or from a submit that reached the
+  // upload endpoint before auto-fill could score it). A string, not a
+  // boolean, because handleSubmit() calls setError('') on every submit and
+  // would otherwise wipe a message stored in `error` instead of here.
+  const [rejectedReason, setRejectedReason] = useState(null);
+
   // Which fields the user has interacted with. A ref, not state: it must be
   // readable at its CURRENT value from inside an in-flight extraction's
   // callback. A state closure would hold whatever was true when the file was
@@ -195,6 +202,7 @@ export default function UploadThesisModal() {
     setFile(null); setError(''); setFieldErrors({});
     setStageIndex(-1); setUploadProgress(0); setSuccess(null);
     setExtracting(false); setAutoFilled({}); setExtractionNote(null);
+    setRejectedReason(null);
     setConfirmOpen(false);
   };
 
@@ -373,6 +381,7 @@ export default function UploadThesisModal() {
     setExtracting(true);
     setAutoFilled({});
     setExtractionNote(null);
+    setRejectedReason(null);
 
     try {
       const fd = new FormData();
@@ -391,6 +400,25 @@ export default function UploadThesisModal() {
     } catch (err) {
       if (extractAbortRef.current !== controller) return;
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+
+      const code = err?.response?.data?.error?.code;
+
+      // A refused document is NOT an auto-fill failure, and must not be
+      // reported as one. "Please enter the details manually" reads as
+      // permission to proceed, which would walk the user into typing a
+      // Certificate of Registration's details in by hand and submitting it —
+      // only for the upload itself to be refused at the end. Surface the real
+      // reason prominently instead, in the same error region a failed submit
+      // uses.
+      if (code === 'NOT_A_THESIS_DOCUMENT') {
+        setRejectedReason(
+          err?.response?.data?.error?.message
+          || 'This document does not appear to be a thesis. Please attach the '
+             + 'thesis manuscript itself.',
+        );
+        setExtractionNote(null);
+        return;
+      }
 
       const timedOut = err?.code === 'ECONNABORTED' || err?.code === 'ETIMEDOUT';
       setExtractionNote({
@@ -423,6 +451,7 @@ export default function UploadThesisModal() {
     // and the note go, since they refer to a document no longer attached.
     setAutoFilled({});
     setExtractionNote(null);
+    setRejectedReason(null);
   };
 
   /**
@@ -436,6 +465,10 @@ export default function UploadThesisModal() {
     e.preventDefault();
     setError('');
     setFieldErrors({});
+
+    // Hard block — a document the gate already rejected must never reach the
+    // confirmation dialog, even via implicit form submission on Enter.
+    if (rejectedReason) return;
 
     if (!file) { setError('Please attach a PDF or DOCX file.'); return; }
     if (parseAuthorInput(authors).length === 0) {
@@ -490,7 +523,18 @@ export default function UploadThesisModal() {
       const msg  = err?.response?.data?.error?.message;
       const details = err?.response?.data?.error?.details;
 
-      if (code === 'DUPLICATE_FILE') {
+      if (code === 'NOT_A_THESIS_DOCUMENT') {
+        // Hard block on the backend for every role — the message names what
+        // was missing, so it is surfaced verbatim rather than genericised.
+        // Also raises rejectedReason: this catch runs when auto-fill never
+        // got the chance to score the document (timed out, or was cancelled
+        // before it resolved), so submit is the first time the gate is seen.
+        const reason = msg
+          || 'This document does not appear to be a thesis. Please attach the '
+             + 'thesis manuscript itself.';
+        setError(reason);
+        setRejectedReason(reason);
+      } else if (code === 'DUPLICATE_FILE') {
         setError('This file has already been uploaded.');
       } else if (code === 'FILE_TOO_LARGE') {
         setError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
@@ -756,6 +800,21 @@ export default function UploadThesisModal() {
                 </div>
               </div>
 
+              {rejectedReason && (
+                <div
+                  id="upload-blocked-reason"
+                  role="alert"
+                  className={`rounded-lg p-3 text-sm ${
+                    isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  <p>{rejectedReason}</p>
+                  <p className="mt-1 text-xs opacity-80">
+                    Uploading is disabled for this document.
+                  </p>
+                </div>
+              )}
+
               {error && (
                 <div className={`rounded-lg p-3 text-sm ${
                   isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -778,7 +837,8 @@ export default function UploadThesisModal() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || extracting || !file}
+                  disabled={submitting || extracting || !file || !!rejectedReason}
+                  aria-describedby={rejectedReason ? 'upload-blocked-reason' : undefined}
                   className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {submitting

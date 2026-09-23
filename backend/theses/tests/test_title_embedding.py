@@ -7,10 +7,13 @@ in one embedding path never suppresses the other.
 
 from __future__ import annotations
 
+import io
+
 import pytest
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from reportlab.pdfgen import canvas
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from accounts.models import Role, User
@@ -23,6 +26,56 @@ from theses.services.semantic_search import (
 from theses.views import ThesisUploadView
 
 MINIMAL_PDF = b'%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n'
+
+# The upload endpoint gates on document shape (see thesis_document_check), so
+# anything posted through the view needs real, thesis-shaped extractable text.
+# The stored-file fixture below keeps using MINIMAL_PDF: those theses are built
+# straight through the ORM and never pass the gate.
+THESIS_LINES = [
+    'PAMPANGA STATE UNIVERSITY',
+    'College of Computing Studies',
+    '',
+    'A MOBILE HEALTH RECORDS SYSTEM FOR RURAL CLINICS',
+    '',
+    'A Capstone',
+    'Presented to the Faculty of',
+    'In Partial Fulfillment',
+    'of the Requirements for the Degree',
+    '',
+    'by:',
+    'Dela Cruz, Juan M.',
+    '',
+    'May 2025',
+    '',
+    'ABSTRACT',
+    'This study developed and evaluated a mobile health records platform for',
+    'rural clinics, applying an iterative development methodology across three',
+    'pilot sites and measuring staff adoption over two academic terms.',
+    '',
+    'Keywords: mobile health, records management, rural clinics',
+    '',
+    'CHAPTER I',
+    'THE PROBLEM AND ITS BACKGROUND',
+    'The researchers observed that paper records were routinely mislaid.',
+    '',
+    'REFERENCES',
+]
+
+
+def thesis_shaped_pdf() -> bytes:
+    """A real multi-line PDF that clears the document-type gate."""
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=(612, 792))
+    y = 740
+    for line in THESIS_LINES:
+        if y < 60:
+            pdf.showPage()
+            y = 740
+        pdf.drawString(54, y, line)
+        y -= 16
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
 
 
 def unit_vector(seed: float = 1.0) -> list[float]:
@@ -221,7 +274,7 @@ def upload(student, *, title='Uploaded Thesis'):
         'program': Program.BSIT.value,
         'year': '2024',
         'file': SimpleUploadedFile(
-            'upload.pdf', MINIMAL_PDF, content_type='application/pdf',
+            'upload.pdf', thesis_shaped_pdf(), content_type='application/pdf',
         ),
     }
     request = factory.post('/api/v1/theses/upload/', payload, format='multipart')

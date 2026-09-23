@@ -83,6 +83,56 @@ def _minimal_pdf(text_content: str = '') -> bytes:
     return b''.join(parts)
 
 
+def _thesis_pdf(text: str) -> bytes:
+    """Build a real multi-line PDF, one drawn row per input line.
+
+    ``_minimal_pdf`` crams everything into a single ``Tj``, which is fine for
+    the byte-level checks above but leaves the extracted text as one run. The
+    document-type gate's markers are line-anchored, so anything posted to the
+    endpoint and expected to pass needs genuine line breaks.
+    """
+    import io as _io
+
+    from reportlab.pdfgen import canvas
+
+    buf = _io.BytesIO()
+    pdf = canvas.Canvas(buf, pagesize=(612, 792))
+    y = 740
+    for line in text.split('\n'):
+        if y < 60:
+            pdf.showPage()
+            y = 740
+        pdf.drawString(54, y, line)
+        y -= 16
+    pdf.showPage()
+    pdf.save()
+    return buf.getvalue()
+
+
+# Title-page boilerplate + abstract + keywords + chapter + references: enough
+# structural markers for check_thesis_document to accept the document.
+_THESIS_FRONT_MATTER = (
+    'A Capstone\n'
+    'Presented to the Faculty of\n'
+    'In Partial Fulfillment of the Requirements for the Degree\n'
+)
+
+_THESIS_BODY = (
+    'ABSTRACT\n'
+    'This study designs, implements, and evaluates the proposed system across\n'
+    'three deployment sites over two academic terms, measuring accuracy and\n'
+    'user adoption against the existing manual process.\n'
+    '\n'
+    'Keywords: machine learning, monitoring, evaluation\n'
+    '\n'
+    'CHAPTER I\n'
+    'THE PROBLEM AND ITS BACKGROUND\n'
+    'The researchers observed recurring delays in the current workflow.\n'
+    '\n'
+    'REFERENCES\n'
+)
+
+
 def _minimal_docx(text: str) -> bytes:
     """Build a minimal DOCX from plain text."""
     import zipfile, io as _io
@@ -194,11 +244,15 @@ class TestExtractTitleEndpoint:
 
     def test_pdf_extraction_returns_envelope(self, client, faculty_user):
         token = _bearer(faculty_user)
-        pdf_bytes = _minimal_pdf(
+        pdf_bytes = _thesis_pdf(
+            'PAMPANGA STATE UNIVERSITY\n'
+            '\n'
             'AI-Powered Attendance Monitoring Using Facial Recognition\n'
-            'Juan Dela Cruz\n'
-            'Abstract\n'
-            'This study proposes a deep-learning attendance system.'
+            '\n'
+            + _THESIS_FRONT_MATTER
+            + 'Juan Dela Cruz\n'
+            '\n'
+            + _THESIS_BODY
         )
         pdf_file = SimpleUploadedFile('proposal.pdf', pdf_bytes, content_type='application/pdf')
         url = reverse('thesis-extract-title')
@@ -219,10 +273,11 @@ class TestExtractTitleEndpoint:
     def test_docx_extraction_returns_envelope(self, client, faculty_user):
         token = _bearer(faculty_user)
         docx_bytes = _minimal_docx(
+            'PAMPANGA STATE UNIVERSITY\n'
             'Real-Time Sign Language Recognition System Using MediaPipe\n'
-            'Maria Santos\n'
-            'Abstract\n'
-            'This study implements a sign language recognition system.'
+            + _THESIS_FRONT_MATTER
+            + 'Maria Santos\n'
+            + _THESIS_BODY
         )
         docx_file = SimpleUploadedFile(
             'proposal.docx', docx_bytes,

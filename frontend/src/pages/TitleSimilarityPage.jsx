@@ -168,6 +168,12 @@ export default function TitleSimilarityPage() {
   // Reset the instant a new file is chosen so a stale marker from the
   // previous file never lingers while the new one is still being read.
   const [autoDetected, setAutoDetected] = useState(false);
+  // The attached document was refused by the backend's thesis gate (e.g. a
+  // Certificate of Registration). Kept separate from uploadError because it
+  // must also SUPPRESS the title field and block the similarity check — a
+  // rejected document must not reach a score, since the number would be
+  // meaningless and the user would act on it.
+  const [documentRejected, setDocumentRejected] = useState(false);
 
   const extractAbortRef = useRef(null);
 
@@ -194,6 +200,12 @@ export default function TitleSimilarityPage() {
   // ── Validate submit — endpoint, payload and error codes unchanged ──────
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Defence in depth: the submit button is disabled for a refused document,
+    // but a rejected COR must not reach a similarity score by any route.
+    if (mode === 'upload' && documentRejected) {
+      setError('Please remove the attached document and try a thesis file.');
+      return;
+    }
     const trimmed = title.trim();
     if (trimmed.length < 5) { setError('Please enter a title with at least 5 characters.'); return; }
     setError(''); setSubmitting(true); setResult(null);
@@ -216,7 +228,7 @@ export default function TitleSimilarityPage() {
     cancelExtraction();
     setResult(null); setError(''); setTitle('');
     setUploadFile(null); setExtracting(false); setExtractConf('');
-    setUploadError(''); setAutoDetected(false);
+    setUploadError(''); setAutoDetected(false); setDocumentRejected(false);
   };
 
   // ── Upload: automatic extraction on attach — no button ─────────────────
@@ -231,6 +243,7 @@ export default function TitleSimilarityPage() {
     setExtracting(true);
     setExtractConf('');
     setUploadError('');
+    setDocumentRejected(false);
 
     try {
       const fd = new FormData();
@@ -257,9 +270,29 @@ export default function TitleSimilarityPage() {
 
       const code = err?.response?.data?.error?.code;
       const msg = err?.response?.data?.error?.message;
-      if (code === 'FILE_TYPE_NOT_ALLOWED') setUploadError('Only PDF and DOCX files are accepted.');
-      else if (code === 'FILE_TOO_LARGE') setUploadError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
-      else setUploadError(msg || 'Could not extract a title. Please type it manually below.');
+      if (code === 'NOT_A_THESIS_DOCUMENT') {
+        // Show the server's reason INSTEAD of a detected title, and refuse to
+        // proceed. Falling through to "type it manually" would invite the user
+        // to run a similarity check on a document that has no title at all —
+        // which is exactly how a class schedule scored 38.1%.
+        setDocumentRejected(true);
+        // The fallback is word-for-word the backend's title-check wording.
+        // It only fires if the payload arrives without a message, and the user
+        // must not read two different sentences for one condition depending on
+        // whether that happened. Keep these in sync with
+        // _not_a_thesis_response(surface=SURFACE_TITLE_CHECK) in theses/views.py.
+        setUploadError(
+          msg
+          || 'This document does not appear to be a thesis. Please upload a '
+             + 'document containing your proposed thesis or research title.',
+        );
+      } else if (code === 'FILE_TYPE_NOT_ALLOWED') {
+        setUploadError('Only PDF and DOCX files are accepted.');
+      } else if (code === 'FILE_TOO_LARGE') {
+        setUploadError(`File size must be less than ${MAX_UPLOAD_MB} MB.`);
+      } else {
+        setUploadError(msg || 'Could not extract a title. Please type it manually below.');
+      }
     } finally {
       if (extractAbortRef.current === controller) {
         extractAbortRef.current = null;
@@ -272,6 +305,7 @@ export default function TitleSimilarityPage() {
     setUploadFile(selected);
     setUploadError('');
     setAutoDetected(false); // this file hasn't produced a title yet
+    setDocumentRejected(false); // a new file gets a clean verdict
     runExtraction(selected);
   };
 
@@ -282,6 +316,7 @@ export default function TitleSimilarityPage() {
     setExtractConf('');
     setUploadError('');
     setAutoDetected(false);
+    setDocumentRejected(false);
     // `title` is deliberately left untouched — it may hold a value the user
     // already reviewed and wants to keep even without the file attached.
   };
@@ -295,11 +330,17 @@ export default function TitleSimilarityPage() {
 
   const trimmedLen = title.trim().length;
 
-  // Upload panel's title block is state-gated (Change 2): it has nothing
-  // useful to show until either a document produced a title, or the user
-  // already typed one under "Type a title" and switched tabs. Hidden while
-  // a new extraction is in flight regardless of any stale value.
-  const showTitleBlock = !extracting && trimmedLen > 0;
+  // Upload panel's title block is state-gated: it has nothing useful to show
+  // until either a document produced a title, or the user already typed one
+  // under "Type a title" and switched tabs. Hidden while a new extraction is
+  // in flight regardless of any stale value, and hidden for a document the
+  // backend refused — the rejection reason takes its place.
+  const showTitleBlock = !extracting && !documentRejected && trimmedLen > 0;
+
+  // A refused document must never reach a similarity score. This only blocks
+  // the UPLOAD panel: a title typed by hand under "Type a title" is a separate
+  // input with no document behind it, so that path stays available.
+  const blockedByRejectedDocument = mode === 'upload' && documentRejected;
 
   // Panel crossfade + small horizontal offset, gated by reduced motion.
   // DURATION.normal (150ms) — comfortably under the ~180ms ceiling for this
@@ -447,6 +488,7 @@ export default function TitleSimilarityPage() {
                           statusLoading={extracting}
                           statusText={
                             extracting ? undefined
+                              : documentRejected ? 'Not a thesis document'
                               : uploadError ? 'Could not detect a title'
                               : autoDetected ? 'Title detected'
                               : undefined
@@ -519,7 +561,7 @@ export default function TitleSimilarityPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="submit"
-                      disabled={submitting || trimmedLen < 5}
+                      disabled={submitting || trimmedLen < 5 || blockedByRejectedDocument}
                       className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
                       {submitting ? <><Spinner /> Checking similarity…</> : 'Validate Title'}

@@ -285,20 +285,32 @@ class TestOcrPageCeiling:
 # ---------------------------------------------------------------------------
 
 class TestUploadPipelineStillUnlimited:
-    def test_upload_view_step_six_passes_no_page_limit(self):
+    def test_upload_view_passes_no_page_limit(self):
         """ThesisUploadView must never page-limit — extracted_text feeds search.
 
         Asserted against the source so a future edit that adds max_pages to
         that call site fails loudly here.
+
+        The call moved ahead of ``Thesis.objects.create()`` when the
+        document-type gate landed: the bytes are written to a temp file and
+        parsed there, so a rejected upload leaves no row and no stored file
+        behind. The text is then reused as ``extracted_text``, so there is
+        still exactly one full parse per upload.
         """
         import inspect
 
         from theses.views import ThesisUploadView
 
         source = inspect.getsource(ThesisUploadView.post)
-        call = 'extractor.extract(thesis.uploaded_file.path)'
 
-        assert call in source, 'upload Step 6 extract() call changed shape'
+        assert 'ThesisTextExtractor().extract(tmp_path)' in source, (
+            'upload extract() call changed shape'
+        )
+        assert 'extracted_text=extracted_text' in source, (
+            'the gate-time extraction must still be reused as '
+            'Thesis.extracted_text — dropping it would reintroduce a second '
+            'full parse, or leave the column empty.'
+        )
         assert 'max_pages' not in source, (
             'ThesisUploadView must extract the FULL document; a page limit '
             'here would truncate Thesis.extracted_text and degrade semantic '

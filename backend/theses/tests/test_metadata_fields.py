@@ -924,12 +924,21 @@ class TestExtractMetadataEndpoint:
     def test_partial_extraction_lists_missing_fields(self, client, faculty_user):
         upload = SimpleUploadedFile(
             'sparse.docx',
+            # Sparse on purpose: no abstract, no keywords, no degree line, so
+            # those three fields come back empty. It still carries two distinct
+            # title-page phrases ('A Capstone', 'Presented to') and enough text
+            # to clear the document-type gate — a document that cannot be
+            # recognised as a thesis at all is a different test.
             _docx([
                 'PAMPANGA STATE UNIVERSITY',
+                'College of Computing Studies',
                 'A SEMANTIC SEARCH SYSTEM FOR THESIS RETRIEVAL',
+                'A Capstone',
+                'Presented to the Faculty of',
                 'by:',
                 'Dela Cruz, Juan M.',
                 'May 2025',
+                'Main Campus, City of San Fernando, Pampanga, Philippines',
             ]),
             content_type=(
                 'application/vnd.openxmlformats-officedocument.'
