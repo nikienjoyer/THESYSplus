@@ -4,12 +4,14 @@ Implements the approved THESYS+ Chapter 1–3 architecture:
 
 * **TF-IDF** (``sklearn.feature_extraction.text.TfidfVectorizer``)
   Vectorises each thesis's combined text (title + abstract +
-  truncated extracted_text) and surfaces meaningful, frequently
-  occurring research keywords across the corpus.
+  keywords) and surfaces meaningful, frequently occurring research
+  keywords across the corpus. The full ``extracted_text`` is NOT part
+  of the corpus — see ``_compose_thesis_text`` for why.
 
 * **K-Means clustering** (``sklearn.cluster.KMeans``)
-  Groups TF-IDF vectors into ``k`` topic clusters. ``k`` is auto-sized
-  to the corpus (``5–8``, capped at ``n_theses``).
+  Groups TF-IDF vectors into ``k`` topic clusters. ``k`` targets
+  ~``6`` theses per cluster, clamped to ``5–8``; corpora smaller than
+  ``5`` use one cluster per thesis. See ``_choose_k``.
 
 * **Trend classification** based on cluster size:
     - SATURATED      ≥ 5 theses
@@ -62,57 +64,162 @@ CLASS_UNDEREXPLORED = 'UNDEREXPLORED'
 K_MIN = 5
 K_MAX = 8
 
-# Truncate per-document extracted_text — protects TF-IDF from being dominated
-# by huge OCR dumps and keeps the corpus uniform.
-EXTRACTED_TEXT_MAX_CHARS = 2000
+# Target cluster density: k is sized to aim for roughly this many theses per
+# cluster before the [K_MIN, K_MAX] clamp applies. See _choose_k.
+TARGET_DOCS_PER_CLUSTER = 6
+
+# Cluster labels used when no rule and no author keyword can name the cluster.
+# These strings are user-visible — they reach the public landing page.
+LABEL_OTHER = 'Other / Mixed Topics'
+LABEL_GENERAL = 'General Research'
 
 
 # ---------------------------------------------------------------------------
 # Heuristic topic naming
 # ---------------------------------------------------------------------------
 #
-# Each rule is (priority, label, keyword_set). The first rule whose
-# keyword set has at least one hit in the cluster's top-K keywords wins.
-# Order is highest-priority first to keep specific labels (Computer
-# Vision) ahead of generic ones (AI Systems).
+# Each rule is (label, keyword_set). Every rule is scored against the
+# cluster's top keywords (see ``_label_cluster``) and the highest scorer wins;
+# rule ORDER breaks ties, so specific labels (Computer Vision) stay ahead of
+# generic ones (AI Systems).
 #
 # Keep this list small, deterministic, and easy to defend in a thesis
 # defense — every rule maps to a domain noun panelists will recognise.
+#
+# TWO CONSTRAINTS ON ANYTHING ADDED HERE:
+#
+# 1. A token must NOT be a stop word. sklearn strips stop words before it
+#    assembles n-grams, so a stopped token can never be emitted and the rule
+#    entry becomes dead code that silently makes the rule mean less than it
+#    looks like. ``test_no_rule_token_is_a_stop_word`` enforces this — it
+#    caught 'model', 'student', 'students' and 'classroom' already.
+# 2. A token must be discriminative. 'learning' was in BOTH 'AI Systems' and
+#    'Educational Technology' and is ambiguous between them: in a machine
+#    learning paper it means one thing, in an e-learning paper the opposite.
+#    Bare 'learning' is therefore in neither set now; 'machine learning' and
+#    'deep learning' carry the AI sense explicitly.
+#
+# Hyphenated tokens stay whole ('web-based', 'e-learning'): the tokenizer's
+# character class includes the hyphen, so 'web-based' is one token and is not
+# affected by 'based' being a stop word.
 
 _TOPIC_RULES: tuple[tuple[str, frozenset[str]], ...] = (
     ('Computer Vision',         frozenset({'recognition', 'vision', 'image', 'cnn', 'detection', 'mediapipe', 'face', 'facial', 'opencv'})),
     ('Natural Language Processing', frozenset({'nlp', 'sentiment', 'language', 'tagalog', 'bert', 'tweets', 'embedding', 'embeddings', 'lstm', 'text'})),
-    ('AI Systems',              frozenset({'ai', 'deep', 'learning', 'neural', 'prediction', 'transfer', 'classifier', 'classification', 'model'})),
+    ('AI Systems',              frozenset({'ai', 'deep', 'machine learning', 'deep learning', 'neural', 'prediction', 'transfer', 'classifier', 'classification'})),
     ('Internet of Things',      frozenset({'iot', 'esp32', 'sensor', 'sensors', 'arduino', 'raspberry', 'mqtt', 'greenhouse'})),
     ('Health Informatics',      frozenset({'health', 'patient', 'patients', 'medical', 'diagnosis', 'retinopathy', 'hypertension', 'diabetic', 'wearable'})),
-    ('Educational Technology',  frozenset({'education', 'educational', 'learning', 'lms', 'classroom', 'mathematics', 'curriculum', 'student', 'students', 'adaptive'})),
+    ('Educational Technology',  frozenset({'education', 'educational', 'lms', 'mathematics', 'curriculum', 'adaptive', 'game', 'educational game', 'gamification', 'unity', 'interactive', 'quiz', 'flashcards', 'module', 'tutorial', 'e-learning'})),
     ('Blockchain Systems',      frozenset({'blockchain', 'hyperledger', 'credential', 'credentials', 'verification', 'decentralized'})),
     ('Mobile Applications',     frozenset({'mobile', 'flutter', 'android', 'ios', 'app'})),
     ('Computer Vision / IoT',   frozenset({'parking', 'yolov5', 'yolo'})),
-    ('Web-Based Systems',       frozenset({'web', 'website', 'inventory', 'management', 'tracking', 'laravel', 'django', 'react', 'vue', 'qr', 'cloud', 'aws', 'lambda'})),
+    ('Web-Based Systems',       frozenset({'web', 'web-based', 'website', 'inventory', 'management', 'monitoring', 'tracking', 'laravel', 'django', 'react', 'vue', 'qr', 'cloud', 'aws', 'lambda'})),
     ('Recommendation Systems',  frozenset({'recommendation', 'recommender', 'tfidf', 'tf-idf', 'collaborative', 'filtering', 'similarity'})),
     ('Data Analytics',          frozenset({'analytics', 'analysis', 'forecast', 'forecasting', 'arima', 'visualization', 'data'})),
     ('Accessibility',           frozenset({'sign', 'accessibility', 'disability', 'assistive'})),
 )
 
 
-def _label_cluster(top_keywords: Sequence[str]) -> str:
-    """Pick a human-readable cluster label from its top TF-IDF keywords.
+def _best_rule_label(top_keywords: Sequence[str]) -> str | None:
+    """Score every rule against ``top_keywords``; return the best, or None.
 
-    Uses a deterministic keyword-to-label table; falls back to the
-    capitalised top keyword if no rule matches.
+    Replaces first-hit matching, which returned on the first rule with ANY
+    overlap. That let one coincidental word outvote five relevant ones: a
+    cluster of ['game', 'educational', 'educational game', 'interactive',
+    'learning', 'unity'] was labelled 'AI Systems' purely because 'learning'
+    appeared in that rule set and AI Systems is declared earlier.
+
+    Weighting: ``top_keywords`` arrives sorted by centroid weight, so position
+    is meaningful. Rank 1 of 6 scores 6, rank 6 scores 1 — a rule matching the
+    cluster's defining term beats a rule matching its sixth-most-important one.
+
+    Matching: each keyword contributes ``{keyword} | set(keyword.split())``, so
+    the unigram rule token 'game' matches the bigram keyword 'educational
+    game', and the bigram rule token 'machine learning' matches it exactly. A
+    keyword scores a given rule at most once however many of its tokens hit,
+    so a rule cannot win by listing synonyms.
+
+    Ties: rules are walked in declaration order and the comparison is strict
+    ``>``, so the earliest rule holds a tie. Determinism comes free — no
+    secondary sort, and no dependence on frozenset iteration order.
     """
+    weighted: list[tuple[int, set[str]]] = []
+    total = len(top_keywords)
+    for index, keyword in enumerate(top_keywords):
+        if not keyword:
+            continue
+        lowered = str(keyword).lower()
+        weighted.append((total - index, {lowered} | set(lowered.split())))
+
+    best_label: str | None = None
+    best_score = 0
+    for label, tokens in _TOPIC_RULES:
+        score = sum(
+            weight for weight, match_set in weighted if match_set & tokens
+        )
+        if score > best_score:
+            best_score = score
+            best_label = label
+
+    return best_label
+
+
+def _label_cluster(
+    top_keywords: Sequence[str],
+    member_keywords: Sequence[Sequence[str]] | None = None,
+) -> str:
+    """Pick a human-readable cluster label.
+
+    Three steps, most trustworthy source first:
+
+    1. ``_TOPIC_RULES`` — a deterministic domain table, scored so the label
+       reflects the whole keyword list rather than its luckiest single word.
+       See ``_best_rule_label``.
+    2. The most common keyword the cluster's own authors chose. A phrase a
+       student wrote to describe their thesis ("swarm robotics") is a real
+       topic name; it just isn't in the rule table yet.
+    3. ``LABEL_OTHER`` — an honest admission.
+
+    A raw TF-IDF term is deliberately NOT a candidate. That used to be
+    step 2, and because the vectoriser emits whatever n-gram carries
+    statistical weight, the chart ended up with bar labels like "Support",
+    "Yielded Overall" and "Ventura Bacolor" — corpus artefacts presented to
+    the public landing page as research topics. "Other / Mixed Topics" is
+    less informative and much more truthful.
+
+    Args:
+        top_keywords: Cluster's top TF-IDF terms, highest weight first.
+        member_keywords: One keyword list per thesis in the cluster.
+            Optional so existing single-argument callers keep working.
+    """
+    rule_label = _best_rule_label(top_keywords)
+    if rule_label is not None:
+        return rule_label
+
+    # Step 2 — the authors' own vocabulary.
+    #
+    # Counting is done on a lowercased key so "Face Recognition" and
+    # "face recognition" are one topic rather than two, while the display
+    # form comes from .title() so the label reads consistently regardless of
+    # how any individual student capitalised it.
+    counts: Counter[str] = Counter()
+    for keyword_list in member_keywords or ():
+        for keyword in keyword_list or ():
+            normalised = str(keyword).strip().lower()
+            if normalised:
+                counts[normalised] += 1
+
+    if counts:
+        # Sort by descending count, then alphabetically. The alphabetical
+        # leg is not cosmetic: Counter.most_common breaks ties by insertion
+        # order, which follows cluster membership order, so two runs over
+        # the same corpus could otherwise disagree on the label.
+        winner = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+        return winner.title()
+
     if not top_keywords:
-        return 'General Research'
-
-    kw_set = {kw.lower() for kw in top_keywords if kw}
-    for label, kws in _TOPIC_RULES:
-        if kw_set & kws:
-            return label
-
-    # Fallback — capitalise the top keyword
-    top = top_keywords[0]
-    return top.title() if top else 'General Research'
+        return LABEL_GENERAL
+    return LABEL_OTHER
 
 
 def _classify_trend(thesis_count: int, average_size: float, total_theses: int) -> str:
@@ -165,12 +272,44 @@ _EXTRA_STOP_WORDS = frozenset({
     'pampanga', 'state', 'university', 'psu', 'ccs', 'philippines',
     # very generic nouns
     'students', 'student', 'classroom',
+
+    # ── Title-page / approval-sheet boilerplate ────────────────────────
+    # Every manuscript in this repository carries the same front matter, so
+    # these terms describe the TEMPLATE rather than the research. They were
+    # previously ranking high enough to become cluster labels ("Capstone",
+    # "Honorio Ventura", "Dhvsu Edu"), which grouped theses by the document
+    # format they share instead of the topic they differ on.
+    #
+    # Institution names, including the university's full legal name and its
+    # email domain — the abstract and title page both repeat them.
+    'dhvsu', 'honorio', 'ventura', 'don', 'bacolor', 'edu',
+    # Degree / submission boilerplate.
+    'capstone', 'bachelor', 'degree', 'partial', 'fulfillment',
+    'requirements', 'college', 'faculty', 'adviser', 'presented', 'submitted',
 })
 
 
 # ---------------------------------------------------------------------------
 # Result data model
 # ---------------------------------------------------------------------------
+
+@dataclass
+class _DocMeta:
+    """Per-document sidecar, parallel to the ``documents`` list by index.
+
+    A dataclass rather than a tuple: this used to be ``(id_str, title)`` and
+    is read by index in three places, so a third positional slot would leave
+    ``metadata[i][2]`` at the call sites with nothing naming what it holds.
+
+    ``keywords`` is the author's own keyword list, kept separate from the
+    TF-IDF terms in ``TopicCluster.keywords``. The two are not
+    interchangeable: these are human-chosen phrases ("swarm robotics"),
+    those are corpus-derived n-grams.
+    """
+    id: str
+    title: str
+    keywords: List[str] = field(default_factory=list)
+
 
 @dataclass
 class TopicCluster:
@@ -228,8 +367,19 @@ def get_topic_trends_queryset():
     return (
         Thesis.objects
         .filter(status=ThesisStatus.APPROVED)
+        # ``extracted_text`` is deliberately absent. It is the largest column
+        # on the table (a full manuscript per row) and nothing downstream
+        # reads it any more — ``_compose_thesis_text`` dropped it, and both
+        # callers pass this queryset straight into ``analyze_topics`` without
+        # touching rows themselves.
+        #
+        # Worth stating why that check mattered: a deferred field is not an
+        # error to access, it is a silent per-row follow-up query. Removing a
+        # column from ``.only()`` while some consumer still reads it would
+        # trade one large fetch for N small ones — slower than the problem it
+        # was meant to solve, and invisible in tests.
         .only(
-            'id', 'title', 'abstract', 'extracted_text',
+            'id', 'title', 'abstract',
             'keywords', 'program', 'year', 'status',
         )
         .order_by('created_at', 'id')
@@ -237,26 +387,49 @@ def get_topic_trends_queryset():
 
 
 def _compose_thesis_text(thesis) -> str:
-    """Combine title + abstract + truncated extracted_text + keywords."""
+    """Combine title + abstract + keywords into the document TF-IDF sees.
+
+    ``extracted_text`` is deliberately EXCLUDED. It used to contribute its
+    first 2000 characters, but on this corpus those 2000 characters are the
+    cover page and approval sheet — the university's name, the degree
+    boilerplate, the adviser's signature block. Every manuscript carries the
+    same front matter, so feeding it to TF-IDF clustered theses by the
+    template they share rather than the research they differ on, and surfaced
+    labels like "Capstone" and "Honorio Ventura".
+
+    The three fields kept here are the ones a student wrote *about their own
+    work*: the title, the abstract, and the keywords they chose. That is the
+    highest signal-to-noise text available per thesis.
+    """
     title = (thesis.title or '').strip()
     abstract = (thesis.abstract or '').strip()
-    extracted = (thesis.extracted_text or '').strip()[:EXTRACTED_TEXT_MAX_CHARS]
     keywords = thesis.keywords or []
     keyword_str = ' '.join(str(k) for k in keywords)
-    parts = [p for p in (title, abstract, extracted, keyword_str) if p]
+    parts = [p for p in (title, abstract, keyword_str) if p]
     return '\n\n'.join(parts)
 
 
 def _choose_k(n_documents: int) -> int:
-    """Auto-size k for the K-Means run.
+    """Auto-size k for the K-Means run, targeting ~6 theses per cluster.
 
     For tiny corpora (< K_MIN) we use n_documents itself so every doc
     is essentially its own cluster — this is intentional: it lets the
     UI still render meaningfully on a freshly seeded repository.
+
+    Above that, k is derived from a target cluster density and then clamped
+    into the documented ``[K_MIN, K_MAX]`` band:
+
+        30 docs → 5    48 docs → 8    200 docs → 8 (K_MAX ceiling)
+
+    This replaces ``min(K_MAX, n_documents)``, which claimed to auto-size but
+    returned K_MAX for every corpus past 8 documents — so k was a constant in
+    practice and the "auto-sized to the corpus" docs were untrue. 200 docs
+    still returns 8, but now because K_MAX is a deliberate cap rather than
+    because the expression collapsed.
     """
     if n_documents < K_MIN:
         return max(1, n_documents)
-    return min(K_MAX, n_documents)
+    return max(K_MIN, min(K_MAX, n_documents // TARGET_DOCS_PER_CLUSTER))
 
 
 def analyze_topics(
@@ -281,13 +454,17 @@ def analyze_topics(
     # ── Materialise corpus and per-doc metadata ────────────────────────
     theses = list(queryset)
     documents: List[str] = []
-    metadata: List[tuple[str, str]] = []      # (id_str, title)
+    metadata: List[_DocMeta] = []
     for t in theses:
         text = _compose_thesis_text(t)
         if not text.strip():
             continue
         documents.append(text)
-        metadata.append((str(t.id), t.title))
+        metadata.append(_DocMeta(
+            id=str(t.id),
+            title=t.title,
+            keywords=[str(k) for k in (t.keywords or []) if str(k).strip()],
+        ))
 
     n_docs = len(documents)
 
@@ -303,15 +480,15 @@ def analyze_topics(
     if n_docs == 1:
         # Still useful UI: surface its top TF-IDF keywords.
         keywords = _single_doc_keywords(documents[0], keywords_per_cluster)
-        topic = _label_cluster(keywords)
+        topic = _label_cluster(keywords, member_keywords=[metadata[0].keywords])
         cluster = TopicCluster(
             cluster_id=0,
             topic=topic,
             trend=_classify_trend(1, average_size=1.0, total_theses=1),
             thesis_count=1,
             keywords=keywords,
-            sample_titles=[metadata[0][1]],
-            thesis_ids=[metadata[0][0]],
+            sample_titles=[metadata[0].title],
+            thesis_ids=[metadata[0].id],
         )
         return TopicTrendsResult(
             total_theses=1,
@@ -408,7 +585,10 @@ def analyze_topics(
             if len(keywords) >= keywords_per_cluster:
                 break
 
-        topic = _label_cluster(keywords)
+        topic = _label_cluster(
+            keywords,
+            member_keywords=[metadata[i].keywords for i in member_indices],
+        )
         trend = _classify_trend(
             thesis_count,
             average_size=average_cluster_size,
@@ -421,8 +601,8 @@ def analyze_topics(
         else:
             underexplored += 1
 
-        sample_titles = [metadata[i][1] for i in member_indices[:5]]
-        thesis_ids = [metadata[i][0] for i in member_indices]
+        sample_titles = [metadata[i].title for i in member_indices[:5]]
+        thesis_ids = [metadata[i].id for i in member_indices]
 
         clusters.append(TopicCluster(
             cluster_id=int(cluster_id),

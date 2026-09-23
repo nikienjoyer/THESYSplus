@@ -918,8 +918,11 @@ class ThesisTopicTrendsView(APIView):
 
     Pipeline (Chapter 1–3):
       1. Materialise approved theses.
-      2. TF-IDF vectorise (title + abstract + extracted_text + keywords).
-      3. K-Means cluster the vectors (auto-k in [5, 8]).
+      2. TF-IDF vectorise (title + abstract + keywords). The stored
+         extracted_text is excluded — it is dominated by cover-page and
+         approval-sheet boilerplate that every manuscript shares.
+      3. K-Means cluster the vectors (auto-k in [5, 8], targeting ~6
+         theses per cluster).
       4. Surface top-K TF-IDF keywords per cluster.
       5. Map cluster size → trend (SATURATED / EMERGING / UNDEREXPLORED).
       6. Apply heuristic naming so each cluster gets a human-readable label.

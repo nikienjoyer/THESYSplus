@@ -862,7 +862,7 @@ export default function TrendAnalysisPage() {
               <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Topic trend analysis follows the THESYS+ research methodology:
                 each approved thesis is converted into a TF-IDF vector built from
-                its title, abstract, extracted text, and keywords. K-Means
+                its title, abstract, and keywords. K-Means
                 clustering groups vectors with similar vocabulary into topic
                 clusters, and the highest-weight TF-IDF terms in each cluster's
                 centroid become the surfaced keywords.
