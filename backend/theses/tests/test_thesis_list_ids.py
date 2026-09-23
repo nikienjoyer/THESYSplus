@@ -200,8 +200,19 @@ class TestIdsFilter:
         assert response.json()['error']['code'] == 'INVALID_FILTER'
 
     def test_default_ordering_is_preserved(self, client, faculty_user, make_thesis):
+        # The sleep crosses a clock tick. timezone.now() has ~15ms granularity
+        # on Windows, so two back-to-back creates can share a created_at value
+        # — and then "-created_at" is a tie the database breaks arbitrarily,
+        # which made this assert fail under a full-suite run while passing in
+        # isolation. Same guard as test_title_embedding's
+        # test_write_advances_updated_at.
+        #
+        # ``import time`` was already here with nothing using it, so the sleep
+        # was intended and simply never written.
         import time
+
         a = make_thesis(faculty_user, title='Older')
+        time.sleep(0.05)
         b = make_thesis(faculty_user, title='Newer')
 
         token = _bearer(faculty_user)
