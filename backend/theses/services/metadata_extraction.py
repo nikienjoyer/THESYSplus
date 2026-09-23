@@ -114,6 +114,14 @@ _SECTION_NOISE = frozenset({
 _CONNECTOR_WORDS = frozenset({
     'for', 'of', 'in', 'on', 'at', 'and', 'with', 'using',
     'toward', 'towards', 'to', 'a', 'an', 'the',
+    # Added after auditing the real corpus: each of these opened a genuine
+    # title continuation that was being truncated. 'through' alone accounted
+    # for two ("… Scholarship Management In Pampanga / Through Centralized
+    # Automation", "… Matching / Through Attachments Styles And Love
+    # Languages"). None can open an author-list entry, so the strict gate is
+    # not measurably weakened by them.
+    'through', 'via', 'from', 'into', 'across', 'within',
+    'among', 'between', 'under', 'over', 'during',
 })
 
 # Tokens preserved verbatim when normalising an ALL-CAPS title, instead of
@@ -145,6 +153,167 @@ _AUTHOR_MARKER = re.compile(
     r'^(by|submitted\s+by|prepared\s+by|presented\s+by|researchers?)\b\s*:?',
     re.IGNORECASE,
 )
+
+# ── Contact details ────────────────────────────────────────────────────────
+#
+# Title pages in this corpus routinely print each author's institutional email
+# and mobile number directly beneath the title, with no "by:" marker to
+# separate them. Without these the contact block joins onto the title and is
+# offered to the user as the thesis title — which then gets published.
+#
+# Both are used with ``.search()``, not ``.match()``: the contact detail sits
+# at the END of a line ("GONZAGA, KURT ROSS E. kurt@dhvsu.edu.ph"), so
+# anchoring at the start would miss every real case.
+
+_EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+')
+
+# Two alternatives:
+#   1. A Philippine mobile number, with or without country code and with
+#      optional spacing or dashes between groups: 09397429130, +63 939 742
+#      9130, 0939-742-9130.
+#   2. Any bare run of 7 or more digits. This is the catch-all, and it also
+#      covers student numbers (2018003310), which are PII in their own right.
+#
+# The floor is SEVEN deliberately. A year (2026), an ISO reference (9001), a
+# section number and a page number are all four digits or fewer, so they
+# cannot trip it. Every title fixture in this suite was checked for a 7+ digit
+# run before this floor was chosen; the only hits in the whole test tree are
+# raw PDF xref bytes and a Certificate of Registration student number, neither
+# of which is a title.
+_PHONE = re.compile(
+    r'(?:\+?63|0)[\s\-]?9\d{2}[\s\-]?\d{3}[\s\-]?\d{4}'
+    r'|\b\d{7,}\b'
+)
+
+
+def _has_contact_details(line: str) -> bool:
+    """True when ``line`` contains an email address or a phone/ID number."""
+    return bool(_EMAIL.search(line) or _PHONE.search(line))
+
+
+def _remove_contact_details(line: str) -> str:
+    """Delete every email and phone match from ``line``, keeping the rest.
+
+    Distinct from :func:`_strip_pii_tail`, which CUTS at the first match and
+    discards the remainder. That is the right behaviour for a title, where
+    everything after the first contact detail is the author block. It is the
+    wrong behaviour for an author name: cutting
+    ``'GONZAGA, KURT ROSS E. kurt@dhvsu.edu.ph'`` at the email and then
+    trimming name debris would also take the 'E.' initial off the name.
+
+    Excising the matches in place instead preserves the full name. The removed
+    text is discarded, never returned or stored.
+    """
+    cleaned = _EMAIL.sub(' ', line)
+    cleaned = _PHONE.sub(' ', cleaned)
+    return collapse_whitespace(cleaned).strip(' ,;:|-–—')
+
+
+def _strip_pii_tail(title: str) -> str:
+    """Cut ``title`` at the first email or phone number and tidy the stump.
+
+    This is the last line of defence, and the only one that works when the
+    extractor emits a whole page as a SINGLE line. With no newlines there are
+    no lines to terminate, so ``_is_block_terminator`` can never fire — the
+    assembled string has to be scrubbed directly.
+
+    Cutting at the EARLIEST match of either pattern, rather than removing
+    matches in place, is deliberate: everything after the first contact detail
+    is the author block, and splicing individual matches out would leave the
+    surnames behind welded into the title.
+
+    The stump is then trimmed of trailing punctuation and of a dangling
+    partial word — an all-caps surname immediately before an email
+    ("... FARMERS GONZAGA, KURT ROSS E. kurt@...") leaves debris that a naive
+    cut keeps.
+    """
+    if not title:
+        return title
+
+    earliest = len(title)
+    for pattern in (_EMAIL, _PHONE):
+        match = pattern.search(title)
+        if match and match.start() < earliest:
+            earliest = match.start()
+
+    if earliest >= len(title):
+        return title
+
+    return _trim_title_stump(title[:earliest])
+
+
+def _trim_title_stump(stump: str) -> str:
+    """Tidy the remainder left behind by a mid-string cut.
+
+    Drops trailing separators and, because a cut lands just after the author
+    names that precede a contact detail, drops trailing tokens that look like
+    name debris: a bare initial ("E.") or a token ending in a comma
+    ("GONZAGA,"). A trailing comma is the giveaway that the line was still
+    mid-list when it was cut.
+    """
+    stump = collapse_whitespace(stump)
+
+    while stump:
+        tokens = stump.split()
+        if not tokens:
+            break
+        last = tokens[-1]
+        # A bare initial, a comma-terminated token, or a lone separator is
+        # debris from the author list rather than part of the title.
+        if re.fullmatch(r"[A-Za-z]\.?,?", last) or last.endswith(',') \
+                or re.fullmatch(r'[\-–—:;,.]+', last):
+            stump = ' '.join(tokens[:-1])
+            continue
+        break
+
+    stump = _strip_trailing_name_block(stump)
+    return stump.strip(' ,;:-–—')
+
+
+def _strip_trailing_name_block(stump: str) -> str:
+    """Remove a trailing "SURNAME, Given Middle" run from ``stump``.
+
+    Only reachable on the single-line path. When the page has newlines the
+    author line is a line of its own and ``_is_block_terminator`` removes it;
+    when it does not, the names sit inline immediately before the contact
+    detail we just cut at, so they survive the cut and have to be found here.
+
+    The comma is the anchor, matching this corpus' author convention. Two
+    guards keep it off real titles:
+
+      * the run after the comma must be SHORT (at most four tokens) — an
+        author's given names, not a clause;
+      * the run must contain no :data:`_TITLE_KEYWORDS`. This is what saves a
+        title like "... TRAINING, MONITORING SYSTEM FOR SCHOOLS": 'MONITORING'
+        and 'SYSTEM' are title vocabulary, so the comma is punctuation inside a
+        title rather than a surname separator.
+    """
+    tokens = stump.split()
+    # Scan from the right for the LAST comma-terminated token; anything after
+    # it is the candidate given-name run.
+    for index in range(len(tokens) - 1, -1, -1):
+        if not tokens[index].endswith(','):
+            continue
+
+        trailing = tokens[index + 1:]
+        if not trailing or len(trailing) > 4:
+            return stump
+        if any(
+            keyword in token.lower()
+            for token in trailing
+            for keyword in _TITLE_KEYWORDS
+        ):
+            return stump
+        # Every trailing token must look like a name part: a capitalised word
+        # or an initial, nothing else.
+        if not all(
+            re.fullmatch(r"[A-Z][A-Za-z'\-]*\.?|[A-Z]\.", token)
+            for token in trailing
+        ):
+            return stump
+        return ' '.join(tokens[:index])
+
+    return stump
 
 # Degree/submission boilerplate that follows the title on a title page.
 # Acts as a safety net for documents whose blank lines were lost.
@@ -208,8 +377,17 @@ def _has_interior_blank(lines: list[str]) -> bool:
     return any(lines[i] == '' for i in range(first, last + 1))
 
 
-def _is_block_terminator(line: str) -> bool:
-    """True when ``line`` cannot be part of a title block."""
+def _is_non_title_boilerplate(line: str) -> bool:
+    """True when ``line`` is structural furniture rather than title text.
+
+    Everything that ends a title block EXCEPT an author-list entry. Kept
+    separate from :func:`_is_block_terminator` because the two have different
+    meanings and one caller needs only this half:
+    ``_looks_like_person_name`` must reject headings, markers and contact
+    details, but obviously must NOT reject a line for looking like an author —
+    that is the thing it exists to detect. Folding the author test in here
+    would make every real author name fail the name test.
+    """
     key = _noise_key(line)
     if key in _SECTION_NOISE:
         return True
@@ -218,6 +396,20 @@ def _is_block_terminator(line: str) -> bool:
     if _AUTHOR_MARKER.match(line):
         return True
     if _FRONTMATTER_STOP.match(line):
+        return True
+    # Contact details mean the title is over, whether or not a "by:" marker
+    # ever appeared. Many title pages in this corpus have no such marker.
+    if _has_contact_details(line):
+        return True
+    return False
+
+
+def _is_block_terminator(line: str) -> bool:
+    """True when ``line`` cannot be part of a title block."""
+    if _is_non_title_boilerplate(line):
+        return True
+    # An author-list entry ends the title.
+    if _looks_like_author_line(line):
         return True
     return False
 
@@ -232,6 +424,12 @@ def normalize_title_case(title: str) -> str:
 
     Replaces a bare ``str.title()`` call, which mangled acronyms:
     ``"(NLP)" -> "(Nlp)"``.
+
+    A token is checked as a WHOLE first, then split on hyphens and slashes so a
+    compound like ``"AI-POWERED"`` keeps its acronym part. Whole-token first is
+    what makes the existing behaviour byte-identical: a known acronym that
+    happens to contain a delimiter is still matched intact before any splitting
+    is attempted.
     """
     letters = [c for c in title if c.isalpha()]
     if not letters:
@@ -241,12 +439,70 @@ def normalize_title_case(title: str) -> str:
 
     out: list[str] = []
     for token in title.split(' '):
-        core = token.strip('()[]{}<>.,;:!?"\'“”')
+        core = token.strip(_TOKEN_PUNCTUATION)
         if core and core.upper() in _KNOWN_ACRONYMS:
             out.append(token)
         else:
-            out.append(token.title())
+            out.append(_titlecase_token(token))
     return ' '.join(out)
+
+
+# Punctuation stripped from a token before looking it up in _KNOWN_ACRONYMS.
+# Shared by the whole-token check and the per-part check so the two cannot
+# drift to different ideas of what surrounds a word.
+_TOKEN_PUNCTUATION = '()[]{}<>.,;:!?"\'“”'
+
+# Delimiters inside a compound token. Captured in the split so the original
+# character is preserved on rejoin — 'AI/ML-BASED' must come back with its
+# slash and its hyphen exactly where they were, not normalised to one or the
+# other.
+#
+# En and em dashes are deliberately NOT included. In this corpus they appear
+# space-separated ("… State University – Main Campus"), so they already split
+# into their own tokens and carry no acronym risk. Adding them would change
+# behaviour for no benefit.
+_COMPOUND_DELIMITERS = re.compile(r'([-/])')
+
+
+def _titlecase_token(token: str) -> str:
+    """Title-case ``token``, preserving known acronyms in hyphen/slash parts.
+
+    ``str.title()`` on a whole compound gives ``'AI-POWERED' -> 'Ai-Powered'``
+    because it only capitalises the first letter of each alphabetic run and
+    lowercases the rest. Splitting on the delimiters lets each part be looked
+    up on its own, so the acronym half survives:
+
+        'AI-POWERED'  -> 'AI-Powered'
+        'IOT-BASED'   -> 'IOT-Based'
+        'AI/ML'       -> 'AI/ML'
+        '(AI-POWERED)'-> '(AI-Powered)'
+
+    Each part is stripped of its own surrounding punctuation before lookup,
+    which is what makes the parenthesised form work — the leading '(' belongs
+    to the first part, not to the token as a whole.
+
+    Note this PRESERVES the document's casing for a known acronym rather than
+    canonicalising it: 'IOT' stays 'IOT' and is not rewritten to 'IoT'. That
+    matches the whole-token behaviour above and is a deliberate limit, not an
+    oversight — rewriting an acronym's internal casing is a separate decision.
+    """
+    parts = _COMPOUND_DELIMITERS.split(token)
+    if len(parts) == 1:
+        return token.title()
+
+    out: list[str] = []
+    for part in parts:
+        # Delimiters come back from re.split as their own single-character
+        # entries; pass them through untouched so the rejoin is exact.
+        if part in ('-', '/'):
+            out.append(part)
+            continue
+        core = part.strip(_TOKEN_PUNCTUATION)
+        if core and core.upper() in _KNOWN_ACRONYMS:
+            out.append(part)
+        else:
+            out.append(part.title())
+    return ''.join(out)
 
 
 # ---------------------------------------------------------------------------
@@ -264,16 +520,55 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
     if _CHAPTER_PATTERNS.match(_noise_key(line)):
         return None
 
+    # Judge the line by its PII-stripped form.
+    #
+    # A line that is ONLY contact details strips to nothing and is rejected, so
+    # an email or phone line can never be a title start. But a line whose
+    # contact details sit in the TAIL, after a real title, keeps its prefix —
+    # which is what makes a single-line page recoverable instead of returning
+    # an empty title. The word-count and prose checks below then run against
+    # the clean text, so scoring is never influenced by the contact block.
+    if _has_contact_details(line):
+        line = _strip_pii_tail(line)
+        if not line:
+            return None
+
     words = line.split()
     n_words = len(words)
     if n_words < 3 or n_words > MAX_TITLE_WORDS:
         return None
 
-    # Short line of capitalised words with no title punctuation — an author
-    # name rather than a title.
-    if n_words <= 3 and not any(c in line for c in (':', '-', 'A', 'An', 'The')):
-        if all(w[0].isupper() for w in words if w):
-            return None
+    # An author-list entry is never the title.
+    #
+    # This replaces a guard that did almost nothing:
+    #
+    #     if n_words <= 3 and not any(c in line for c in (':', '-', 'A', 'An', 'The')):
+    #
+    # Two independent bugs. ``'A' in line`` is a SUBSTRING test for the single
+    # letter A, so any line containing a capital A anywhere satisfied it —
+    # 'GONZAGA, KURT ROSS E.' contains two, so the guard was skipped. And the
+    # ``n_words <= 3`` ceiling meant that same four-word line never reached the
+    # check at all. Between them the guard caught almost nothing.
+    #
+    # The replacement has no word-count ceiling, because author entries are
+    # routinely four or more tokens once initials and suffixes are counted.
+    if _looks_like_author_line(line):
+        return None
+
+    # The old guard's article clause is NOT revived, deliberately.
+    #
+    # Implemented correctly — "first word is not a/an/the, three words or
+    # fewer, all capitalised, no colon or dash" — it rejects real titles in
+    # this corpus: 'Alumni Portal Tracker', 'Web-Based Qualifying Examination'.
+    # The broken substring form (``'A' in line``) had been shielding them by
+    # accident, since both contain a capital A.
+    #
+    # Its stated purpose was catching author names, and _looks_like_author_line
+    # above now does that with a purpose-built test instead of inferring it
+    # from word count and capitalisation. A bare affiliation line could still
+    # score, but affiliations in this corpus are covered by _SECTION_NOISE, and
+    # the canary titles are authoritative: a wrong-title risk does not justify
+    # truncating documented real titles.
 
     if re.fullmatch(r'[\d/\-,\s]+', line):
         return None
@@ -328,9 +623,19 @@ def _join_title_block(
       * degree/submission boilerplate ("A Capstone", "Presented to …")
       * MAX_TITLE_WORDS words accumulated
 
-    When the document has NO blank-line structure at all, a following line
-    is additionally required to open with a connector word before it is
-    joined — otherwise the walk would run straight into the author list.
+    A continuation gate ALWAYS applies, in one of two strengths:
+
+    * **No blank-line structure** — the strict gate: the line must open with a
+      connector word. This is the tighter of the two and is unchanged.
+    * **Blank-line structure present** — the relaxed gate: the line must show
+      at least one positive sign of being a continuation (see
+      :func:`_continues_title`).
+
+    Previously the gate ran ONLY in the no-blank-structure case, so a page
+    that had blank lines anywhere joined every non-terminator line
+    unconditionally. That is how author names ended up inside titles: the
+    blank line separating the title block from the degree boilerplate lower
+    down was enough to switch the gate off entirely for the lines in between.
     """
     parts = [lines[start_idx]]
     n_words = len(lines[start_idx].split())
@@ -338,10 +643,15 @@ def _join_title_block(
     for nxt in lines[start_idx + 1:]:
         if not nxt:
             break
+        # Terminators are checked FIRST, so a contact detail or author line is
+        # cut even when the relaxed gate below would have admitted it.
         if _is_block_terminator(nxt):
             break
 
-        if not has_blank_structure:
+        if has_blank_structure:
+            if not _continues_title(nxt, parts[-1]):
+                break
+        else:
             first_word = nxt.split()[0].lower().strip('.,;:')
             if first_word not in _CONNECTOR_WORDS:
                 break
@@ -354,6 +664,76 @@ def _join_title_block(
         n_words += added
 
     return ' '.join(parts)
+
+
+def _continues_title(line: str, previous: str) -> bool:
+    """Relaxed continuation test, used when the page has blank-line structure.
+
+    Any ONE of four signals is enough:
+
+    1. The line opens with a connector word ("FOR RURAL CLINICS").
+    2. The line contains title vocabulary ("… MONITORING SYSTEM"). Substring
+       matching, consistent with :func:`_score_candidate_line`, so 'SYSTEMS'
+       satisfies 'system'.
+    3. The PREVIOUS line ends on a connector word. A title line ending in
+       "FOR" or "USING" obviously continues, and the next line may carry
+       neither a leading connector nor title vocabulary — "… MONITORING
+       SYSTEM FOR" / "PUBLIC SENIOR HIGH SCHOOLS" is a real example that
+       signals 1 and 2 both miss. A dangling connector is a high-precision
+       signal, so this costs almost nothing and prevents a whole class of
+       false truncation.
+    4. The line is a SINGLE word. An author-list entry cannot be one word —
+       :func:`_has_name_shape` requires two to six — so a lone token is never
+       a name, while a title's final wrapped line frequently is ("… NATURAL
+       LANGUAGE" / "PROCESSING"). A token ending in a comma is excluded, since
+       that is a list entry mid-flow rather than a title tail.
+
+    A bare author line like "Juan Miguel Santos" satisfies none of the four
+    and is therefore cut. That pairing is the point: the author-line
+    terminator needs a positive personhood marker and so misses a bare
+    three-word name, and this gate is what catches it.
+
+    Note on ordering: this runs AFTER ``_is_block_terminator`` in the caller,
+    so a contact detail or a marked author line is already gone. Nothing here
+    can readmit PII.
+    """
+    words = line.split()
+    if not words:
+        return False
+
+    if words[0].lower().strip('.,;:') in _CONNECTOR_WORDS:
+        return True
+
+    lowered = line.lower()
+    if any(keyword in lowered for keyword in _TITLE_KEYWORDS):
+        return True
+
+    previous_words = previous.split()
+    if previous_words and previous_words[-1].lower().strip('.,;:') in _CONNECTOR_WORDS:
+        return True
+
+    if len(words) == 1 and not words[0].endswith(','):
+        return True
+
+    # 5. The line contains a connector word somewhere OTHER than the start —
+    #    "CENTERS IN MUNICIPALITY", "Crop Recommendations and IoT-Enabled
+    #    Solar-Powered Water". A mid-line preposition or conjunction means the
+    #    line is a sentence fragment, and a title is the only sentence on a
+    #    title page.
+    #
+    #    Author lines do not satisfy this: 'GONZAGA, KURT ROSS E.',
+    #    'Dela Cruz, Juan M.' and 'CRISTOPHER B. AMPA, Don Honorio Ventura
+    #    State University' contain no connector. Name PARTICLES ('de', 'la',
+    #    'van') are in _NAME_PARTICLES, deliberately not in _CONNECTOR_WORDS,
+    #    so a particle cannot admit a name here.
+    #
+    #    A middle initial 'A.' does normalise to the connector 'a', but such a
+    #    line is an author line by the standalone-initial rule and the
+    #    terminator removes it before this function is ever reached.
+    if any(word.lower().strip('.,;:') in _CONNECTOR_WORDS for word in words):
+        return True
+
+    return False
 
 
 def detect_title(text: str) -> tuple[str, str]:
@@ -405,7 +785,10 @@ def detect_title(text: str) -> tuple[str, str]:
         return '', 'low'
 
     title = _join_title_block(lines, best_idx, has_blank_structure)
-    title = normalize_title_case(collapse_whitespace(title))
+    # Final scrub before casing. Every line-based defence above can be bypassed
+    # by an extractor that emits the page as one line; this cannot.
+    title = _strip_pii_tail(collapse_whitespace(title))
+    title = normalize_title_case(title)
 
     if document_is_chapter_only and best_confidence in ('high', 'medium'):
         best_confidence = 'low'
@@ -906,10 +1289,101 @@ _NAME_PARTICLES = frozenset({
 # parentheses) means the line is not a name.
 _NAME_DISALLOWED = re.compile(r"[^A-Za-z.,\-'\u00C0-\u024F\s]")
 
+# ── Positive name markers ──────────────────────────────────────────────────
+#
+# Used only by ``_looks_like_author_line``, which needs to be STRICTER than
+# ``_looks_like_person_name``. That function answers "could this be a name?"
+# and correctly returns True for real titles in this corpus — 'Alumni Portal
+# Tracker', 'Web-Based Qualifying Examination', 'Scholarship Management In
+# Pampanga' are all indistinguishable from a name by capitalisation alone.
+# Using it raw as a title terminator would chop those titles in half.
+#
+# So a line must ALSO carry at least one affirmative signal that it is a
+# person. Name PARTICLES are deliberately excluded from these markers:
+# 'SISTEMA de OBRA: TRAINING MONITORING SYSTEM' contains 'de', and while the
+# colon already disqualifies it via _NAME_DISALLOWED, relying on that
+# coincidence would make the rule fragile.
 
-def _looks_like_person_name(line: str) -> bool:
-    """Heuristic test for "this line is a person's name"."""
-    if not line or _is_block_terminator(line):
+# Generational suffixes. Distinct from _NAME_PARTICLES on purpose: every
+# entry here is affirmative evidence of a person, whereas that set also
+# contains particles like 'de' and 'van' which are not.
+_GENERATIONAL_SUFFIXES = frozenset({'jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv'})
+
+_HONORIFICS = frozenset({
+    'dr', 'dr.', 'engr', 'engr.', 'prof', 'prof.',
+    'mr', 'mr.', 'ms', 'ms.', 'mrs', 'mrs.',
+})
+
+# "SURNAME, Given" — the author-list convention throughout this corpus.
+_SURNAME_COMMA_GIVEN = re.compile(r',\s+[A-Z]')
+
+# A standalone middle initial: "E." or "S.".
+#
+# The trailing period is MANDATORY. Making it optional matches the bare article
+# 'A', which classified every title opening "A …" as an author line — 'A
+# SEMANTIC RETRIEVAL ENGINE' was cut to nothing. The period is what
+# distinguishes an initial from a one-letter word.
+_STANDALONE_INITIAL = re.compile(r'^[A-Z]\.$')
+
+
+def _looks_like_author_line(line: str) -> bool:
+    """True when ``line`` is an author-list entry rather than a title line.
+
+    Strictly narrower than :func:`_looks_like_person_name`: that must be true
+    first, and then the line must carry at least one positive marker of
+    personhood. See the comment block above for why the extra requirement
+    exists — without it, legitimate titles in this corpus are read as names.
+    """
+    # ── Strong personhood markers, valid at ANY line length ────────────────
+    #
+    # This corpus prints author entries as "NAME, Affiliation" on one line:
+    #   'CRISTOPHER B. AMPA, Don Honorio Ventura State University'   (8 words)
+    #   'JOHN PAUL B. ARNAIZ, Don Honorio Ventura State University'  (9 words)
+    #
+    # _has_name_shape caps a name at six words, so those were NOT recognised
+    # and the full student names were eligible to join a title. The markers
+    # below are checked without any length limit because they are strong enough
+    # to stand alone: an initial, an honorific or a generational suffix does
+    # not occur in a thesis title.
+    #
+    # The "SURNAME, Given" comma rule is NOT applied at unlimited length. It is
+    # much weaker — a real title line like 'Monitoring for the Office of
+    # Municipal Treasury of the Municipality of Bacolor, Pampanga' matches it,
+    # and treating that as an author line would disqualify the title itself.
+    # Title vocabulary vetoes the unlimited-length path. Without it a title
+    # like 'A SYSTEM FOR DR. JOSE RIZAL MEMORIAL HOSPITAL' would be read as an
+    # author line on the strength of its honorific and disqualified outright.
+    # An author entry does not contain title vocabulary, so this costs nothing.
+    lowered_line = line.lower()
+    carries_title_vocabulary = any(
+        keyword in lowered_line for keyword in _TITLE_KEYWORDS
+    )
+
+    if not carries_title_vocabulary and not _NAME_DISALLOWED.search(line):
+        for token in line.split():
+            if _STANDALONE_INITIAL.match(token):
+                return True
+            lowered = token.lower()
+            if lowered in _GENERATIONAL_SUFFIXES or lowered in _HONORIFICS:
+                return True
+
+    # ── Weaker markers, only on a line already shaped like a bare name ─────
+    if not _has_name_shape(line):
+        return False
+
+    return bool(_SURNAME_COMMA_GIVEN.search(line))
+
+
+def _has_name_shape(line: str) -> bool:
+    """Character and capitalisation shape of a name, with NO terminator check.
+
+    Split out of :func:`_looks_like_person_name` to break a cycle:
+    ``_looks_like_person_name`` consults the boilerplate screen, and
+    ``_is_block_terminator`` consults ``_looks_like_author_line``. Routing the
+    author test through the public function would recurse, so both share this
+    screen-free core instead.
+    """
+    if not line:
         return False
     if _NAME_DISALLOWED.search(line):
         return False
@@ -927,6 +1401,19 @@ def _looks_like_person_name(line: str) -> bool:
         if not core[0].isupper():
             return False
     return True
+
+
+def _looks_like_person_name(line: str) -> bool:
+    """Heuristic test for "this line is a person's name".
+
+    Screens against ``_is_non_title_boilerplate`` rather than the full
+    ``_is_block_terminator``: the latter now counts an author-list entry as a
+    terminator, which would make this reject exactly the lines it is meant to
+    accept.
+    """
+    if not line or _is_non_title_boilerplate(line):
+        return False
+    return _has_name_shape(line)
 
 
 def detect_authors(text: str) -> tuple[list[str], str]:
@@ -954,7 +1441,7 @@ def detect_authors(text: str) -> tuple[list[str], str]:
         if not match:
             continue
         marker_idx = idx
-        remainder = line[match.end():].strip(' :,')
+        remainder = _remove_contact_details(line[match.end():].strip(' :,'))
         if remainder and _looks_like_person_name(remainder):
             first_inline = remainder
         break
@@ -983,10 +1470,29 @@ def detect_authors(text: str) -> tuple[list[str], str]:
             if blank_run > MAX_CONSECUTIVE_BLANKS:
                 break
             continue
-        if not _looks_like_person_name(line):
+
+        # Contact details are removed BEFORE the name test, then the remainder
+        # is judged. Previously any line carrying an email or a phone number
+        # failed _looks_like_person_name — '@' and digits are outside
+        # _NAME_DISALLOWED's character class — which broke the walk and
+        # silently dropped that author AND every author after it. Title pages
+        # in this corpus commonly print contacts beside or beneath each name,
+        # so that was the normal case, not an edge one.
+        cleaned = _remove_contact_details(line)
+
+        if not cleaned:
+            # A line that is ONLY contact details. Skip it rather than
+            # terminate — the names often continue after it — but spend the
+            # blank budget so a long contact block cannot run away.
+            blank_run += 1
+            if blank_run > MAX_CONSECUTIVE_BLANKS:
+                break
+            continue
+
+        if not _looks_like_person_name(cleaned):
             break
         blank_run = 0
-        authors.append(line)
+        authors.append(cleaned)
         if len(authors) >= MAX_AUTHORS:
             break
 
