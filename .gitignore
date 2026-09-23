@@ -56,7 +56,7 @@ backend/staticfiles/
 *.sql
 *.dump
 # Hypothesis test cache
-backend/.hypothesis/
+.hypothesis/
 
 # Private uploaded verification files
 backend/private/
