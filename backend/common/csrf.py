@@ -9,6 +9,7 @@ to ``Referer``) to match an entry in ``settings.CORS_ALLOWED_ORIGINS``.
 
 from __future__ import annotations
 
+import re
 from functools import wraps
 from urllib.parse import urlsplit
 
@@ -52,7 +53,11 @@ def require_origin_match(view_func):
                 detail='Missing Origin and Referer; cannot verify request source.',
             )
 
-        if candidate not in _allowed_origins():
+        allowed = candidate in _allowed_origins() or any(
+            re.fullmatch(pattern, candidate)
+            for pattern in getattr(settings, 'CORS_ALLOWED_ORIGIN_REGEXES', [])
+        )
+        if not allowed:
             raise OriginNotAllowed(detail=f'Request origin {candidate!r} is not allowed.')
 
         return view_func(request, *args, **kwargs)

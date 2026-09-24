@@ -20,6 +20,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+# Permit the Vite app from the machine's current private IPv4 address during
+# LAN development. The auth Origin check uses the same regex setting.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^http://(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}):5173$',
+]
+
 
 # ---------------------------------------------------------------------------
 # Logging configuration for development
