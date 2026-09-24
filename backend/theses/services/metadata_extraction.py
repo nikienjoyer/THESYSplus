@@ -111,6 +111,8 @@ _SECTION_NOISE = frozenset({
 # Words that can legitimately open a title CONTINUATION line. Compared
 # case-insensitively — a continuation may be typeset in caps ("WITH …") in
 # an all-caps title, so a case-sensitive list silently fails those.
+_TITLE_OPENING_CONNECTORS = frozenset({'a', 'an', 'the'})
+
 _CONNECTOR_WORDS = frozenset({
     'for', 'of', 'in', 'on', 'at', 'and', 'with', 'using',
     'toward', 'towards', 'to', 'a', 'an', 'the',
@@ -123,6 +125,14 @@ _CONNECTOR_WORDS = frozenset({
     'through', 'via', 'from', 'into', 'across', 'within',
     'among', 'between', 'under', 'over', 'during',
 })
+
+# Connectors that may NOT open a title START line. A line beginning with one of
+# these is a continuation, and treating it as a start loses everything above it.
+#
+# Derived from _CONNECTOR_WORDS minus _TITLE_OPENING_CONNECTORS so the two can
+# never drift: adding a connector above automatically blocks it here, and the
+# 'a'/'an'/'the' carve-out is expressed once.
+_TITLE_START_BLOCKED = _CONNECTOR_WORDS - _TITLE_OPENING_CONNECTORS
 
 # Tokens preserved verbatim when normalising an ALL-CAPS title, instead of
 # being title-cased into nonsense ("(NLP)" -> "(Nlp)").
@@ -414,6 +424,43 @@ def _is_block_terminator(line: str) -> bool:
     return False
 
 
+# Typographic quote characters, folded to ASCII so a title reads the same
+# regardless of the source PDF's typography.
+_QUOTE_FOLDING = {
+    '\u2018': "'",   # left single quotation mark
+    '\u2019': "'",   # right single quotation mark / curly apostrophe
+    '\u201a': "'",   # single low-9 quotation mark
+    '\u201b': "'",   # single high-reversed-9 quotation mark
+    '\u201c': '"',   # left double quotation mark
+    '\u201d': '"',   # right double quotation mark
+    '\u201e': '"',   # double low-9 quotation mark
+    '\u201f': '"',   # double high-reversed-9 quotation mark
+    '\u2032': "'",   # prime
+    '\u2033': '"',   # double prime
+}
+
+
+def fold_quotes(title: str) -> str:
+    """Fold typographic quotes in a detected title to their ASCII forms.
+
+    A document carrying NOAH\u2019S ARK produced a title that disagreed with a
+    hand-typed NOAH'S ARK on nothing but the apostrophe glyph. Folding makes
+    titles comparable across the corpus whatever the source PDF's typography.
+
+    DELIBERATELY QUOTES ONLY. En dash and em dash are NOT folded: an en dash in
+    'Main Campus \u2013 Bacolor' is correct typography and must survive. Folding it
+    to a hyphen would corrupt a legitimate title.
+
+    Applied separately from :func:`normalize_title_case`, and to EVERY title,
+    because that function returns early for a mixed-case title — folding inside
+    it would silently skip exactly the titles most likely to carry a curly
+    apostrophe.
+    """
+    if not title:
+        return title
+    return ''.join(_QUOTE_FOLDING.get(ch, ch) for ch in title)
+
+
 def normalize_title_case(title: str) -> str:
     """Title-case an ALL-CAPS title while preserving known acronyms.
 
@@ -535,7 +582,43 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
 
     words = line.split()
     n_words = len(words)
-    if n_words < 3 or n_words > MAX_TITLE_WORDS:
+
+    # (a) A CONTINUATION LINE CANNOT BE A TITLE START.
+    #
+    # 'CAREER TRACK MOBILE APPLICATION' (4 words) scored 8 and lost to
+    # 'USING FUZZY LOGIC FOR HIGH SCHOOL' (6 words) at 9, purely because the
+    # longer line earns the 5..15-word bonus below. The join then began on the
+    # continuation and the real first line was dropped. A line opening with a
+    # connector is by definition a continuation.
+    #
+    # CARVE-OUT: 'a', 'an' and 'the' are in _CONNECTOR_WORDS but legitimately
+    # open titles ('A Web-Based ...', 'An Android Application ...'), so they are
+    # excluded from this rule. Verified against all 50 stored titles: none
+    # starts with any of the remaining connectors, so nothing real is blocked.
+    if words and words[0].lower().strip('.,;:') in _TITLE_START_BLOCKED:
+        return None
+
+    # (b) A LONE ACRONYM LINE ENDING IN A COLON IS A VALID TITLE START.
+    #
+    # Canva colloquium papers put the acronym on its own line:
+    #   'MEMOLOOP:' / 'A CUSTOMIZABLE DIGITAL LEARNING' / 'FLASHCARDS FOR ...'
+    # The n_words < 3 floor rejected the first line, so five titles lost their
+    # acronym prefix — the part a reader notices missing first.
+    #
+    # Narrow on purpose: ONE token, ending in ':', with an alphanumeric core of
+    # 4+ characters. 'ABSTRACT:' and 'Keywords:' also satisfy that shape, which
+    # is why this sits AFTER the _SECTION_NOISE and _CHAPTER_PATTERNS checks
+    # above — _noise_key strips the colon and both are caught there first. A
+    # test locks that ordering.
+    is_acronym_start = (
+        n_words == 1
+        and line.rstrip().endswith(':')
+        and len(re.sub(r'[^A-Za-z0-9]', '', line)) >= 4
+    )
+
+    if not is_acronym_start and (n_words < 3 or n_words > MAX_TITLE_WORDS):
+        return None
+    if is_acronym_start and n_words > MAX_TITLE_WORDS:
         return None
 
     # An author-list entry is never the title.
@@ -789,6 +872,7 @@ def detect_title(text: str) -> tuple[str, str]:
     # by an extractor that emits the page as one line; this cannot.
     title = _strip_pii_tail(collapse_whitespace(title))
     title = normalize_title_case(title)
+    title = fold_quotes(title)
 
     if document_is_chapter_only and best_confidence in ('high', 'medium'):
         best_confidence = 'low'
@@ -1023,8 +1107,39 @@ MAX_KEYWORD_CHARS = 64
 # — a real sentence fragment inside this corpus' body text — must NOT match,
 # which is why ',' is deliberately absent from the separator class.
 _KEYWORDS_LABEL = re.compile(
-    r'^(keywords?|key\s*words?|index\s+terms?)\s*[:\-—]\s*(.*)$',
+    # 'keyword/s' is listed FIRST: alternation is first-match-wins, so
+    # 'keywords?' would otherwise consume 'Keyword' and leave '/s:' behind as
+    # the value.
+    r'^(keyword\s*/\s*s|keywords?|key\s*words?|index\s+terms?)\s*[:\-—]\s*(.*)$',
     re.IGNORECASE,
+)
+
+# The separator-OPTIONAL form, used ONLY by detect_keywords.
+#
+# WHY THIS IS SEPARATE FROM _KEYWORDS_LABEL.
+# Two reasons, both about blast radius:
+#
+#   * _KEYWORDS_LABEL is imported read-only by thesis_document_check (the
+#     keywords gate marker) and consulted by detect_abstract's stop pattern.
+#     Making the separator optional THERE would change which documents clear
+#     the upload gate, which is not this round's business.
+#   * A comma must never be accepted as the separator. The corpus contains real
+#     body sentences that open with the word:
+#         'keywords, contextual meanings, and topic, improving efficiency ...'
+#         'keywords, authors, advisors, and academic year. The system must ...'
+#     Neither branch below can match those: ',' is not in the separator class,
+#     is not whitespace, and is not end-of-line.
+#
+# CAPITALISATION IS REQUIRED, and it is the load-bearing guard. Measured on the
+# corpus: 12 separator-less label lines are Capitalised or ALL CAPS and every
+# one is a genuine keyword label; 18 are lowercase and every one is wrapped body
+# prose ('keywords' alone on a line, continuing a sentence). Without the case
+# requirement the optional separator would read those 18 as labels.
+_KEYWORDS_LABEL_LOOSE = re.compile(
+    r'^(Keyword\s*/\s*s|Keywords?|Key\s*Words?|KEYWORDS?|KEY\s*WORDS?|'
+    r'Index\s+Terms?|INDEX\s+TERMS?)'
+    r'(?:\s*[:\-—]\s*|\s+|\s*$)'
+    r'(.*)$',
 )
 
 _KEYWORD_SPLIT = re.compile(r'[;,·•|]+')
@@ -1044,15 +1159,44 @@ def detect_keywords(text: str) -> tuple[list[str], str]:
 
     raw_value = ''
     for idx, line in enumerate(lines):
-        match = _KEYWORDS_LABEL.match(line)
+        # STRICT first, so every shape that worked before keeps working with
+        # identical semantics — including case-insensitive 'Key words:'. The
+        # capitalisation-gated LOOSE pattern only gets a say on lines the strict
+        # one rejects, which is exactly the separator-less shapes B3 adds.
+        match = _KEYWORDS_LABEL.match(line) or _KEYWORDS_LABEL_LOOSE.match(line)
         if not match:
             continue
         raw_value = match.group(2).strip()
+
+        # ACM house style puts the label on a line of its own and the list on
+        # the NEXT line. This is the largest failing group in the corpus — 9 of
+        # the 12 label-shape failures — so an empty remainder is not "no
+        # keywords", it is "look one line down".
+        #
+        # Bounded deliberately: ONE line, it must not be a heading or block
+        # terminator, and it must actually look like a list (carry a separator).
+        # The separator requirement is what stops a bare label in body prose
+        # from swallowing the sentence that follows it.
+        if not raw_value:
+            for nxt in lines[idx + 1:]:
+                if not nxt:
+                    continue
+                if _ABSTRACT_STOP.match(nxt) or _is_block_terminator(nxt):
+                    break
+                if _noise_key(nxt) in _SECTION_NOISE:
+                    break
+                if not _KEYWORD_SPLIT.search(nxt):
+                    break
+                raw_value = nxt
+                break
+
         # Keyword lists wrap onto following lines; keep reading until the
         # blank line or the next heading.
         for nxt in lines[idx + 1:]:
             if not nxt or _ABSTRACT_STOP.match(nxt) or _is_block_terminator(nxt):
                 break
+            if nxt == raw_value:
+                continue  # already consumed by the next-line read above
             raw_value = f'{raw_value} {nxt}'
         break
 
@@ -1103,6 +1247,66 @@ _MONTH_YEAR = re.compile(
 )
 _BARE_YEAR = re.compile(r'\b(19\d{2}|20\d{2})\b')
 
+# Legislation references — "Act of 2000", "Act No. 10175". The year names the
+# statute, not the thesis.
+_STATUTE_BEFORE_YEAR = re.compile(r'\bact\s+(?:of|no\.?)\s*$', re.IGNORECASE)
+
+# Words that explicitly introduce a date, so the year following one is a date
+# even mid-sentence: 'academic year 2021', 'S.Y. 2024-2025', 'Batch 2021'.
+_DATE_WORD_BEFORE_YEAR = re.compile(
+    r'\b(?:academic\s+year|school\s+year|year|s\.?\s*y\.?|a\.?\s*y\.?|'
+    r'batch|class\s+of|copyright|\u00a9)\s*[:\-]?\s*$',
+    re.IGNORECASE,
+)
+
+# A submission year sits at the END of its line on a title page ("Bacolor,
+# Pampanga  May 2025", "S.Y. 2024-2025"). Trailing punctuation is allowed.
+_YEAR_AT_LINE_END = re.compile(r'^[\s\.,;:\)\]\-–—]*$')
+
+
+def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
+    """True when this year occurrence is not a submission date.
+
+    Measured against the real corpus: every wrong year the bare-year fallback
+    produced came from one of these shapes, and none came from a title-page
+    date. The four shapes actually observed were
+
+      * an inline citation — '(BLS, 2021)', 'Ranada (2020)', 'Prevention, 2021)'
+      * a statute — 'E-Commerce Act of 2000'
+      * a POSTAL CODE — 'Bacolor, Pampanga 2001 Philippines'
+      * a student-number fragment — '2020@dhvsu.edu.ph'
+
+    so this rejects all four rather than citations alone.
+    """
+    start, end = match.span(1)
+    before, after = line[:start], line[end:]
+
+    # POSITIVE EXEMPTION, checked first: an explicit date word immediately
+    # before the year makes it a date however deep in the sentence it sits —
+    # 'academic year 2021 requirements', 'S.Y. 2024', 'Batch 2021'. None of the
+    # corpus' wrong years carry one of these, so this costs no precision.
+    if _DATE_WORD_BEFORE_YEAR.search(before):
+        return False
+
+    # Part of a longer identifier: '20201017', '2020@dhvsu.edu.ph'.
+    if before[-1:].isalnum() or after[:1].isalnum() or after[:1] == '@':
+        return True
+    # Inside parentheses, or closing one: '(… 2021)' / '2021)'.
+    if before.rfind('(') > before.rfind(')') or after[:1] == ')':
+        return True
+    # Citation comma directly before the year: ', 2021'.
+    if re.search(r',\s*$', before):
+        return True
+    # Statute reference.
+    if _STATUTE_BEFORE_YEAR.search(before):
+        return True
+    # Anything still mid-sentence is not a date line. A postal code followed by
+    # a country name ('Pampanga 2001 Philippines') is caught here, and so is
+    # every remaining prose mention.
+    if not _YEAR_AT_LINE_END.match(after):
+        return True
+    return False
+
 
 def max_year() -> int:
     """Upper bound for an acceptable year: next calendar year.
@@ -1142,8 +1346,30 @@ def detect_year(text: str) -> tuple[int | None, str]:
         if re.fullmatch(r'(19\d{2}|20\d{2})', line) and in_range(int(line)):
             return int(line), 'high'
 
-    candidates = [int(m.group(1)) for m in _BARE_YEAR.finditer(window)]
-    candidates = [y for y in candidates if in_range(y)]
+    # Weakest tier. Scanned PER LINE rather than over the joined window so each
+    # occurrence can be judged in context, and every occurrence that is
+    # incidental — a citation, a statute, a postal code, a student number — is
+    # discarded before the maximum is taken.
+    #
+    # WHY THIS TIER NOW RETURNS EMPTY MORE OFTEN, DELIBERATELY.
+    # A full-corpus audit found this tier answered 16 times: 12 WRONG and 4
+    # right. All 16 came from citation-shaped context, and the 4 right ones were
+    # right only because a cited year happened to equal the submission year.
+    # That is a coin flip, not a signal. Returning EMPTY at 'low' is strictly
+    # better than a value at 'medium': the upload modal pre-fills year with the
+    # current year, which a user notices and corrects, whereas a confident
+    # '2000' reads as deliberate. The 'medium' label was also the least accurate
+    # band in the whole extractor, and these years were most of it.
+    candidates: list[int] = []
+    for line in lines[:TITLE_PAGE_LINES]:
+        for match in _BARE_YEAR.finditer(line):
+            value = int(match.group(1))
+            if not in_range(value):
+                continue
+            if _is_incidental_year(line, match):
+                continue
+            candidates.append(value)
+
     if candidates:
         return max(candidates), 'medium'
 
