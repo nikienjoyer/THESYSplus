@@ -16,8 +16,26 @@
 
 import axios from 'axios';
 
+// Keep the usual local API setting, but rewrite loopback hosts to the host
+// used to open the frontend. This lets LAN clients reach the same backend
+// without baking a Wi-Fi-specific IP into the Vite build.
+function getApiBaseUrl() {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+  if (typeof window === 'undefined') return configuredBaseUrl;
+
+  try {
+    const apiUrl = new URL(configuredBaseUrl, window.location.origin);
+    if (['localhost', '127.0.0.1', '::1'].includes(apiUrl.hostname)) {
+      apiUrl.hostname = window.location.hostname;
+    }
+    return apiUrl.toString().replace(/\/$/, '');
+  } catch {
+    return configuredBaseUrl;
+  }
+}
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

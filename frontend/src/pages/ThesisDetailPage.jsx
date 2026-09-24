@@ -23,7 +23,7 @@ import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { getUserData, setUserData } from '../utils/userStorage';
-import { formatFullAuthorList } from '../utils/formatters';
+import { collapseWhitespace, formatFullAuthorList } from '../utils/formatters';
 
 /**
  * Same distinction PdfPreviewPage's describePreviewError draws, reused here
@@ -291,18 +291,34 @@ export default function ThesisDetailPage() {
             <div className="flex flex-wrap gap-1.5 mb-6">
               {thesis.keywords && thesis.keywords.length > 0 ? (
                 <>
-                  {thesis.keywords.slice(0, 8).map((kw) => (
-                    <span
-                      key={kw}
-                      className={`text-xs px-2 py-1 rounded-md ${
-                        isDark
-                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
-                          : 'bg-blue-50 text-blue-700 border border-blue-100'
-                      }`}
-                    >
-                      {kw}
-                    </span>
-                  ))}
+                  {thesis.keywords.slice(0, 8).map((kw) => {
+                    // Display-only whitespace trim so a stored tag such as
+                    // "Solar -Powered Water Pump" reads cleanly. The RAW value
+                    // is what travels in the URL — the server matches
+                    // whitespace-blind, and rewriting stored spellings is a
+                    // separate data-quality decision.
+                    const label = collapseWhitespace(kw) || kw;
+                    return (
+                      <button
+                        key={kw}
+                        type="button"
+                        onClick={() => navigate(
+                          `/repository?keyword=${encodeURIComponent(kw)}`,
+                        )}
+                        aria-label={`View all theses tagged ${label}`}
+                        title={label}
+                        className={`text-xs px-2 py-1 rounded-md cursor-pointer transition-colors
+                          hover:underline focus-visible:underline
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          isDark
+                            ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
+                            : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                   {thesis.keywords.length > 8 && (
                     <span
                       className={`text-xs px-2 py-1 rounded-md ${

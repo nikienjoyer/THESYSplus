@@ -16,9 +16,26 @@ const SURNAME_PARTICLES = new Set([
   'st', 'ten', 'ter', 'van', 'von',
 ]);
 
-function cleanName(rawName) {
-  return typeof rawName === 'string' ? rawName.trim().replace(/\s+/g, ' ') : '';
+/**
+ * Collapse whitespace runs to single spaces and trim.
+ *
+ * Exported because keyword badges need the same treatment: stored tags include
+ * values like "Solar -Powered Water Pump" and "internet  of  things" that were
+ * pasted out of a PDF. This is a DISPLAY-ONLY transform — the trimmed form is
+ * never written back to stored data and never sent as a query value, because
+ * matching is already whitespace-blind server-side and normalising the corpus
+ * is a separate data-quality decision.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+export function collapseWhitespace(value) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
 }
+
+// Author-facing alias, kept so the name reads correctly at its existing call
+// sites (splitAuthorName, authorArray, parseAuthorInput).
+const cleanName = collapseWhitespace;
 
 function splitAuthorName(rawName) {
   const name = cleanName(rawName);

@@ -87,12 +87,35 @@ def _visible_queryset(user) -> 'models.QuerySet[Thesis]':
 from django.db import models  # noqa: E402
 
 
+def _normalise_keyword(value: str) -> str:
+    """Fold a keyword to a comparable form: case-blind and whitespace-blind.
+
+    Both axes are needed, and both come from real corpus data:
+
+    * CASE — students enter 'IoT', 'IOT' and 'iot' as three separate tags for
+      one concept, so an exact match finds only a third of the theses.
+    * WHITESPACE — stored tags include 'Solar -Powered Water Pump' with a
+      stray space, and doubled inner spaces appear wherever a tag was pasted
+      out of a PDF. ``str.split()`` with no argument collapses every run of
+      whitespace and strips the ends in one step, so 'internet  of  things'
+      and ' Internet Of Things ' fold to the same value.
+
+    ``casefold`` rather than ``lower`` because it is the correct operation for
+    caseless comparison, not merely lowercase display.
+
+    This is a COMPARISON key only. It is never written back to the database
+    and never sent as a query value — the stored spelling is left alone, since
+    normalising the corpus is a separate data-quality decision.
+    """
+    return ' '.join((value or '').split()).casefold()
+
+
 # ---------------------------------------------------------------------------
 # GET /theses/  — list with filters + simple search
 # ---------------------------------------------------------------------------
 
 class ThesisListView(APIView):
-    """List theses with filters: ``q``, ``year``, ``program``, ``status``, ``mine``, ``ids``.
+    """List theses with filters: ``q``, ``year``, ``program``, ``status``, ``mine``, ``ids``, ``keyword``.
 
     When ``q`` is provided, the list is reranked by SBERT cosine similarity
     against the candidate set (filters are applied first to narrow the set,
@@ -113,6 +136,14 @@ class ThesisListView(APIView):
     here: unknown or non-visible IDs simply don't match any row and are
     silently absent from the result, never an error. A malformed UUID in
     the list, or more IDs than ``MAX_IDS``, returns ``INVALID_FILTER``.
+
+    ``keyword`` narrows the result to theses carrying that exact tag,
+    compared case- and whitespace-blind (see ``_normalise_keyword``). It is
+    an EXACT tag match, not a substring search — ``q`` already covers
+    free-text search, and conflating the two would make a keyword link
+    return theses that merely mention the word. Empty or whitespace-only
+    values are ignored; a value over ``MAX_KEYWORD_LENGTH`` matches nothing
+    and returns an empty page rather than an error.
     """
 
     permission_classes = [IsAuthenticated]
@@ -121,6 +152,10 @@ class ThesisListView(APIView):
     # request (the largest cluster in the current corpus is ~47) while
     # keeping the query param from being abused as an unbounded batch load.
     MAX_IDS = 300
+
+    # No real keyword tag approaches this. Past it, the value is a paste
+    # accident or a probe, and it is treated as matching nothing.
+    MAX_KEYWORD_LENGTH = 100
 
     def get(self, request, *args, **kwargs):
         qs = _visible_queryset(request.user)
@@ -203,6 +238,35 @@ class ThesisListView(APIView):
             # (e.g. another student's pending upload) simply matches no row,
             # rather than being an error or a visibility bypass.
             qs = qs.filter(id__in=parsed_ids)
+
+        # ── keyword: exact tag match, case- and whitespace-blind ─────────
+        #
+        # Deliberately NOT ``keywords__icontains``. ``keywords`` is a JSONField
+        # holding a list, so icontains substring-matches the SERIALISED JSON
+        # text: keyword=ai would match theses tagged 'domain', 'training' or
+        # 'email', because the letters 'ai' occur inside those words. A test
+        # locks this out (see test_thesis_list_keyword.py).
+        #
+        # Instead the candidate tags are compared element by element under
+        # _normalise_keyword. ``values_list`` fetches two columns rather than
+        # whole rows, and the result is fed back as an ``id__in`` filter so
+        # ``qs`` remains a QuerySet — which is what lets this compose with the
+        # ``q`` semantic branch, the pagination below, and _visible_queryset
+        # without touching any of them.
+        raw_keyword = (request.query_params.get('keyword') or '').strip()
+        if raw_keyword:
+            if len(raw_keyword) > self.MAX_KEYWORD_LENGTH:
+                # Over-long input cannot match any real tag. An empty page is
+                # the honest answer — a 400 would imply the caller did
+                # something forbidden rather than simply searched for nothing.
+                qs = qs.none()
+            else:
+                wanted = _normalise_keyword(raw_keyword)
+                matching_ids = [
+                    pk for pk, kws in qs.values_list('id', 'keywords')
+                    if any(_normalise_keyword(str(k)) == wanted for k in (kws or []))
+                ]
+                qs = qs.filter(id__in=matching_ids)
 
         # ── No query → chronological listing ────────────────────────────
         if not q:

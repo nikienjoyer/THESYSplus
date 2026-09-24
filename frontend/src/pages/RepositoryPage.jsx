@@ -17,10 +17,10 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, X } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
-import { formatScholarAuthor } from '../utils/formatters';
+import { collapseWhitespace, formatScholarAuthor } from '../utils/formatters';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -28,6 +28,38 @@ import PageShell from '../components/layout/PageShell';
 import SimilaritySlider from '../components/ui/SimilaritySlider';
 import { Badge } from '../components/shadcn/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+
+// Keyword chip styling, shared by the card so the clickable and pressed
+// states stay defined in one place.
+//
+// The pill shape is written out rather than taken from `badgeVariants`
+// because that preset carries `focus:ring-*`, which on a real <button> fires
+// on mouse click as well as keyboard focus. These use `focus-visible:` so the
+// ring and underline appear for keyboard users only.
+function keywordChipClass(isDark, isActive) {
+  const base = 'inline-flex items-center rounded-full border text-xs font-semibold'
+    + ' px-2 py-0.5 h-auto transition-colors cursor-pointer'
+    // The adviser's explicit requirement: keywords underline on hover to
+    // signal they are clickable. focus-visible mirrors it, because a hover
+    // affordance alone serves mouse users and leaves keyboard users guessing.
+    + ' hover:underline focus-visible:underline'
+    + ' focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+
+  if (isActive) {
+    // Pressed: a deeper fill of the same blue, so "this is the filter you are
+    // looking at" reads without introducing a new colour.
+    return `${base} ${
+      isDark
+        ? 'bg-blue-500/25 text-blue-200 border-blue-500/40'
+        : 'bg-blue-100 text-blue-800 border-blue-300'
+    }`;
+  }
+  return `${base} ${
+    isDark
+      ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/20'
+      : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100'
+  }`;
+}
 
 const PROGRAMS = [
   'BS Information System',
@@ -134,7 +166,28 @@ function semanticDotColor(score) {
 // ThesisCard
 // ---------------------------------------------------------------------------
 
-function ThesisCard({ thesis, isDark }) {
+/**
+ * One result card.
+ *
+ * STRUCTURE — why the card is a <div> wrapping a <Link>, not a <Link> itself.
+ *
+ * The whole card used to BE the anchor, with the keyword row nested inside it.
+ * Keywords are now buttons, and a <button> inside an <a> is invalid HTML: the
+ * browser's parse of it is undefined, and Tab/Enter behaviour fights between
+ * the two interactive elements. So the card is now a plain <div> and the link
+ * wraps only the title/metadata block, leaving the keyword row as a SIBLING of
+ * the anchor rather than a descendant.
+ *
+ * Consequences, accepted deliberately:
+ *   - `thesys-card-lift` moved to the wrapper, so the hover lift still covers
+ *     the whole card.
+ *   - The keyword row is no longer part of the navigate-to-thesis hit area.
+ *     That is correct: clicking a keyword should filter, not open the thesis.
+ *   - Text selection inside the card still works, which a stretched-link
+ *     overlay would have broken, and the semantic-match Tooltip keeps its
+ *     hover target.
+ */
+function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
   const score = thesis.similarity_score;
   const showScore = typeof score === 'number';
   // Use one decimal place so displayed value (e.g. "47.6%") reflects the
@@ -142,11 +195,12 @@ function ThesisCard({ thesis, isDark }) {
   // thesis showing "48%" disappears when the threshold is raised to 48%.
   const pct = showScore ? (score * 100).toFixed(1) : null;
 
+  const keywords = thesis.keywords || [];
+  const activeNormalised = collapseWhitespace(activeKeyword).toLowerCase();
+
   return (
-    <Link
-      to={`/repository/${thesis.id}`}
-      className="block thesys-card thesys-card-lift p-5"
-    >
+    <div className="thesys-card thesys-card-lift p-5">
+      <Link to={`/repository/${thesis.id}`} className="block">
       <div className="flex items-start justify-between gap-3 mb-2">
         <h3
           className={`font-semibold text-base leading-snug line-clamp-2 ${
@@ -194,22 +248,34 @@ function ThesisCard({ thesis, isDark }) {
         {thesis.authors.slice(0, 3).map(formatScholarAuthor).join(', ')}
         {thesis.authors.length > 3 && ` +${thesis.authors.length - 3} more`}
       </div>
+      </Link>
 
+      {/* Keyword row — a SIBLING of the link above, never a descendant. */}
       <div className="flex flex-wrap gap-1.5">
-        {thesis.keywords.slice(0, 4).map((kw) => (
-          <Badge
-            key={kw}
-            variant="outline"
-            className={`text-xs px-2 py-0.5 h-auto ${
-              isDark
-                ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/10'
-                : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50'
-            }`}
-          >
-            {kw}
-          </Badge>
-        ))}
-        {thesis.keywords.length > 4 && (
+        {keywords.slice(0, 4).map((kw) => {
+          // Display-only trim so a stored tag like "Solar -Powered Water Pump"
+          // renders cleanly. The RAW value is what gets sent as the filter,
+          // because the server already matches whitespace-blind and the stored
+          // spelling is not ours to rewrite.
+          const label = collapseWhitespace(kw) || kw;
+          const isActive = label.toLowerCase() === activeNormalised;
+          return (
+            <button
+              key={kw}
+              type="button"
+              onClick={() => onKeywordClick(kw)}
+              aria-label={`View all theses tagged ${label}`}
+              aria-pressed={isActive}
+              title={label}
+              className={keywordChipClass(isDark, isActive)}
+            >
+              {label}
+            </button>
+          );
+        })}
+        {keywords.length > 4 && (
+          /* Stays non-interactive on purpose: the detail view lists every
+             keyword, so that is the complete surface for the overflow. */
           <Badge
             variant="outline"
             className={`text-xs px-2 py-0.5 h-auto ${
@@ -218,11 +284,11 @@ function ThesisCard({ thesis, isDark }) {
                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-50'
             }`}
           >
-            +{thesis.keywords.length - 4} more
+            +{keywords.length - 4} more
           </Badge>
         )}
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -234,10 +300,16 @@ export default function RepositoryPage() {
   const { theme } = useTheme();
   const { isAuthenticated, isInitializing } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isDark = theme === 'dark';
 
   const initialQ = searchParams.get('q') || '';
+
+  // Derived from the URL rather than held in state, so the back button, a
+  // pasted link, and an in-page keyword click all go through one source of
+  // truth. `q`/`year`/`program`/`page` remain local state — this change does
+  // not migrate them, only adds `keyword` alongside.
+  const activeKeyword = searchParams.get('keyword') || '';
 
   const [theses, setTheses] = useState([]);
   // loading: true only when no results are currently displayed (first load / hard filter change)
@@ -255,6 +327,13 @@ export default function RepositoryPage() {
   const [program, setProgram] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+
+  // A keyword filter and a free-text query are two different questions, and the
+  // keyword header only describes the first. Deriving this — rather than
+  // clearing `search` from an effect — makes the two impossible to combine,
+  // including on a pasted link or a back-navigation where `search` state may
+  // still hold an older query, and avoids a setState-in-effect render cascade.
+  const effectiveSearch = activeKeyword ? '' : search;
 
   // sliderThreshold: live value shown in the slider UI (updates on every drag tick)
   const [sliderThreshold, setSliderThreshold] = useState(DEFAULT_THRESHOLD);
@@ -275,14 +354,17 @@ export default function RepositoryPage() {
   // Clean up debounce timer on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
+  const keywordHeaderRef = useRef(null);
+
   const loadTheses = useCallback(async () => {
     const params = new URLSearchParams();
-    if (search) {
-      params.set('q', search);
+    if (effectiveSearch) {
+      params.set('q', effectiveSearch);
       params.set('min_score', (committedThreshold / 100).toFixed(2));
     }
     if (year) params.set('year', year);
     if (program) params.set('program', program);
+    if (activeKeyword) params.set('keyword', activeKeyword);
     params.set('page', String(page));
     params.set('page_size', String(PAGE_SIZE));
 
@@ -328,7 +410,7 @@ export default function RepositoryPage() {
       setLoading(false);
       setSoftLoading(false);
     }
-  }, [search, year, program, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveSearch, year, program, activeKeyword, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
   // Note: `theses` is intentionally excluded from deps — it's read only to
   // decide skeleton vs soft-indicator, and including it would cause an extra
   // render cycle after every fetch.
@@ -338,10 +420,47 @@ export default function RepositoryPage() {
     loadTheses();
   }, [isAuthenticated, isInitializing, loadTheses]);
 
+  // Bring the destination header into view rather than the top of the page, so
+  // the sentence explaining what just happened is the thing the user sees.
+  useEffect(() => {
+    if (!activeKeyword) return;
+    keywordHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [activeKeyword]);
+
+  /**
+   * Navigate to a keyword-filtered view.
+   *
+   * Writes the URL so this is linkable and back-button friendly — the reason
+   * the destination is a query param on the existing list rather than a modal.
+   * `year` and `program` are preserved (they are local state and untouched);
+   * `q` is dropped because a keyword is a different way of asking.
+   */
+  const applyKeyword = useCallback((kw) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('keyword', kw);
+    next.delete('q');
+    setSearchParams(next);
+    // `effectiveSearch` already ignores `search` while a keyword is active, so
+    // these only keep the visible input honest — the box should not still show
+    // a query that is no longer being applied.
+    setSearch('');
+    setSearchInput('');
+    setPage(1);
+  }, [searchParams, setSearchParams]);
+
+  const clearKeyword = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('keyword');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
+    // Submitting a text search replaces a keyword view; leaving both active
+    // would show results the header does not describe.
+    if (activeKeyword) clearKeyword();
   };
 
   // Run a seeded example query — populates the input and commits the search.
@@ -397,12 +516,16 @@ export default function RepositoryPage() {
           </h1>
           <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             <span>
-              {search
-                ? <>Semantic search results for: <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>{search}</strong></>
-                : <>Browsing all approved theses from PampangaStateU CCS</>
+              {effectiveSearch
+                ? <>Semantic search results for: <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>{effectiveSearch}</strong></>
+                : activeKeyword
+                  // Not "Browsing all approved theses" — the list is filtered,
+                  // and the keyword header below names the filter.
+                  ? <>Filtered by keyword</>
+                  : <>Browsing all approved theses from PampangaStateU CCS</>
               }
             </span>
-            {!search && (
+            {!effectiveSearch && !activeKeyword && (
               <>
                 <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
                 <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>{totalCount} indexed</span>
@@ -531,6 +654,56 @@ export default function RepositoryPage() {
           </div>
         )}
 
+        {/* ── Keyword destination header ─────────────────────────────────
+            Rendered above the results (and above the empty state, so a
+            zero-match keyword still explains itself). `scroll-mt-24` keeps the
+            sticky navbar from covering it when it is scrolled into view. */}
+        {activeKeyword && (
+          <div ref={keywordHeaderRef} className="mb-5 scroll-mt-24">
+            <nav
+              aria-label="Breadcrumb"
+              className={`text-xs mb-1 flex items-center gap-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}
+            >
+              <Link
+                to="/repository"
+                className="rounded hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                Repository
+              </Link>
+              <span aria-hidden="true">›</span>
+              <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Keyword</span>
+            </nav>
+
+            <h2 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Theses tagged &ldquo;{collapseWhitespace(activeKeyword) || activeKeyword}&rdquo;
+            </h2>
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p
+                aria-live="polite"
+                className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+              >
+                {loading
+                  ? 'Loading…'
+                  : `${totalCount} result${totalCount !== 1 ? 's' : ''}`}
+              </p>
+              <button
+                type="button"
+                onClick={clearKeyword}
+                aria-label="Clear keyword filter"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  isDark
+                    ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Results ───────────────────────────────────────────────────── */}
         {loading ? (
           <>
@@ -557,7 +730,29 @@ export default function RepositoryPage() {
             {error}
           </div>
         ) : theses.length === 0 ? (
-          search ? (
+          activeKeyword ? (
+            /* ── No theses carry this keyword ────────────────────────────
+               Checked BEFORE the `search` branch: without this, a
+               zero-match keyword fell through to "No theses in repository
+               yet", which reads as a broken app rather than an empty filter. */
+            <div className="thesys-empty">
+              <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
+              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                No theses tagged &ldquo;{collapseWhitespace(activeKeyword) || activeKeyword}&rdquo;
+              </p>
+              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                This keyword may be spelled differently on other theses, or the
+                only thesis using it may not be visible to you.
+              </p>
+              <button
+                type="button"
+                onClick={clearKeyword}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                Back to all theses
+              </button>
+            </div>
+          ) : effectiveSearch ? (
             /* ── Zero Results — a query ran but nothing matched ─────────── */
             <div className="thesys-empty">
               <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
@@ -604,7 +799,7 @@ export default function RepositoryPage() {
         ) : (
           <>
             {/* Result count summary — distinguishes semantic matches from title-rescued results */}
-            {search && (() => {
+            {effectiveSearch && (() => {
               const threshold = committedThreshold / 100;
               const aboveThreshold = theses.filter(t => (t.similarity_score ?? 0) >= threshold).length;
               const belowThreshold = theses.filter(t => (t.similarity_score ?? 0) < threshold).length;
@@ -634,7 +829,13 @@ export default function RepositoryPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {theses.map((t) => (
-                <ThesisCard key={t.id} thesis={t} isDark={isDark} />
+                <ThesisCard
+                  key={t.id}
+                  thesis={t}
+                  isDark={isDark}
+                  onKeywordClick={applyKeyword}
+                  activeKeyword={activeKeyword}
+                />
               ))}
             </div>
 
