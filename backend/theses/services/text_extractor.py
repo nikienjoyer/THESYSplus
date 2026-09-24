@@ -26,6 +26,7 @@ could allocate hundreds of megabytes to find a title printed on page one.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
@@ -55,6 +56,108 @@ FRONT_MATTER_PAGES = 5
 METADATA_PAGES = 10
 
 
+# ---------------------------------------------------------------------------
+# Letter-spaced text repair (Canva-exported PDFs)
+# ---------------------------------------------------------------------------
+#
+# Canva positions every glyph individually, so pypdf emits a space between
+# every character: the text layer yields 'A B S T R A C T', never 'ABSTRACT'.
+# Every heading regex downstream is anchored on whole words, so all of them
+# fail, and a letter-spaced line's alphabetic ratio sits near 0.47 — below
+# MIN_PROSE_ALPHA_RATIO — so title candidates are disqualified outright.
+#
+# 17 of the 50 theses in this repository are affected; /Producer is 'Canva' for
+# every one of them and for no unaffected file.
+#
+# WHY PER LINE, NOT PER DOCUMENT
+# ------------------------------
+# A document-wide ratio threshold was considered and rejected on two grounds:
+#
+#   * It misses partially-affected files. Canva letter-spaces its display-font
+#     HEADING lines while leaving body prose clean, so one real thesis
+#     (TASKGROVE) sits at a document-wide ratio of only 0.261 — under any
+#     workable threshold — despite its title being unreadable.
+#   * It forces a whole-text rewrite, which collapses the 2-or-more space runs
+#     that occur naturally in clean prose.
+#
+# Deciding per line makes the no-op property STRUCTURAL rather than
+# threshold-dependent: a line that does not trip the detector is returned
+# byte-identical, so a clean document cannot be altered at all.
+
+# A line must be at least this proportion single-character tokens.
+_SPACED_SINGLE_TOKEN_RATIO = 0.6
+
+# ...and carry at least this many tokens, so a short fragment like 'A B' cannot
+# qualify.
+_SPACED_MIN_TOKENS = 4
+
+# ...and at least this many of its single-character tokens must be LETTERS.
+#
+# This condition is not optional. A numeric table row such as '1 2 3 4 5' is
+# 100% single-character tokens and would otherwise be joined into '12345',
+# silently corrupting table content — Likert-scale rows in a results chapter
+# look exactly like that. Letter-spaced prose always carries many single
+# letters; a numeric row carries none.
+_SPACED_MIN_ALPHA_SINGLES = 4
+
+# Canva marks a word boundary with a DOUBLE space and an intra-word glyph gap
+# with a single space, so runs of 2+ spaces are the word separators.
+_WORD_GROUP_SEPARATOR = re.compile(r' {2,}')
+
+
+def _line_is_letter_spaced(line: str) -> bool:
+    """True when ``line`` looks like per-glyph-positioned text.
+
+    All three conditions must hold — see the constants above for why each
+    exists. Conservative by design: a false positive rewrites real content,
+    while a false negative merely leaves a line as it is today.
+    """
+    tokens = line.split()
+    if len(tokens) < _SPACED_MIN_TOKENS:
+        return False
+
+    singles = [t for t in tokens if len(t) == 1]
+    if len(singles) / len(tokens) < _SPACED_SINGLE_TOKEN_RATIO:
+        return False
+
+    alpha_singles = sum(1 for t in singles if t.isalpha())
+    return alpha_singles >= _SPACED_MIN_ALPHA_SINGLES
+
+
+def _despace_line(line: str) -> str:
+    """Rejoin a letter-spaced line into ordinary words.
+
+    'A B S T R A C T' -> 'ABSTRACT'
+    'D O R M I F Y :  D O R M  F I N D E R' -> 'DORMIFY: DORM FINDER'
+
+    Empty groups are dropped so leading or trailing space runs do not leave
+    stray separators. Interior runs never produce an empty group, so word
+    boundaries are unaffected.
+    """
+    groups = _WORD_GROUP_SEPARATOR.split(line)
+    words = [''.join(group.split()) for group in groups]
+    return ' '.join(w for w in words if w)
+
+
+def despace_text(text: str) -> tuple[str, int]:
+    """Repair every letter-spaced line in ``text``.
+
+    Returns ``(repaired_text, lines_repaired)``. Lines that do not trip the
+    detector are passed through BYTE-IDENTICAL — no stripping, no whitespace
+    normalisation — so a document with no affected lines round-trips exactly.
+    """
+    lines = (text or '').split('\n')
+    repaired = 0
+    out = []
+    for line in lines:
+        if _line_is_letter_spaced(line):
+            out.append(_despace_line(line))
+            repaired += 1
+        else:
+            out.append(line)
+    return '\n'.join(out), repaired
+
+
 @dataclass(frozen=True)
 class ExtractionResult:
     """Result of a thesis text extraction.
@@ -65,8 +168,12 @@ class ExtractionResult:
         The extracted plain text (UTF-8 string). Empty if extraction
         failed entirely.
     method:
-        How the text was obtained — one of ``pypdf``, ``ocr_tesseract``,
-        ``python_docx``, or ``failed``.
+        How the text was obtained — one of ``pypdf``, ``pypdf+despaced``,
+        ``ocr_tesseract``, ``python_docx``, or ``failed``.
+
+        ``pypdf+despaced`` means the text layer was letter-spaced (see
+        ``despace_text``) and at least one line was rejoined. It is reported
+        separately from plain ``pypdf`` so a rewrite is never silent.
     success:
         True when at least one character was extracted.
     error:
@@ -156,16 +263,36 @@ class ThesisTextExtractor:
                     logger.warning('pypdf page failed for %s: %s', path, page_err)
             direct_text = '\n\n'.join(pages_text).strip()
 
+            # Repair letter-spaced lines HERE, at assembly, rather than at each
+            # return site. Three separate returns below hand back pypdf text
+            # (the normal path plus two last-resort paths when OCR yields
+            # nothing), and repairing once means they cannot drift apart.
+            #
+            # The OCR path is deliberately NOT repaired: its text comes from
+            # Tesseract, whose failure modes are different, and it is out of
+            # scope here.
+            direct_text, despaced_lines = despace_text(direct_text)
+            if despaced_lines:
+                # 'pypdf+despaced' rather than a silent repair — a rewrite of
+                # stored text has to be auditable from the result object.
+                pypdf_method = 'pypdf+despaced'
+                logger.info(
+                    'Repaired %d letter-spaced line(s) in %s', despaced_lines, path,
+                )
+            else:
+                pypdf_method = 'pypdf'
+
             if len(direct_text) >= PDF_TEXT_FALLBACK_THRESHOLD:
                 return ExtractionResult(
                     text=direct_text,
-                    method='pypdf',
+                    method=pypdf_method,
                     success=True,
                 )
             # Else: proceed to OCR fallback
         except Exception as exc:
             logger.warning('pypdf extraction failed for %s: %s', path, exc)
             direct_text = ''
+            pypdf_method = 'pypdf'
 
         # Step 2: OCR fallback for scanned PDFs
         try:
@@ -180,7 +307,7 @@ class ThesisTextExtractor:
             if direct_text:
                 return ExtractionResult(
                     text=direct_text,
-                    method='pypdf',
+                    method=pypdf_method,
                     success=True,
                 )
             return ExtractionResult(
@@ -194,7 +321,7 @@ class ThesisTextExtractor:
             if direct_text:
                 return ExtractionResult(
                     text=direct_text,
-                    method='pypdf',
+                    method=pypdf_method,
                     success=True,
                 )
             return ExtractionResult(
