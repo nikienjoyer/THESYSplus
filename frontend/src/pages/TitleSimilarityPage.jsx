@@ -15,7 +15,7 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Lightbulb, ShieldCheck } from 'lucide-react';
+import { ChevronDown, Info, Lightbulb, ShieldCheck } from 'lucide-react';
 import client from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
@@ -244,16 +244,7 @@ export default function TitleSimilarityPage() {
     }
   };
 
-  const handleReset = () => {
-    cancelExtraction();
-    cancelSimilarityCheck();
-    titleEditedRef.current = false;
-    setResult(null); setError(''); setTitle('');
-    setSubmitting(false);
-    setUploadFile(null); setExtracting(false); setExtractConf('');
-    setUploadError(''); setAutoDetected(false); setDocumentRejected(false);
-  };
-
+  // Editing stays available during a similarity check so it can cancel stale work.
   const handleTitleChange = (value) => {
     titleEditedRef.current = true;
     cancelSimilarityCheck();
@@ -496,7 +487,6 @@ export default function TitleSimilarityPage() {
                           type="text"
                           value={title}
                           onChange={(e) => handleTitleChange(e.target.value)}
-                          disabled={submitting}
                           minLength={5}
                           maxLength={500}
                           placeholder="Enter your proposed thesis title…"
@@ -515,19 +505,29 @@ export default function TitleSimilarityPage() {
                         exit="exit"
                         variants={panelVariants}
                       >
-                        <label
-                          htmlFor="upload-proposal-file"
-                          className={`block text-sm font-semibold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
-                        >
-                          Proposal document
-                        </label>
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <label
+                            htmlFor="upload-proposal-file"
+                            className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                          >
+                            Proposal document
+                          </label>
+                          <details className="relative">
+                            <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                              <Info className="h-4 w-4" aria-hidden="true" />
+                              <span className="sr-only">About automatic title extraction</span>
+                            </summary>
+                            <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                              The title is detected from your document’s text. Unusual formatting or unreadable text may produce an incomplete or incorrect title. Review and edit it before checking similarity.
+                            </div>
+                          </details>
+                        </div>
 
                         <FileDropzone
                           inputId="upload-proposal-file"
                           file={uploadFile}
                           onFileSelect={handleFileSelect}
                           onRemove={handleFileRemove}
-                          disabled={submitting}
                           idleTitle="Drag & drop your proposal"
                           statusLoading={extracting}
                           statusText={
@@ -576,7 +576,6 @@ export default function TitleSimilarityPage() {
                               type="text"
                               value={title}
                               onChange={(e) => handleTitleChange(e.target.value)}
-                              disabled={submitting}
                               minLength={5}
                               maxLength={500}
                               className={titleInputCls.replace('py-3', 'py-2.5')}
@@ -609,17 +608,6 @@ export default function TitleSimilarityPage() {
                       className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
                       {submitting ? <><Spinner /> Checking similarity…</> : 'Validate Title'}
-                    </button>
-                    {/* Always rendered — a control that only materialises once
-                        a result exists shifts the layout. */}
-                    <button
-                      type="button"
-                      onClick={handleReset}
-                      className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                        isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      Clear
                     </button>
                   </div>
                 </div>
