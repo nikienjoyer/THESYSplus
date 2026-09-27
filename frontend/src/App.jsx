@@ -15,6 +15,7 @@
 
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Outlet, Link } from 'react-router-dom';
+import RouteScrollManager from './components/navigation/RouteScrollManager';
 import { TooltipProvider } from './components/shadcn/tooltip';
 import { useAuth } from './hooks/useAuth';
 import Spinner from './components/ui/Spinner';
@@ -93,6 +94,7 @@ function ProtectedRoute() {
 export default function App() {
   return (
     <BrowserRouter>
+      <RouteScrollManager />
       <TooltipProvider delayDuration={300}>
         <UploadModalProvider>
           <Routes>
