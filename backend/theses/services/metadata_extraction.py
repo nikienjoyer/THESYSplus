@@ -500,6 +500,15 @@ def fold_quotes(title: str) -> str:
     return ''.join(_QUOTE_FOLDING.get(ch, ch) for ch in title)
 
 
+def _close_inline_hyphen_gap(value: str) -> str:
+    """Repair PDF text that inserts a space before a joined hyphen.
+
+    ``REAL -TIME`` is printed as ``REAL-TIME``. A space after the hyphen is
+    deliberately left alone because it can reflect different source text.
+    """
+    return re.sub(r'(?<=\w)\s+-(?=\w)', '-', value)
+
+
 def normalize_title_case(title: str) -> str:
     """Title-case an ALL-CAPS title while preserving known acronyms.
 
@@ -1086,7 +1095,7 @@ def detect_title(text: str) -> tuple[str, str]:
     # Final scrub before casing. Every line-based defence above can be bypassed
     # by an extractor that emits the page as one line; this cannot.
     title = _strip_pii_tail(collapse_whitespace(title))
-    title = fold_quotes(title)
+    title = _close_inline_hyphen_gap(fold_quotes(title))
     title = normalize_title_case(title)
 
     if document_is_chapter_only and best_confidence in ('high', 'medium'):
@@ -1263,7 +1272,10 @@ def detect_abstract(text: str) -> tuple[str, str]:
                 current = []
             continue
         blank_run = 0
-        if _ABSTRACT_STOP.match(line):
+        # Numbered headings such as "1.INTRODUCTION" are not covered by the
+        # unnumbered stop pattern. Require the whole line to be a heading so
+        # citations and ordinary prose mentioning a section stay in the body.
+        if _ABSTRACT_STOP.match(line) or _NUMBERED_BODY_HEADING.fullmatch(line):
             break
         current.append(line)
         if sum(len(' '.join(p)) for p in paragraphs) + len(' '.join(current)) > MAX_ABSTRACT_CHARS:
@@ -1273,6 +1285,7 @@ def detect_abstract(text: str) -> tuple[str, str]:
         paragraphs.append(current)
 
     joined = '\n\n'.join(_join_wrapped_lines(p) for p in paragraphs if p).strip()
+    joined = _close_inline_hyphen_gap(joined)
     joined = joined[:MAX_ABSTRACT_CHARS].strip()
 
     if len(joined) < MIN_ABSTRACT_CHARS:
@@ -1707,7 +1720,7 @@ def detect_keywords(text: str) -> tuple[list[str], str]:
     seen: set[str] = set()
     keywords: list[str] = []
     for chunk in _KEYWORD_SPLIT.split(raw_value):
-        item = collapse_whitespace(chunk).strip(' .;:')
+        item = _close_inline_hyphen_gap(collapse_whitespace(chunk).strip(' .;:'))
         if not item or len(item) > MAX_KEYWORD_CHARS:
             continue
         if not any(ch.isalpha() for ch in item):
