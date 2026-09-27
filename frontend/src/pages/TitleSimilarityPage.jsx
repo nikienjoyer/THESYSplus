@@ -176,10 +176,17 @@ export default function TitleSimilarityPage() {
   const [documentRejected, setDocumentRejected] = useState(false);
 
   const extractAbortRef = useRef(null);
+  const similarityAbortRef = useRef(null);
+  const titleEditedRef = useRef(false);
 
   const cancelExtraction = () => {
     extractAbortRef.current?.abort();
     extractAbortRef.current = null;
+  };
+
+  const cancelSimilarityCheck = () => {
+    similarityAbortRef.current?.abort();
+    similarityAbortRef.current = null;
   };
 
   // ── Keyboard nav for the segmented control (ARIA tablist pattern) ──────
@@ -208,11 +215,19 @@ export default function TitleSimilarityPage() {
     }
     const trimmed = title.trim();
     if (trimmed.length < 5) { setError('Please enter a title with at least 5 characters.'); return; }
+    cancelSimilarityCheck();
+    const controller = new AbortController();
+    similarityAbortRef.current = controller;
     setError(''); setSubmitting(true); setResult(null);
     try {
-      const res = await client.post('/theses/validate-title/', { title: trimmed });
+      const res = await client.post('/theses/validate-title/', { title: trimmed }, {
+        signal: controller.signal,
+      });
+      if (similarityAbortRef.current !== controller) return;
       setResult(res.data);
     } catch (err) {
+      if (similarityAbortRef.current !== controller) return;
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
       const code = err?.response?.data?.error?.code;
       const msg = err?.response?.data?.error?.message;
       if (code === 'TITLE_TOO_SHORT') setError('Title must be at least 5 characters.');
@@ -221,14 +236,31 @@ export default function TitleSimilarityPage() {
         setError(msg || 'Validation failed. Please try again.');
         toast.error(msg || 'Title validation failed. Please try again.');
       }
-    } finally { setSubmitting(false); }
+    } finally {
+      if (similarityAbortRef.current === controller) {
+        similarityAbortRef.current = null;
+        setSubmitting(false);
+      }
+    }
   };
 
   const handleReset = () => {
     cancelExtraction();
+    cancelSimilarityCheck();
+    titleEditedRef.current = false;
     setResult(null); setError(''); setTitle('');
+    setSubmitting(false);
     setUploadFile(null); setExtracting(false); setExtractConf('');
     setUploadError(''); setAutoDetected(false); setDocumentRejected(false);
+  };
+
+  const handleTitleChange = (value) => {
+    titleEditedRef.current = true;
+    cancelSimilarityCheck();
+    setSubmitting(false);
+    setTitle(value);
+    setResult(null);
+    setError('');
   };
 
   // ── Upload: automatic extraction on attach — no button ─────────────────
@@ -258,7 +290,7 @@ export default function TitleSimilarityPage() {
       if (extractAbortRef.current !== controller) return;
 
       const { detected_title, confidence } = res.data;
-      if (detected_title) {
+      if (detected_title && !titleEditedRef.current) {
         setTitle(detected_title);
         setExtractConf(confidence || '');
         setAutoDetected(true);
@@ -302,7 +334,15 @@ export default function TitleSimilarityPage() {
   };
 
   const handleFileSelect = (selected) => {
+    cancelSimilarityCheck();
+    titleEditedRef.current = false;
     setUploadFile(selected);
+    setTitle('');
+    setResult(null);
+    setError('');
+    setSubmitting(false);
+    setExtracting(false);
+    setExtractConf('');
     setUploadError('');
     setAutoDetected(false); // this file hasn't produced a title yet
     setDocumentRejected(false); // a new file gets a clean verdict
@@ -311,14 +351,18 @@ export default function TitleSimilarityPage() {
 
   const handleFileRemove = () => {
     cancelExtraction();
+    cancelSimilarityCheck();
+    titleEditedRef.current = false;
     setExtracting(false);
+    setSubmitting(false);
     setUploadFile(null);
+    setTitle('');
+    setResult(null);
+    setError('');
     setExtractConf('');
     setUploadError('');
     setAutoDetected(false);
     setDocumentRejected(false);
-    // `title` is deliberately left untouched — it may hold a value the user
-    // already reviewed and wants to keep even without the file attached.
   };
 
   const visuals = result ? statusVisuals(result.classification) : null;
@@ -451,7 +495,7 @@ export default function TitleSimilarityPage() {
                           id="proposed-title"
                           type="text"
                           value={title}
-                          onChange={(e) => setTitle(e.target.value)}
+                          onChange={(e) => handleTitleChange(e.target.value)}
                           disabled={submitting}
                           minLength={5}
                           maxLength={500}
@@ -531,7 +575,7 @@ export default function TitleSimilarityPage() {
                               id="detected-title"
                               type="text"
                               value={title}
-                              onChange={(e) => setTitle(e.target.value)}
+                              onChange={(e) => handleTitleChange(e.target.value)}
                               disabled={submitting}
                               minLength={5}
                               maxLength={500}
