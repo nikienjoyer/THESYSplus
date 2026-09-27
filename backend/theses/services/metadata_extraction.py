@@ -820,6 +820,14 @@ def _join_title_block(
         if _TITLE_KEYWORD_LABEL.fullmatch(nxt) or _is_block_terminator(nxt):
             break
 
+        # A summary sentence may repeat the final title line immediately
+        # before describing the work. It is not another title fragment.
+        if (
+            _looks_like_prose_continuation(nxt)
+            or _repeats_title_as_prose(nxt, parts[-1])
+        ):
+            break
+
         if has_blank_structure:
             if not _continues_title(nxt, parts[-1]):
                 break
@@ -890,7 +898,10 @@ def _continues_title(line: str, previous: str) -> bool:
     # it begins with ``The`` or contains a connector. A comma followed by a
     # subject and finite-verb-shaped clause is strong prose evidence, while
     # title fragments in this corpus are noun phrases.
-    if _looks_like_prose_continuation(line):
+    if (
+        _looks_like_prose_continuation(line)
+        or _repeats_title_as_prose(line, previous)
+    ):
         return False
 
     if words[0].lower().strip('.,;:') in _CONNECTOR_WORDS:
@@ -977,6 +988,22 @@ def _looks_like_prose_continuation(line: str) -> bool:
     ))
 
 
+def _repeats_title_as_prose(line: str, previous: str) -> bool:
+    """Stop when a summary restates the prior title fragment as a sentence."""
+    if len(line.split()) < 16 or len(previous.split()) < 4:
+        return False
+    if not re.match(r'^(?:the|this|these|it)\b', line, re.IGNORECASE):
+        return False
+    copula = re.search(
+        r'\b(?:is|are|was|were)\s+(?:a|an|the)\b', line, re.IGNORECASE
+    )
+    if not copula:
+        return False
+    earlier = re.sub(r'\W+', ' ', line[:copula.start()]).strip().casefold()
+    fragment = re.sub(r'\W+', ' ', previous).strip().casefold()
+    return bool(fragment and fragment in earlier)
+
+
 def detect_title(text: str) -> tuple[str, str]:
     """Detect the thesis title from raw extracted document text.
 
@@ -1046,6 +1073,7 @@ def detect_title(text: str) -> tuple[str, str]:
             and previous_chain_start_idx >= 0
             and not _is_block_terminator(line)
             and not _looks_like_prose_continuation(line)
+            and not _repeats_title_as_prose(line, previous_line)
             and (
                 _continues_title(line, previous_line)
                 or _same_title_line_style(line, previous_line)
