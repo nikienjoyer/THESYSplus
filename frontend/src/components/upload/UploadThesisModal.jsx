@@ -95,6 +95,29 @@ function ConfidenceHint({ confidence }) {
   );
 }
 
+// Offer a readable version of an extracted all-caps name without changing
+// the source value. Names with existing casing may contain intentional forms.
+function suggestAuthorCapitalization(authorList) {
+  if (!Array.isArray(authorList) || authorList.length === 0) return null;
+
+  const source = authorList.join('; ');
+  const suggested = authorList.map((name) => {
+    const letters = name.match(/\p{L}/gu);
+    if (!letters || !letters.every((letter) => letter === letter.toUpperCase())) {
+      return name;
+    }
+
+    return name.replace(/\p{L}+/gu, (word) => {
+      if (word.length === 1) return word;
+      if (/^(?:II|III|IV|V|VI|VII|VIII|IX|X)$/.test(word)) return word;
+      const lowered = word.toLowerCase();
+      return lowered.replace(/^\p{L}/u, (letter) => letter.toUpperCase());
+    });
+  }).join('; ');
+
+  return suggested === source ? null : { source, value: suggested };
+}
+
 // ---------------------------------------------------------------------------
 // Upload progress indicator
 // ---------------------------------------------------------------------------
@@ -169,6 +192,7 @@ export default function UploadThesisModal() {
   const [autoFilled, setAutoFilled]         = useState({});   // field -> confidence
   const [extractionNote, setExtractionNote] = useState(null); // { text, tone }
   const [extractionFoundMetadata, setExtractionFoundMetadata] = useState(false);
+  const [authorSuggestion, setAuthorSuggestion] = useState(null);
 
   // Hard block: set when the backend gate has rejected the attached document
   // (either from auto-fill's own probe, or from a submit that reached the
@@ -211,6 +235,7 @@ export default function UploadThesisModal() {
     setStageIndex(-1); setUploadProgress(0); setSuccess(null);
     setExtracting(false); setAutoFilled({}); setExtractionNote(null);
     setExtractionFoundMetadata(false);
+    setAuthorSuggestion(null);
     setRejectedReason(null);
     setConfirmOpen(false);
   };
@@ -319,6 +344,7 @@ export default function UploadThesisModal() {
     if (Array.isArray(authorList) && authorList.length > 0
         && !touched.has('authors') && currentValues.authors.trim() === '') {
       setAuthors(authorList.join('; '));
+      setAuthorSuggestion(suggestAuthorCapitalization(authorList));
       filled.authors = confidenceOf('authors');
     }
 
@@ -396,6 +422,7 @@ export default function UploadThesisModal() {
     // to keep, including when the new extraction returns unknown.
     if (autoFilled.year && !touchedRef.current.has('year')) setYear('');
     setAutoFilled({});
+    setAuthorSuggestion(null);
     setExtractionNote(null);
     setExtractionFoundMetadata(false);
     setRejectedReason(null);
@@ -467,6 +494,7 @@ export default function UploadThesisModal() {
     setError(''); setFieldErrors({});
     setExtracting(false);
     setAutoFilled({});
+    setAuthorSuggestion(null);
     setExtractionNote(null);
     setExtractionFoundMetadata(false);
     setRejectedReason(null);
@@ -739,7 +767,7 @@ export default function UploadThesisModal() {
                       <span className="sr-only">About automatic metadata extraction</span>
                     </summary>
                     <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-                      Auto-filled details are suggestions from your document. Typos, missing headings, unusual layouts, or reading errors can make fields incomplete or incorrect. Check every field before uploading.
+                      Auto-filled details are derived from your document. Typos, missing headings, unusual layouts, or reading errors can make fields incomplete or incorrect. Check every field before uploading.
                     </div>
                   </details>
                 </div>
@@ -829,10 +857,30 @@ export default function UploadThesisModal() {
                   <ConfidenceHint confidence={autoFilled.authors} />
                 </label>
                 <input type="text" value={authors}
-                  onChange={(e) => { markTouched('authors'); setAuthors(e.target.value); }}
+                  onChange={(e) => {
+                    markTouched('authors');
+                    setAuthors(e.target.value);
+                    setAuthorSuggestion(null);
+                  }}
+                  aria-describedby={authorSuggestion ? 'author-capitalization-suggestion' : undefined}
                   placeholder="Dela Cruz, Juan M.; Santos, Maria A." required disabled={submitting} className={inputCls} />
-                <p className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                </p>
+                {authorSuggestion && authors === authorSuggestion.source && (
+                  <div id="author-capitalization-suggestion" className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+                    <p className={isDark ? 'text-gray-300' : 'text-gray-600'}>
+                      Suggested capitalization: <span className="font-medium break-words">{authorSuggestion.value}</span>
+                    </p>
+                    <button type="button" disabled={submitting}
+                      onClick={() => {
+                        if (authors !== authorSuggestion.source) return;
+                        markTouched('authors');
+                        setAuthors(authorSuggestion.value);
+                        setAuthorSuggestion(null);
+                      }}
+                      className="rounded text-sm font-medium text-blue-600 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50 dark:text-blue-400">
+                      Use suggestion
+                    </button>
+                  </div>
+                )}
                 {fieldErrors.authors && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.authors}</p>}
               </div>
 
