@@ -270,15 +270,15 @@ export default function ThesisDetailPage() {
 
             <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
 
-            <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Abstract
-            </h2>
-            {/* Reading column: 65ch measure for comfortable scholarly reading.
+            {/* Align the abstract with Authors and Keywords and use the card width.
                 font-reading = Source Serif 4 Variable (Phase 2.C-2).
                 text-[1.0625rem] = 17px — within the 16-18px approved reading range. */}
-            <div className="max-w-[65ch] mb-6">
+            <div className="w-full mb-6">
+              <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Abstract
+              </h2>
               <p
-                className={`font-reading text-[1.0625rem] leading-[1.65] whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                className={`font-reading text-left text-[1.0625rem] leading-[1.65] whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
                 style={{ textWrap: 'pretty' }}
               >
                 {thesis.abstract}
