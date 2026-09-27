@@ -22,7 +22,8 @@ Implements the approved THESYS+ Chapter 1–3 architecture:
   table built from the THESYS+ research domain (AI, IoT, Web, Mobile,
   Health, Education, Blockchain, NLP, Computer Vision, Data Analytics).
   When no rule matches the cluster's top TF-IDF keywords, the label
-  falls back to the highest-weight keyword capitalised.
+  falls back to the most common author keyword or a neutral mixed-topic label.
+  Distinct clusters with the same name receive a cluster-number qualifier.
 
 This service is read-only — it never mutates any Thesis row.
 """
@@ -115,7 +116,9 @@ _TOPIC_RULES: tuple[tuple[str, frozenset[str]], ...] = (
     ('Computer Vision / IoT',   frozenset({'parking', 'yolov5', 'yolo'})),
     ('Web-Based Systems',       frozenset({'web', 'web-based', 'website', 'inventory', 'management', 'monitoring', 'tracking', 'laravel', 'django', 'react', 'vue', 'qr', 'cloud', 'aws', 'lambda'})),
     ('Recommendation Systems',  frozenset({'recommendation', 'recommender', 'tfidf', 'tf-idf', 'collaborative', 'filtering', 'similarity'})),
-    ('Data Analytics',          frozenset({'analytics', 'analysis', 'forecast', 'forecasting', 'arima', 'visualization', 'data'})),
+    # Bare "analysis" and "data" occur in almost every research abstract;
+    # they mislabeled an irrigation/IoT cluster as Data Analytics.
+    ('Data Analytics',          frozenset({'analytics', 'forecast', 'forecasting', 'arima', 'visualization'})),
     ('Accessibility',           frozenset({'sign', 'accessibility', 'disability', 'assistive'})),
 )
 
@@ -613,6 +616,13 @@ def analyze_topics(
             sample_titles=sample_titles,
             thesis_ids=thesis_ids,
         ))
+
+    # K-Means can produce distinct groups with the same heuristic name. Keep
+    # every group and make collisions distinguishable in every API consumer.
+    topic_counts = Counter(cluster.topic for cluster in clusters)
+    for cluster in clusters:
+        if topic_counts[cluster.topic] > 1:
+            cluster.topic = f'{cluster.topic} (Cluster {cluster.cluster_id + 1})'
 
     return TopicTrendsResult(
         total_theses=n_docs,
