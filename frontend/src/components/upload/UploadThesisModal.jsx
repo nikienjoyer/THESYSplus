@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Clock, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Info, Sparkles, X } from 'lucide-react';
 import client from '../../api/client';
 import { clearAllCaches } from '../../utils/appCaches';
 import { parseAuthorInput } from '../../utils/formatters';
@@ -729,7 +729,20 @@ export default function UploadThesisModal() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className={labelCls}>Thesis Document</label>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Thesis Document
+                  </label>
+                  <details className="relative">
+                    <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                      <Info className="h-4 w-4" aria-hidden="true" />
+                      <span className="sr-only">About automatic metadata extraction</span>
+                    </summary>
+                    <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                      Auto-filled details are suggestions from your document. Typos, missing headings, unusual layouts, or reading errors can make fields incomplete or incorrect. Check every field before uploading.
+                    </div>
+                  </details>
+                </div>
                 <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                   Attach your thesis document to prefill the details below.
                 </p>
