@@ -57,6 +57,7 @@ export default function FileDropzone({
   accept = ['pdf', 'docx'],
   idleTitle = 'Drag & drop your file here',
   idleHint,
+  compactIdle = false,
   inputId,
   statusLoading = false,
   statusText,
@@ -168,7 +169,10 @@ export default function FileDropzone({
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
       className={[
-        'w-full flex flex-col items-center justify-center text-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 transition-colors',
+        'w-full flex flex-col items-center justify-center text-center gap-2 rounded-xl border-2 border-dashed transition-colors',
+        compactIdle
+          ? 'min-h-[150px] sm:min-h-[160px] px-4 sm:px-6 py-5'
+          : 'px-6 py-8',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         dragOver

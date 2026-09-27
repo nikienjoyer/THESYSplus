@@ -35,6 +35,14 @@ const PROGRAMS = [
   'Associate in Computer Technology',
 ];
 
+const EMPTY_METADATA_FORM = Object.freeze({
+  title: '',
+  abstract: '',
+  authors: '',
+  keywords: '',
+  year: '',
+});
+
 // Simulated frontend progress stages (purely visual — no backend changes)
 //
 // KNOWN INCONSISTENCY (flagged, deliberately not changed here): "Reading
@@ -51,10 +59,9 @@ const UPLOAD_STAGES = [
   { label: 'Submission complete.',           duration: 0    },
 ];
 
-// Ceiling for the auto-fill request. The backend reads only the first
-// METADATA_PAGES pages, so a normal response is fast; this exists so a stalled
-// request cannot leave the submit button disabled indefinitely.
-const EXTRACTION_TIMEOUT_MS = 30_000;
+// The preview can include bounded page-level OCR for image-backed abstracts.
+// Allow that work to finish while still bounding a stalled auto-fill request.
+const EXTRACTION_TIMEOUT_MS = 45_000;
 
 // Per-field confidence returned by /theses/extract-metadata/, rendered as a
 // call to ACTION rather than an OCR/ML confidence label — the user should not
@@ -142,8 +149,8 @@ export default function UploadThesisModal() {
   const [abstract, setAbstract] = useState('');
   const [authors, setAuthors]   = useState('');
   const [keywords, setKeywords] = useState('');
-  const [program, setProgram]   = useState(PROGRAMS[0]);
-  const [year, setYear]         = useState(new Date().getFullYear());
+  const [program, setProgram]   = useState('');
+  const [year, setYear]         = useState('');
   const [adviser, setAdviser]   = useState('');
   const [file, setFile]         = useState(null);
 
@@ -161,6 +168,7 @@ export default function UploadThesisModal() {
   const [extracting, setExtracting]         = useState(false);
   const [autoFilled, setAutoFilled]         = useState({});   // field -> confidence
   const [extractionNote, setExtractionNote] = useState(null); // { text, tone }
+  const [extractionFoundMetadata, setExtractionFoundMetadata] = useState(false);
 
   // Hard block: set when the backend gate has rejected the attached document
   // (either from auto-fill's own probe, or from a submit that reached the
@@ -198,10 +206,11 @@ export default function UploadThesisModal() {
     extractAbortRef.current = null;
     touchedRef.current = new Set();
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
-    setProgram(PROGRAMS[0]); setYear(new Date().getFullYear()); setAdviser('');
+    setProgram(''); setYear(''); setAdviser('');
     setFile(null); setError(''); setFieldErrors({});
     setStageIndex(-1); setUploadProgress(0); setSuccess(null);
     setExtracting(false); setAutoFilled({}); setExtractionNote(null);
+    setExtractionFoundMetadata(false);
     setRejectedReason(null);
     setConfirmOpen(false);
   };
@@ -278,11 +287,14 @@ export default function UploadThesisModal() {
    *     "still empty AND untouched" is the condition. Untouched matters on its
    *     own: a user who typed and then cleared a field chose to leave it
    *     blank, and that choice is respected.
-   *   * Program and year always hold a value — the select defaults to
-   *     PROGRAMS[0] and year to the current year — so emptiness is not a
-   *     meaningful test for them. Untouched is the equivalent condition.
+   *   * Program and year start empty. A program is filled only when extraction
+   *     returns a supported value and the user has not touched the field; year
+   *     also remains empty when extraction has no supported year.
    */
-  const applyExtractedMetadata = (data) => {
+  const applyExtractedMetadata = (
+    data,
+    currentValues = { title, abstract, authors, keywords, year },
+  ) => {
     const fields = data?.fields || {};
     const touched = touchedRef.current;
     const filled = {};
@@ -297,29 +309,28 @@ export default function UploadThesisModal() {
       filled[key] = confidenceOf(key);
     };
 
-    fillText('title', title, setTitle);
-    fillText('abstract', abstract, setAbstract);
+    fillText('title', currentValues.title, setTitle);
+    fillText('abstract', currentValues.abstract, setAbstract);
 
     // Joined with '; ' and NOT ', ' on purpose: every extracted name already
     // contains a comma ("Dela Cruz, Juan M."), so a comma join would make
     // parseAuthorInput read one author as two.
     const authorList = fields.authors?.value;
     if (Array.isArray(authorList) && authorList.length > 0
-        && !touched.has('authors') && authors.trim() === '') {
+        && !touched.has('authors') && currentValues.authors.trim() === '') {
       setAuthors(authorList.join('; '));
       filled.authors = confidenceOf('authors');
     }
 
     const keywordList = fields.keywords?.value;
     if (Array.isArray(keywordList) && keywordList.length > 0
-        && !touched.has('keywords') && keywords.trim() === '') {
+        && !touched.has('keywords') && currentValues.keywords.trim() === '') {
       setKeywords(keywordList.join(', '));
       filled.keywords = confidenceOf('keywords');
     }
 
-    // PROGRAMS.includes is a second gate on top of the server's enum check.
-    // A value outside the list has no matching <option>, which would leave the
-    // select visually blank and then fail submit with a VALIDATION_ERROR.
+    // Ignore unsupported extractor values so the user must choose one of the
+    // four supported programs from the placeholder.
     const extractedProgram = fields.program?.value;
     if (typeof extractedProgram === 'string' && PROGRAMS.includes(extractedProgram)
         && !touched.has('program')) {
@@ -328,7 +339,7 @@ export default function UploadThesisModal() {
     }
 
     const extractedYear = fields.year?.value;
-    if (Number.isInteger(extractedYear) && !touched.has('year')) {
+    if (Number.isInteger(extractedYear) && !touched.has('year') && currentValues.year === '') {
       setYear(extractedYear);
       filled.year = confidenceOf('year');
     }
@@ -379,8 +390,14 @@ export default function UploadThesisModal() {
     extractAbortRef.current = controller;
 
     setExtracting(true);
+    // A year auto-filled from a previously attached file is not evidence for
+    // this one. Clear it before the new extraction unless the user has
+    // interacted with the year field; that manually entered value is theirs
+    // to keep, including when the new extraction returns unknown.
+    if (autoFilled.year && !touchedRef.current.has('year')) setYear('');
     setAutoFilled({});
     setExtractionNote(null);
+    setExtractionFoundMetadata(false);
     setRejectedReason(null);
 
     try {
@@ -396,9 +413,17 @@ export default function UploadThesisModal() {
       // A superseded request (file replaced or removed mid-flight) must not
       // write into the form.
       if (extractAbortRef.current !== controller) return;
-      applyExtractedMetadata(res.data);
+      // This request belongs to a newly selected document, whose form was
+      // cleared in the same event. Use that clean snapshot because React has
+      // not rendered the state updates yet; touchedRef still protects any
+      // fields the user edits while this request is in flight.
+      applyExtractedMetadata(res.data, EMPTY_METADATA_FORM);
+      setExtractionFoundMetadata(
+        Array.isArray(res.data?.filled_fields) && res.data.filled_fields.length > 0,
+      );
     } catch (err) {
       if (extractAbortRef.current !== controller) return;
+      setExtractionFoundMetadata(false);
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
 
       const code = err?.response?.data?.error?.code;
@@ -408,12 +433,11 @@ export default function UploadThesisModal() {
       // permission to proceed, which would walk the user into typing a
       // Certificate of Registration's details in by hand and submitting it —
       // only for the upload itself to be refused at the end. Surface the real
-      // reason prominently instead, in the same error region a failed submit
-      // uses.
+      // reason prominently in the document section.
       if (code === 'NOT_A_THESIS_DOCUMENT') {
         setRejectedReason(
           err?.response?.data?.error?.message
-          || 'This document does not appear to be a thesis. Please attach the '
+          || 'This document does not appear to be a thesis. Please upload the '
              + 'thesis manuscript itself.',
         );
         setExtractionNote(null);
@@ -436,22 +460,28 @@ export default function UploadThesisModal() {
     }
   };
 
+  const clearDocumentForm = () => {
+    touchedRef.current = new Set();
+    setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
+    setProgram(''); setYear(''); setAdviser('');
+    setError(''); setFieldErrors({});
+    setExtracting(false);
+    setAutoFilled({});
+    setExtractionNote(null);
+    setExtractionFoundMetadata(false);
+    setRejectedReason(null);
+  };
+
   const handleFileSelect = (selected) => {
     setFile(selected);
+    clearDocumentForm();
     runExtraction(selected);
   };
 
   const handleFileRemove = () => {
     cancelExtraction();
-    setExtracting(false);
     setFile(null);
-    // Values that were auto-filled are KEPT. Silently clearing fields the user
-    // is looking at would be worse than dropping the provenance badges, and
-    // those values may be exactly what they want to submit. Only the markers
-    // and the note go, since they refer to a document no longer attached.
-    setAutoFilled({});
-    setExtractionNote(null);
-    setRejectedReason(null);
+    clearDocumentForm();
   };
 
   /**
@@ -471,6 +501,14 @@ export default function UploadThesisModal() {
     if (rejectedReason) return;
 
     if (!file) { setError('Please attach a PDF or DOCX file.'); return; }
+    if (!PROGRAMS.includes(program)) {
+      setFieldErrors({ program: 'Please select a program.' });
+      return;
+    }
+    if (!Number.isInteger(year) || year < 1980 || year > 2100) {
+      setFieldErrors({year: 'Please enter a thesis year.'});
+      return;
+    }
     if (parseAuthorInput(authors).length === 0) {
       setError('At least one author is required.');
       return;
@@ -484,6 +522,15 @@ export default function UploadThesisModal() {
   };
 
   const performUpload = async () => {
+    if (!PROGRAMS.includes(program)) {
+      setConfirmOpen(false);
+      setFieldErrors((current) => ({
+        ...current,
+        program: 'Please select a program.',
+      }));
+      return;
+    }
+
     setConfirmOpen(false);
     setError('');
     setFieldErrors({});
@@ -524,15 +571,14 @@ export default function UploadThesisModal() {
       const details = err?.response?.data?.error?.details;
 
       if (code === 'NOT_A_THESIS_DOCUMENT') {
-        // Hard block on the backend for every role — the message names what
-        // was missing, so it is surfaced verbatim rather than genericised.
+        // Hard block on the backend for every role. The document-section alert
+        // owns this message so the same rejection is shown only once.
         // Also raises rejectedReason: this catch runs when auto-fill never
         // got the chance to score the document (timed out, or was cancelled
         // before it resolved), so submit is the first time the gate is seen.
         const reason = msg
-          || 'This document does not appear to be a thesis. Please attach the '
+          || 'This document does not appear to be a thesis. Please upload the '
              + 'thesis manuscript itself.';
-        setError(reason);
         setRejectedReason(reason);
       } else if (code === 'DUPLICATE_FILE') {
         setError('This file has already been uploaded.');
@@ -654,7 +700,7 @@ export default function UploadThesisModal() {
           </div>
         ) : (
           /* ── Form state ── */
-          <div className="custom-modal-scroll max-h-[88vh] overflow-y-auto p-6 sm:p-8">
+          <div className="custom-modal-scroll max-h-[88vh] overflow-y-auto p-4 sm:p-8">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-1">
               <h2 id="upload-modal-title" className="text-2xl font-bold text-ink">Upload Thesis</h2>
@@ -683,6 +729,66 @@ export default function UploadThesisModal() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
+                <label className={labelCls}>Thesis Document</label>
+                <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                  Attach your thesis document to prefill the details below.
+                </p>
+                <FileDropzone
+                  file={file}
+                  onFileSelect={handleFileSelect}
+                  onRemove={handleFileRemove}
+                  disabled={submitting}
+                  idleTitle="Drag & drop your thesis"
+                  compactIdle
+                />
+                {fieldErrors.file && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.file}</p>}
+
+                {/* Auto-fill status — advisory only, never blocks the form */}
+                <div aria-live="polite" role="status">
+                  {extracting && (
+                    <p className={`mt-2 flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <Spinner />
+                      Reading the document to fill in what it can…
+                    </p>
+                  )}
+                  {!extracting && extractionNote && !extractionNote.text.startsWith('Auto-filled ') && (
+                    <p className={`mt-2 flex items-start gap-1.5 text-xs ${
+                      extractionNote.tone === 'warn'
+                        ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                        : (isDark ? 'text-gray-400' : 'text-gray-600')
+                    }`}>
+                      {extractionNote.tone === 'warn'
+                        ? <AlertTriangle className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />
+                        : <Sparkles className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />}
+                      <span>{extractionNote.text}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {rejectedReason && (
+                <div
+                  id="upload-blocked-reason"
+                  role="alert"
+                  className={`rounded-lg p-3 text-sm ${
+                    isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  <p>{rejectedReason}</p>
+                  <p className="mt-1 text-xs opacity-80">
+                    Uploading is disabled for this document.
+                  </p>
+                </div>
+              )}
+
+              <div className="border-t border-[var(--color-border)]" />
+
+              <div>
+                {extractionFoundMetadata && file && (
+                  <p className={`mb-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Please carefully review the details below.
+                  </p>
+                )}
                 <label className={labelCls}>
                   Title
                   <ConfidenceHint confidence={autoFilled.title} />
@@ -700,7 +806,7 @@ export default function UploadThesisModal() {
                 </label>
                 <textarea value={abstract}
                   onChange={(e) => { markTouched('abstract'); setAbstract(e.target.value); }}
-                  required minLength={20} rows={5} disabled={submitting} className={inputCls} />
+                  required minLength={20} rows={abstract.trim() ? 8 : 5} disabled={submitting} className={inputCls} />
                 {fieldErrors.abstract && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.abstract}</p>}
               </div>
 
@@ -730,16 +836,47 @@ export default function UploadThesisModal() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>
+                  <label htmlFor="upload-program" className={labelCls}>
                     Program
                     <ConfidenceHint confidence={autoFilled.program} />
                   </label>
-                  <select value={program}
-                    onChange={(e) => { markTouched('program'); setProgram(e.target.value); }}
-                    disabled={submitting} className={inputCls}>
+                  <select
+                    id="upload-program"
+                    value={program}
+                    onChange={(e) => {
+                      const selectedProgram = e.target.value;
+                      markTouched('program');
+                      setProgram(selectedProgram);
+                      if (PROGRAMS.includes(selectedProgram)) {
+                        setFieldErrors((current) => {
+                          if (!current.program) return current;
+                          const next = { ...current };
+                          delete next.program;
+                          return next;
+                        });
+                      }
+                    }}
+                    aria-required="true"
+                    aria-invalid={Boolean(fieldErrors.program)}
+                    aria-describedby={fieldErrors.program ? 'upload-program-error' : undefined}
+                    disabled={submitting}
+                    className={inputCls}
+                    style={{ color: program ? undefined : 'var(--color-text-muted)' }}
+                  >
+                    <option value="" disabled style={{ color: 'var(--color-text-muted)' }}>
+                      Choose a program
+                    </option>
                     {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  {fieldErrors.program && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.program}</p>}
+                  {fieldErrors.program && (
+                    <p
+                      id="upload-program-error"
+                      role="alert"
+                      className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}
+                    >
+                      {fieldErrors.program}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className={labelCls}>
@@ -747,7 +884,10 @@ export default function UploadThesisModal() {
                     <ConfidenceHint confidence={autoFilled.year} />
                   </label>
                   <input type="number" min={1980} max={2100} value={year}
-                    onChange={(e) => { markTouched('year'); setYear(Number(e.target.value)); }}
+                    onChange={(e) => {
+                      markTouched('year');
+                      setYear(e.target.value === '' ? '' : Number(e.target.value));
+                    }}
                     required disabled={submitting} className={inputCls} />
                   {fieldErrors.year && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.year}</p>}
                 </div>
@@ -760,60 +900,6 @@ export default function UploadThesisModal() {
                   disabled={submitting} className={inputCls} />
                 {fieldErrors.adviser && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.adviser}</p>}
               </div>
-
-              <div>
-                <label className={labelCls}>Thesis Document</label>
-                <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                  Accepted formats: <strong>PDF</strong> or <strong>DOCX</strong> (max {MAX_UPLOAD_MB} MB).
-                  Attaching a file fills in any details it can read from the title page —
-                  empty fields only, and you can edit everything afterwards.
-                </p>
-                <FileDropzone
-                  file={file}
-                  onFileSelect={handleFileSelect}
-                  onRemove={handleFileRemove}
-                  disabled={submitting}
-                  idleTitle="Drag & drop your thesis"
-                />
-                {fieldErrors.file && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.file}</p>}
-
-                {/* Auto-fill status — advisory only, never blocks the form */}
-                <div aria-live="polite" role="status">
-                  {extracting && (
-                    <p className={`mt-2 flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      <Spinner />
-                      Reading the document to fill in what it can…
-                    </p>
-                  )}
-                  {!extracting && extractionNote && (
-                    <p className={`mt-2 flex items-start gap-1.5 text-xs ${
-                      extractionNote.tone === 'warn'
-                        ? (isDark ? 'text-amber-400' : 'text-amber-700')
-                        : (isDark ? 'text-gray-400' : 'text-gray-600')
-                    }`}>
-                      {extractionNote.tone === 'warn'
-                        ? <AlertTriangle className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />
-                        : <Sparkles className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />}
-                      <span>{extractionNote.text}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {rejectedReason && (
-                <div
-                  id="upload-blocked-reason"
-                  role="alert"
-                  className={`rounded-lg p-3 text-sm ${
-                    isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                  }`}
-                >
-                  <p>{rejectedReason}</p>
-                  <p className="mt-1 text-xs opacity-80">
-                    Uploading is disabled for this document.
-                  </p>
-                </div>
-              )}
 
               {error && (
                 <div className={`rounded-lg p-3 text-sm ${
