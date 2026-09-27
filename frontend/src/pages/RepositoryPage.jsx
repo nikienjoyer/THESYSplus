@@ -632,12 +632,12 @@ export default function RepositoryPage() {
                       onChange={handleThresholdChange}
                       isDark={isDark}
                       disabled={false}
-                      helperText="Set the minimum similarity percentage at which a proposed thesis title will be flagged as potentially similar to existing thesis titles."
+                      helperText="Set the minimum semantic similarity for repository search results. Exact title matches may still appear below this threshold."
                     />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
-                A lower threshold will flag more potentially similar titles, while a higher threshold will flag only titles with higher similarity. 60% is the recommended default for balanced results.
+                Lower the threshold to see more semantic matches, or raise it to see closer matches. Exact title matches can still appear below the threshold. The default is 60%.
                 </TooltipContent>
               </Tooltip>
             </div>
