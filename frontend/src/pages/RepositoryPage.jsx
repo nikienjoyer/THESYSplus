@@ -98,7 +98,7 @@ const CACHE_TTL_MS = 2 * 60 * 1000; // 2-minute memory cache
 const EXAMPLE_QUERIES = [
   'RFID attendance monitoring',
   'inventory and POS systems',
-  'AI and machine learning',
+  'Internet of Things',
 ];
 
 // ---------------------------------------------------------------------------
@@ -632,12 +632,12 @@ export default function RepositoryPage() {
                       onChange={handleThresholdChange}
                       isDark={isDark}
                       disabled={false}
-                      helperText="Similarity threshold applies only when using Semantic Search. Set your preferred strictness before searching."
+                      helperText="Set the minimum similarity percentage at which a proposed thesis title will be flagged as potentially similar to existing thesis titles."
                     />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
-                  Controls the minimum cosine similarity score (0–1) that results must meet. 60% is the recommended default for balanced results.
+                A lower threshold will flag more potentially similar titles, while a higher threshold will flag only titles with higher similarity. 60% is the recommended default for balanced results.
                 </TooltipContent>
               </Tooltip>
             </div>
