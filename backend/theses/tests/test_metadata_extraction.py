@@ -513,7 +513,7 @@ class TestMultiLineTitleJoining:
         title, _ = detect_title(THESIX_FRONTMATTER)
 
         assert title == (
-            'Thesix: An Online Thesis Archiving And Thesis Repository '
+            'THESIX: An Online Thesis Archiving And Thesis Repository '
             'With NLP Search'
         )
         # Acronym preserved rather than title-cased to 'Nlp'.
@@ -529,7 +529,7 @@ class TestMultiLineTitleJoining:
         title, _ = detect_title(EXTHEALTH_FRONTMATTER)
 
         assert title == (
-            'Exthealth: A Mobile Health Records System For Rural Clinics '
+            'EXTHEALTH: A Mobile Health Records System For Rural Clinics '
             'Using Natural Language Processing'
         )
         assert title.endswith('Processing')
@@ -540,6 +540,161 @@ class TestMultiLineTitleJoining:
 
         assert 'Santos' not in title
         assert 'Thesis' not in title.split()[1:]  # 'A Thesis' not swallowed
+
+
+class TestTitleBoundaryRegressions:
+    """Wrapped title lines should join without admitting authors or prose."""
+
+    def test_higher_scoring_continuation_does_not_replace_title_start(self):
+        text = (
+            'AQUAFLOW: AN ARDUINO-POWERED SMART\n'
+            'IRRIGATION SYSTEM FOR GUMAIN DAM\n\n'
+            'Katherine S. Baltazar\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == (
+            'AQUAFLOW: An Arduino-Powered Smart Irrigation System '
+            'For Gumain Dam'
+        )
+
+    def test_same_uppercase_style_joins_connectorless_lines(self):
+        text = (
+            'CODEQUEST: WHEN JAVA\n'
+            'PROGRAMMING MEETS PLAYFUL\n'
+            'LEARNING\n\n'
+            'Den Dave M. Alcantara\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == 'CODEQUEST: When Java Programming Meets Playful Learning'
+
+    def test_same_title_case_style_joins_without_a_connector(self):
+        text = (
+            'Web-Based Qualifying Examination for Accountancy Students of Don Honorio\n'
+            'Ventura State University – Main Campus\n\n'
+            'JOHN PAUL B. ARNAIZ, Don Honorio Ventura State University\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == (
+            'Web-Based Qualifying Examination for Accountancy Students of Don '
+            'Honorio Ventura State University – Main Campus'
+        )
+
+    def test_extractor_blank_gaps_inside_title_are_bridged(self):
+        text = (
+            'EXTHEALTH: A BROWSER EXTENSION FOR HEALTH\n'
+            'INFORMATION\n\nON\n\nX\n\nUSING\n\nNATURAL\n\n'
+            'LANGUAGE\n\nPROCESSING\n\n(NLP)\n\n'
+            'A Thesis\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == (
+            'EXTHEALTH: A Browser Extension For Health Information On X Using '
+            'Natural Language Processing (NLP)'
+        )
+
+    def test_by_connector_in_a_title_is_not_an_author_marker(self):
+        text = (
+            'SINDALAN CONNECT: A NEXT GENERATION LOCAL\n'
+            'COMMUNITY MANAGEMENT SYSTEM POWERED\n'
+            'BY AI CHATBOT AND EMERGENCY RESPONSE\n\n'
+            'A Capstone Project\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == (
+            'Sindalan Connect: A Next Generation Local Community Management '
+            'System Powered By AI Chatbot And Emergency Response'
+        )
+
+    def test_duplicate_extractor_lines_do_not_repeat_title_or_join_prose(self):
+        text = (
+            'ABSTRACT\n\n1. INTRODUCTION\n\n'
+            'SISTEM A de OBRA: TRAINING M ONITORING SYSTEM\n'
+            'SISTEMA de OBRA: TRAINING MONITORING SYSTEM\n'
+            'The Municipal of Bacolor, Pampanga faced challenges in\n'
+            'supervising and managing trainees within its office.\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == 'SISTEMA de OBRA: TRAINING MONITORING SYSTEM'
+
+    def test_uppercase_colon_prefix_survives_title_case_normalization(self):
+        text = 'TASKGROVE:\nA TREE-BASED PROJECT MANAGEMENT APPLICATION\n'
+        title, _ = detect_title(text)
+
+        assert title == 'TASKGROVE: A Tree-Based Project Management Application'
+
+    def test_author_marker_line_still_terminates_a_title(self):
+        text = (
+            'A TITLE FOR THE WORK\n\n'
+            'by:\n'
+            'GONZAGA, KURT ROSS E.\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == 'A Title For The Work'
+
+    def test_title_case_bare_author_name_is_not_joined(self):
+        text = (
+            'An Inventory Management Platform\n'
+            'Juan Miguel Santos\n\n'
+            'A Capstone Project\n'
+        )
+        title, _ = detect_title(text)
+
+        assert title == 'An Inventory Management Platform'
+
+    def test_affiliation_after_comma_attached_middle_initial_ends_title(self):
+        # pypdf preserves the author/affiliation line as one line and leaves
+        # the comma attached to the middle initial.
+        text = (
+            "MedicScale: An Android Application for Patients' Medical Chart\n\n"
+            'DELA CRUZ, CHARLES IVAN A., DON HONORIO VENTURA STATE UNIVERSITY\n'
+            'ENDAYA, VANNE ASHLEY J., DON HONORIO VENTURA STATE UNIVERSITY\n'
+            'ABSTRACT\n'
+        )
+
+        title, _ = detect_title(text)
+
+        assert title == "MedicScale: An Android Application for Patients' Medical Chart"
+
+    def test_multiline_title_stops_before_affiliated_author_list(self):
+        # These are the extracted title and first author lines from
+        # MAMALAKAYA.pdf. The title continuation must survive while the
+        # comma-attached middle initial marks the author boundary.
+        text = (
+            'Mamalakaya: A Web-based HIV Awareness Campaign\n'
+            'Site with an Educational Game and Testing Centers\n'
+            'Directory\n'
+            'GALVAN, MARK ANTHONY S., Don Honorio Ventura State University\n'
+            'BENITEZ, CHRISTIAN M., Don Honorio Ventura State University\n'
+            '\nAbstract\n'
+        )
+
+        title, _ = detect_title(text)
+
+        assert title == (
+            'Mamalakaya: A Web-based HIV Awareness Campaign Site with an '
+            'Educational Game and Testing Centers Directory'
+        )
+
+    def test_punctuated_acronym_is_not_a_middle_initial_boundary(self):
+        text = (
+            'C.A.R.E.: A Web-Based Health Information Platform\n'
+            'For Students and Community Clinics\n\n'
+            'A Capstone Project\n'
+        )
+
+        title, _ = detect_title(text)
+
+        assert title == (
+            'C.A.R.E.: A Web-Based Health Information Platform For Students '
+            'and Community Clinics'
+        )
 
 
 class TestScorerRejectsAuthorLines:

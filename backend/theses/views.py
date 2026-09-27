@@ -564,9 +564,8 @@ def _not_a_thesis_response(check, *, surface=SURFACE_UPLOAD):
         )
     else:
         message = (
-            'This document does not appear to be a thesis. No abstract, '
-            'keywords, chapter headings, or references section was found. '
-            'Please upload the thesis manuscript itself.'
+            'This document does not appear to be a thesis. '
+            'Please upload the thesis manuscript.'
         )
 
     return make_error_response(
@@ -1402,12 +1401,20 @@ class ThesisExtractMetadataView(APIView):
 
     def _extract_and_respond(self, tmp_path: str):
         """Extract, gate, then read all six fields. Caller owns ``tmp_path``."""
-        from .services.text_extractor import METADATA_PAGES, ThesisTextExtractor
+        from .services.text_extractor import (
+            KEYWORD_FALLBACK_PAGES,
+            METADATA_PAGES,
+            ThesisTextExtractor,
+        )
 
         extractor = ThesisTextExtractor()
         result = extractor.extract(tmp_path, max_pages=METADATA_PAGES)
 
-        from .services.metadata_extraction import METADATA_FIELDS, extract_metadata
+        from .services.metadata_extraction import (
+            METADATA_FIELDS,
+            detect_keywords,
+            extract_metadata,
+        )
 
         if not result.success or not result.text.strip():
             return Response({
@@ -1439,7 +1446,107 @@ class ThesisExtractMetadataView(APIView):
             )
             return _not_a_thesis_response(gate)
 
-        fields = extract_metadata(result.text)
+        fields = extract_metadata(
+            result.text,
+            author_lines=getattr(result, 'author_lines', ()),
+        )
+
+        # Some machine-readable PDFs have an image-backed or multi-column
+        # title page: pypdf reads enough of the manuscript to pass the document
+        # gate, but its text layer may expose only part of the author block.
+        # Compare a short list with positioned OCR from page one and accept it
+        # only when the same title-page detector finds more names. The original
+        # text, extraction method, and every other metadata field stay intact.
+        if (
+            len(fields['authors']['value']) < 5
+            and Path(tmp_path).suffix.lower() == '.pdf'
+            and result.method != 'ocr_tesseract'
+        ):
+            try:
+                visual_author_lines = extractor._ocr_first_page_author_lines(
+                    Path(tmp_path),
+                )
+                if visual_author_lines:
+                    author_fallback = extract_metadata(
+                        result.text, author_lines=visual_author_lines,
+                    )
+                    if len(author_fallback['authors']['value']) > len(fields['authors']['value']):
+                        fields['authors'] = author_fallback['authors']
+            except Exception as exc:  # keep a successful original pass usable
+                logger.warning('Author-only metadata fallback failed: %s', exc)
+
+        # Keyword blocks sometimes appear on the abstract page just after the
+        # normal ten-page metadata window. Retry only that field, and only for
+        # PDFs; titles, authors, year, program, and the document gate
+        # continue to use the original pass above.
+        keyword_result = None
+        cover_result = None
+        if not fields['keywords']['value'] and Path(tmp_path).suffix.lower() == '.pdf':
+            try:
+                keyword_result = extractor.extract(
+                    tmp_path, max_pages=KEYWORD_FALLBACK_PAGES,
+                )
+                fallback_keywords = (
+                    detect_keywords(keyword_result.text)
+                    if keyword_result.success else ([], 'low')
+                )
+
+                # A mixed PDF can have enough machine-readable body text to
+                # skip the extractor's normal OCR fallback while its cover
+                # page is image-backed (CYBERESCAPE). If the bounded pass was
+                # letter-spaced and still found no list, reuse the standard
+                # one-page OCR fallback. The global OCR page ceiling is not
+                # changed, and OCR contributes keywords only.
+                if (
+                    not fallback_keywords[0]
+                    and keyword_result.method == 'pypdf+despaced'
+                ):
+                    cover_result = extractor.extract_cover_text(Path(tmp_path))
+                    if cover_result.success and cover_result.method == 'ocr_tesseract':
+                        fallback_keywords = detect_keywords(cover_result.text)
+
+                if fallback_keywords[0]:
+                    fields['keywords'] = {
+                        'value': fallback_keywords[0],
+                        'confidence': fallback_keywords[1],
+                    }
+            except Exception as exc:  # keep a successful original pass usable
+                logger.warning('Keyword-only metadata fallback failed: %s', exc)
+
+        # Recover only an absent abstract. Share the existing bounded keyword
+        # pass so uploads missing both fields do not read fifteen pages twice.
+        if not fields['abstract']['value'] and Path(tmp_path).suffix.lower() == '.pdf':
+            try:
+                if keyword_result is None:
+                    keyword_result = extractor.extract(
+                        tmp_path, max_pages=KEYWORD_FALLBACK_PAGES,
+                    )
+                if keyword_result.success:
+                    from .services.text_extractor import despace_text
+                    from .services.abstract_recovery import (
+                        recover_layout_abstract,
+                        recover_ocr_abstract,
+                        recover_text_abstract,
+                    )
+
+                    pages = tuple(despace_text(page)[0] for page in keyword_result.page_texts)
+                    abstract, confidence = recover_text_abstract(
+                        pages or (keyword_result.text,),
+                        ocr=keyword_result.method == 'ocr_tesseract',
+                    )
+                    if not abstract:
+                        abstract, confidence = recover_layout_abstract(
+                            tmp_path, pages,
+                        )
+                    if not abstract:
+                        abstract, confidence = recover_ocr_abstract(
+                            tmp_path, pages, extractor,
+                            cover_result=cover_result,
+                        )
+                    if abstract:
+                        fields['abstract'] = {'value': abstract, 'confidence': confidence}
+            except Exception as exc:
+                logger.warning('Abstract-only metadata fallback failed: %s', exc)
 
         # Which fields actually produced something — lets the frontend show a
         # precise note without re-implementing emptiness rules per type.

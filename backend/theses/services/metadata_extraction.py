@@ -14,17 +14,17 @@ so every multi-line title silently truncated at the first line break.
 
 The fix is a two-stage design:
 
-1. **Score lines to find where the title STARTS** (unchanged scoring, so
-   existing behaviour on single-line titles is preserved).
+1. **Score lines to find where the title STARTS.** When adjacent scored lines
+   are continuations in the same title block, keep the earlier line as the
+   start rather than selecting a higher-scoring fragment.
 2. **Join forward from that line to find where the title ENDS.**
 
-Stage 2's primary signal is the **blank line**. A title block on a title
-page is always followed by a blank line before the next element ("A
-Capstone", "Presented to the Faculty of", the author list, etc.). This is
-the only signal that works universally — a continuation line may begin
-with a lowercase connector ("for CCS Undergraduate Theses…"), an uppercase
-connector ("WITH …"), or no connector at all (a bare "PROCESSING"), so
-connector matching alone cannot terminate the block correctly.
+Stage 2 uses blank lines as a strong boundary, but bridges up to two blank
+extractor lines when the next nonblank line still looks like a title
+continuation. Some PDFs insert those gaps between words or wrapped title lines.
+The continuation check accepts connector-led phrases, single-word tails, and
+adjacent lines with the same all-caps or title-case style. It stops at author
+markers, contact details, boilerplate, and sentence-like prose.
 
 Because ``pypdf`` emits genuinely blank-looking lines as ``' '`` or
 ``'  '`` on justified text, "blank" here means *blank after stripping*.
@@ -108,6 +108,14 @@ _SECTION_NOISE = frozenset({
     'bachelor', 'master', 'doctor',
 })
 
+# Keyword headings may carry their values on the same line or the following
+# lines. They are section labels, not title candidates.
+_TITLE_KEYWORD_LABEL = re.compile(
+    r'^\s*(?:key\s*words?|index\s+terms?)\s*'
+    r'(?:(?:[:\-\u2013\u2014])\s*.*)?$',
+    re.IGNORECASE,
+)
+
 # Words that can legitimately open a title CONTINUATION line. Compared
 # case-insensitively — a continuation may be typeset in caps ("WITH …") in
 # an all-caps title, so a case-sensitive list silently fails those.
@@ -144,7 +152,8 @@ _KNOWN_ACRONYMS = frozenset({
     'AI', 'API', 'AR', 'BERT', 'BI', 'BSCS', 'BSIS', 'BSIT', 'CCS', 'CNN',
     'CS', 'CSS', 'DHVSU', 'ERP', 'GAN', 'GIS', 'GPS', 'GPT', 'HTML', 'HTTP',
     'ICT', 'IDF', 'IOT', 'IP', 'IS', 'IT', 'KNN', 'LLM', 'LSTM', 'ML',
-    'NLP', 'OCR', 'PDF', 'PSU', 'QR', 'RFID', 'RPA', 'SBERT', 'SMS', 'SQL',
+    'MEMOLOOP', 'NLP', 'OCR', 'PDF', 'PSU', 'QR', 'RFID', 'RPA', 'SBERT',
+    'SMS', 'SQL',
     'SVM', 'TF', 'UI', 'UX', 'VR', 'X', 'XML', 'YOLO',
 })
 
@@ -344,6 +353,12 @@ _TITLE_KEYWORDS = frozenset({
     'framework', 'model', 'management', 'technology',
 })
 
+# Positive content words that support a two-word title line. Keep these
+# separate from general title scoring and author-line heuristics. "Parking" is
+# present in the repository's existing title fixtures (for example, "Smart
+# Parking System").
+_SHORT_TITLE_KEYWORDS = _TITLE_KEYWORDS | {'parking'}
+
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -368,6 +383,16 @@ def collapse_whitespace(value: str) -> str:
 def _noise_key(line: str) -> str:
     """Lowercased line with surrounding punctuation stripped, for noise lookup."""
     return line.lower().strip(' .,;:!?-\'"“”()[]{}')
+
+
+def _is_lone_acronym_start(line: str) -> bool:
+    """True for a standalone acronym/product label ending in a colon."""
+    words = line.split()
+    return (
+        len(words) == 1
+        and line.rstrip().endswith(':')
+        and len(re.sub(r'[^A-Za-z0-9]', '', line)) >= 4
+    )
 
 
 def _has_interior_blank(lines: list[str]) -> bool:
@@ -403,8 +428,22 @@ def _is_non_title_boilerplate(line: str) -> bool:
         return True
     if _CHAPTER_PATTERNS.match(key):
         return True
-    if _AUTHOR_MARKER.match(line):
-        return True
+    author_marker = _AUTHOR_MARKER.match(line)
+    if author_marker:
+        # ``BY`` is also a normal title word. In particular, the source PDF
+        # for SINDALAN CONNECT wraps its title as ``... SYSTEM POWERED`` /
+        # ``BY AI CHATBOT AND EMERGENCY RESPONSE``. Treat a leading ``by`` as
+        # an author marker only when it is a standalone label, carries a
+        # colon, or introduces a short inline name. Longer unmarked phrases
+        # are not author labels; author names with initials or the corpus'
+        # surname-comma convention are still caught by the name detector.
+        if re.match(r'^by\b', line, re.IGNORECASE):
+            remainder = re.sub(r'^by\b\s*:?', '', line, flags=re.IGNORECASE).strip()
+            if remainder and not line.lstrip().lower().startswith('by:'):
+                if len(remainder.split()) > 3 and not _looks_like_author_line(remainder):
+                    author_marker = None
+        if author_marker:
+            return True
     if _FRONTMATTER_STOP.match(line):
         return True
     # Contact details mean the title is over, whether or not a "by:" marker
@@ -485,9 +524,19 @@ def normalize_title_case(title: str) -> str:
         return title
 
     out: list[str] = []
-    for token in title.split(' '):
+    tokens = title.split(' ')
+    first_prefix = tokens[0] if tokens else ''
+    prefix_core = first_prefix[:-1] if first_prefix.endswith(':') else ''
+    preserve_colon_prefix = (
+        len(re.sub(r'[^A-Za-z]', '', prefix_core)) >= 4
+        and bool(prefix_core)
+        and all(char.isupper() for char in prefix_core if char.isalpha())
+    )
+    for index, token in enumerate(tokens):
         core = token.strip(_TOKEN_PUNCTUATION)
-        if core and core.upper() in _KNOWN_ACRONYMS:
+        if (
+            core and core.upper() in _KNOWN_ACRONYMS
+        ) or (index == 0 and preserve_colon_prefix):
             out.append(token)
         else:
             out.append(_titlecase_token(token))
@@ -533,9 +582,31 @@ def _titlecase_token(token: str) -> str:
     matches the whole-token behaviour above and is a deliberate limit, not an
     oversight — rewriting an acronym's internal casing is a separate decision.
     """
+
+    def titlecase_part(part: str) -> str:
+        # str.title() uppercases the letter after an apostrophe, producing
+        # "Noah'S" from an all-caps possessive. Folded quotes reach this path
+        # as straight apostrophes; preserve acronym stems such as "NLP's".
+        possessive = re.fullmatch(
+            r"(?P<stem>.+)'S(?P<trailing>[^A-Za-z0-9]*)", part,
+        )
+        if possessive:
+            stem = possessive.group('stem')
+            core = stem.strip(_TOKEN_PUNCTUATION)
+            titlecased_stem = (
+                stem if core and core.upper() in _KNOWN_ACRONYMS
+                else stem.title()
+            )
+            return f"{titlecased_stem}'s{possessive.group('trailing')}"
+
+        core = part.strip(_TOKEN_PUNCTUATION)
+        if core and core.upper() in _KNOWN_ACRONYMS:
+            return part
+        return part.title()
+
     parts = _COMPOUND_DELIMITERS.split(token)
     if len(parts) == 1:
-        return token.title()
+        return titlecase_part(token)
 
     out: list[str] = []
     for part in parts:
@@ -544,11 +615,7 @@ def _titlecase_token(token: str) -> str:
         if part in ('-', '/'):
             out.append(part)
             continue
-        core = part.strip(_TOKEN_PUNCTUATION)
-        if core and core.upper() in _KNOWN_ACRONYMS:
-            out.append(part)
-        else:
-            out.append(part.title())
+        out.append(titlecase_part(part))
     return ''.join(out)
 
 
@@ -563,6 +630,8 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
     original position-based scoring exactly.
     """
     if _noise_key(line) in _SECTION_NOISE:
+        return None
+    if _TITLE_KEYWORD_LABEL.fullmatch(line):
         return None
     if _CHAPTER_PATTERNS.match(_noise_key(line)):
         return None
@@ -606,17 +675,20 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
     # acronym prefix — the part a reader notices missing first.
     #
     # Narrow on purpose: ONE token, ending in ':', with an alphanumeric core of
-    # 4+ characters. 'ABSTRACT:' and 'Keywords:' also satisfy that shape, which
-    # is why this sits AFTER the _SECTION_NOISE and _CHAPTER_PATTERNS checks
-    # above — _noise_key strips the colon and both are caught there first. A
-    # test locks that ordering.
-    is_acronym_start = (
-        n_words == 1
-        and line.rstrip().endswith(':')
-        and len(re.sub(r'[^A-Za-z0-9]', '', line)) >= 4
+    # 4+ characters. Section labels are filtered first: 'ABSTRACT:' by the
+    # chapter pattern and 'Keywords:' by _TITLE_KEYWORD_LABEL.
+    is_acronym_start = _is_lone_acronym_start(line)
+    short_title_signal = (
+        n_words == 2
+        and any(
+            word.strip('.,;:!?-\'"()[]{}').lower() in _SHORT_TITLE_KEYWORDS
+            for word in words
+        )
     )
 
-    if not is_acronym_start and (n_words < 3 or n_words > MAX_TITLE_WORDS):
+    if not is_acronym_start and not short_title_signal and (
+        n_words < 3 or n_words > MAX_TITLE_WORDS
+    ):
         return None
     if is_acronym_start and n_words > MAX_TITLE_WORDS:
         return None
@@ -675,7 +747,7 @@ def _score_candidate_line(line: str, nb_idx: int) -> int | None:
         score += 1
 
     lowered = line.lower()
-    if any(kw in lowered for kw in _TITLE_KEYWORDS):
+    if short_title_signal or any(kw in lowered for kw in _TITLE_KEYWORDS):
         score += 2
 
     if 5 <= n_words <= 15:
@@ -700,7 +772,7 @@ def _join_title_block(
     """Join the title block starting at ``lines[start_idx]``.
 
     Walks forward and stops at the first of:
-      * a blank line (the primary signal — end of the title block)
+      * a long blank gap, or a short gap followed by a non-continuation
       * a section heading / chapter heading
       * an author marker ("by", "by:", "submitted by")
       * degree/submission boilerplate ("A Capstone", "Presented to …")
@@ -722,13 +794,21 @@ def _join_title_block(
     """
     parts = [lines[start_idx]]
     n_words = len(lines[start_idx].split())
+    blank_run = 0
 
     for nxt in lines[start_idx + 1:]:
         if not nxt:
-            break
+            blank_run += 1
+            # Some PDFs place a blank extractor line between title lines,
+            # even though the printed title is visually continuous. Bridge a
+            # small gap only; a longer blank run remains a strong block end.
+            if blank_run > 2:
+                break
+            continue
+        blank_run = 0
         # Terminators are checked FIRST, so a contact detail or author line is
         # cut even when the relaxed gate below would have admitted it.
-        if _is_block_terminator(nxt):
+        if _TITLE_KEYWORD_LABEL.fullmatch(nxt) or _is_block_terminator(nxt):
             break
 
         if has_blank_structure:
@@ -742,6 +822,17 @@ def _join_title_block(
         added = len(nxt.split())
         if n_words + added > MAX_TITLE_WORDS:
             break
+
+        # A few PDFs repeat the title in adjacent extracted lines. Compare
+        # alphanumeric text without whitespace so small pypdf word-splitting
+        # artifacts (for example ``SISTEM A``) still match the clean copy.
+        # Keep the version with fewer extracted word fragments.
+        previous_key = re.sub(r'[^A-Za-z0-9]', '', parts[-1]).casefold()
+        next_key = re.sub(r'[^A-Za-z0-9]', '', nxt).casefold()
+        if len(previous_key) >= 12 and previous_key == next_key:
+            if len(nxt.split()) < len(parts[-1].split()):
+                parts[-1] = nxt
+            continue
 
         parts.append(nxt)
         n_words += added
@@ -770,8 +861,10 @@ def _continues_title(line: str, previous: str) -> bool:
        a name, while a title's final wrapped line frequently is ("… NATURAL
        LANGUAGE" / "PROCESSING"). A token ending in a comma is excluded, since
        that is a list entry mid-flow rather than a title tail.
+    5. The line contains a connector elsewhere, or has the same all-caps or
+       title-case style as the preceding fragment.
 
-    A bare author line like "Juan Miguel Santos" satisfies none of the four
+    A bare author line like "Juan Miguel Santos" satisfies none of these
     and is therefore cut. That pairing is the point: the author-line
     terminator needs a positive personhood marker and so misses a bare
     three-word name, and this gate is what catches it.
@@ -782,6 +875,13 @@ def _continues_title(line: str, previous: str) -> bool:
     """
     words = line.split()
     if not words:
+        return False
+
+    # Do not let a sentence from an abstract/body run-on join merely because
+    # it begins with ``The`` or contains a connector. A comma followed by a
+    # subject and finite-verb-shaped clause is strong prose evidence, while
+    # title fragments in this corpus are noun phrases.
+    if _looks_like_prose_continuation(line):
         return False
 
     if words[0].lower().strip('.,;:') in _CONNECTOR_WORDS:
@@ -816,7 +916,56 @@ def _continues_title(line: str, previous: str) -> bool:
     if any(word.lower().strip('.,;:') in _CONNECTOR_WORDS for word in words):
         return True
 
+    if _same_title_line_style(line, previous):
+        return True
+
     return False
+
+
+def _same_title_line_style(line: str, previous: str) -> bool:
+    """Whether adjacent lines share an all-caps or title-case presentation."""
+    def style(value: str) -> str | None:
+        letters = [char for char in value if char.isalpha()]
+        if letters and all(char.isupper() for char in letters):
+            return 'upper'
+
+        words = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’][A-Za-zÀ-ÖØ-öø-ÿ]+)?", value)
+        if not words:
+            return None
+        capitalized = sum(word[0].isupper() for word in words)
+        if capitalized / len(words) >= 0.6:
+            return 'title'
+        return None
+
+    current_style = style(line)
+    if current_style is None or current_style != style(previous):
+        return False
+    # A title-case line made only of ordinary name-shaped words is still more
+    # likely an author than a continuation. All-caps title blocks and
+    # connector/title-vocabulary signals are handled separately.
+    if current_style == 'title' and _has_name_shape(line):
+        return False
+    return True
+
+
+def _looks_like_prose_continuation(line: str) -> bool:
+    """Recognise a wrapped prose sentence that should end a title block.
+
+    It is intentionally narrow: a long line must start with a sentence
+    subject, contain a comma, then continue with a subject/finite-verb clause.
+    This avoids rejecting ordinary title phrases while stopping abstract text
+    that begins with ``The ...``.
+    """
+    if len(line.split()) < 7:
+        return False
+    if not re.match(r'^(?:the|this|these|it|they|we)\b', line, re.IGNORECASE):
+        return False
+    return bool(re.search(
+        r',\s+[A-Za-z][A-Za-z\-]*\s+(?:[A-Za-z]+ed|is|are|was|were|'
+        r'has|have|had|does|do|did|can|could|will|would|should)\b',
+        line,
+        re.IGNORECASE,
+    ))
 
 
 def detect_title(text: str) -> tuple[str, str]:
@@ -850,29 +999,95 @@ def detect_title(text: str) -> tuple[str, str]:
     best_confidence = 'low'
 
     nb_idx = -1
+    in_keyword_section = False
+    keyword_section_value_seen = False
+    previous_line = ''
+    previous_chain_start_idx = -1
+    blank_gap = 0
     for raw_idx, line in enumerate(lines):
         if not line:
+            blank_gap += 1
+            if blank_gap > 2:
+                previous_line = ''
+                previous_chain_start_idx = -1
+            if keyword_section_value_seen:
+                in_keyword_section = False
+                keyword_section_value_seen = False
             continue
+        blank_gap = 0
         nb_idx += 1
         if nb_idx >= MAX_CANDIDATE_LINES:
             break
-        score = _score_candidate_line(line, nb_idx)
-        if score is None:
+        if _TITLE_KEYWORD_LABEL.fullmatch(line):
+            in_keyword_section = True
+            keyword_section_value_seen = bool(
+                re.search(r'[:\-\u2013\u2014]\s*\S', line)
+            )
+            previous_line = ''
+            previous_chain_start_idx = -1
             continue
-        if score > best_score:
-            best_score = score
-            best_idx = raw_idx
-            best_confidence = _confidence_for(score)
+        if in_keyword_section:
+            keyword_section_value_seen = True
+            previous_line = ''
+            previous_chain_start_idx = -1
+            continue
+        score = _score_candidate_line(line, nb_idx)
+        continues_previous = bool(
+            previous_line
+            and previous_chain_start_idx >= 0
+            and not _is_block_terminator(line)
+            and not _looks_like_prose_continuation(line)
+            and (
+                _continues_title(line, previous_line)
+                or _same_title_line_style(line, previous_line)
+            )
+        )
+
+        if score is not None:
+            if continues_previous:
+                # A stronger continuation line must not replace the actual
+                # start of a title. It may still support the confidence of
+                # the same block, and the join below will include it.
+                if previous_chain_start_idx == best_idx and score > best_score:
+                    best_score = score
+                    best_confidence = _confidence_for(score)
+            elif score > best_score:
+                best_score = score
+                best_idx = raw_idx
+                best_confidence = _confidence_for(score)
+
+        if not continues_previous:
+            previous_chain_start_idx = raw_idx if score is not None else -1
+        previous_line = line
 
     if best_idx < 0:
         return '', 'low'
 
-    title = _join_title_block(lines, best_idx, has_blank_structure)
+    # A one-token brand/acronym immediately above a title body is often part
+    # of the title even when the longer body line scores higher. Walk backward
+    # only across a short, uninterrupted continuation chain so labels and
+    # unrelated front matter cannot be pulled into the title.
+    title_start_idx = best_idx
+    cursor = best_idx - 1
+    steps = 0
+    while cursor >= 0 and lines[cursor] and steps < 3:
+        if (
+            _is_lone_acronym_start(lines[cursor])
+            and _score_candidate_line(lines[cursor], 0) is not None
+        ):
+            title_start_idx = cursor
+            break
+        if not _continues_title(lines[cursor + 1], lines[cursor]):
+            break
+        cursor -= 1
+        steps += 1
+
+    title = _join_title_block(lines, title_start_idx, has_blank_structure)
     # Final scrub before casing. Every line-based defence above can be bypassed
     # by an extractor that emits the page as one line; this cannot.
     title = _strip_pii_tail(collapse_whitespace(title))
-    title = normalize_title_case(title)
     title = fold_quotes(title)
+    title = normalize_title_case(title)
 
     if document_is_chapter_only and best_confidence in ('high', 'medium'):
         best_confidence = 'low'
@@ -957,7 +1172,8 @@ def _looks_like_toc_row(value: str) -> bool:
 
 # Headings that always come after an abstract and therefore end it.
 _ABSTRACT_STOP = re.compile(
-    r'^(keywords?|key\s*words?)\b\s*[:\-—]'
+    r'^(?:keyword\s*/\s*s|keywords?|key\s*words?|index\s+terms?)'
+    r'(?:\s*[:\-—]\s*|\s*$)'
     r'|^(table\s+of\s+contents|list\s+of\s+(figures|tables|appendices)|'
     r'acknowledge?ments?|acknowledgment|dedication|preface|'
     r'chapter\s+[ivxlcdm\d]+|introduction|references|bibliography|'
@@ -1136,13 +1352,226 @@ _KEYWORDS_LABEL = re.compile(
 # prose ('keywords' alone on a line, continuing a sentence). Without the case
 # requirement the optional separator would read those 18 as labels.
 _KEYWORDS_LABEL_LOOSE = re.compile(
-    r'^(Keyword\s*/\s*s|Keywords?|Key\s*Words?|KEYWORDS?|KEY\s*WORDS?|'
+    r'^(?:Keyword\s*/\s*s|KEYWORD\s*/\s*S|Keywords?|Key\s*Words?|'
+    r'KEYWORDS?|KEY\s*WORDS?|'
     r'Index\s+Terms?|INDEX\s+TERMS?)'
     r'(?:\s*[:\-—]\s*|\s+|\s*$)'
     r'(.*)$',
 )
 
 _KEYWORD_SPLIT = re.compile(r'[;,·•|]+')
+_KEYWORD_NUMBERED_SECTION = re.compile(
+    r'^\s*\d+(?:\.\d+)*\.?\s*'
+    r'(?:introduction|references|bibliography|appendix)\b',
+    re.IGNORECASE,
+)
+
+# A loose label has less evidence than an explicit ``Keywords:`` label, and a
+# continuation line must look like another list fragment. These cues prevent
+# sentence clauses from being folded into the final keyword while still
+# accepting wrapped lists (including a keyword moved after a trailing comma).
+_KEYWORD_PROSE_SUBJECT = re.compile(
+    r'^(?:the|this|these|those|it|they|we|our|their|study|research|'
+    r'results?|findings?|students?|researchers?|participants?|respondents?)\b',
+    re.IGNORECASE,
+)
+_KEYWORD_PROSE_VERB = re.compile(
+    r'\b(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did|'
+    r'can|could|will|would|should|must|may|might|shall|supports|supported|'
+    r'tracks|tracked|reports|reported|improves|improved|provides|provided|'
+    r'uses|used|includes|included|focuses|focused|examines|examined|'
+    r'investigates|investigated|develops|developed|presents|presented|'
+    r'describes|described|discusses|discussed|suggests|suggested)\b',
+    re.IGNORECASE,
+)
+_KEYWORD_PROSE_OPENING = re.compile(
+    r'^(?:are|is|was|were|has|have|had|do|does|did|can|could|will|'
+    r'would|should|must|may|might|shall)\b',
+    re.IGNORECASE,
+)
+
+
+def _looks_like_keyword_prose(line: str) -> bool:
+    """True when a candidate list fragment has a sentence-like clause."""
+    if _KEYWORD_PROSE_OPENING.match(line):
+        return True
+    if (
+        _KEYWORD_PROSE_SUBJECT.match(line)
+        and _KEYWORD_PROSE_VERB.search(line)
+    ):
+        return True
+    # A short complete sentence can start with an ordinary noun ("Technology
+    # improves access, and supports students.") rather than one of the common
+    # pronouns above. Do not mistake its comma for a keyword delimiter.
+    if (
+        len(line.split()) >= 6
+        and _KEYWORD_PROSE_VERB.search(line)
+        and line.rstrip().endswith(('.', '?', '!'))
+    ):
+        return True
+    # A longer, punctuated sentence can begin with a transition ("Moreover,"
+    # or "In addition,") and evade the subject-at-start cues above. When it
+    # carries a recognised verb, the preceding branch catches it. Do not use
+    # this broad length-only fallback on delimiter-separated lists: a valid
+    # list such as the iSecure DOCX line has 13 words and a final period.
+    return (
+        len(line.split()) >= 8
+        and line.rstrip().endswith(('.', '?', '!'))
+        and not _KEYWORD_SPLIT.search(line)
+    )
+
+
+def _looks_like_keyword_continuation(line: str, previous_line: str) -> bool:
+    """Only continue a keyword list across list-shaped or visibly wrapped text."""
+    if _looks_like_keyword_prose(line):
+        return False
+    if _KEYWORD_SPLIT.search(line):
+        return True
+    return bool(re.search(r'[;,·•|]\s*$', previous_line))
+
+
+def _looks_like_wrapped_keyword_tail(
+    line: str,
+    previous_line: str = '',
+) -> bool:
+    """Recognize a short final keyword phrase split across a physical line.
+
+    Some PDFs wrap the final item without carrying a comma to the next line:
+    ``Geofencing`` / ``Technology`` and ``Learning`` / ``and Memorizing
+    Information``. This intentionally accepts only a single-word tail or a
+    short conjunction-led phrase. A sentence-like line is rejected first so
+    ordinary body prose cannot be appended to the list.
+    """
+    if not line or _looks_like_keyword_prose(line) or _KEYWORD_SPLIT.search(line):
+        return False
+
+    words = line.split()
+    if len(words) == 1:
+        token = words[0].strip('.,;:!?()[]{}')
+        return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9'’\-]*", token))
+
+    if (
+        2 <= len(words) <= 4
+        and words[0].lower() in {'and', 'or'}
+        and not _KEYWORD_PROSE_VERB.search(line)
+        and not line.rstrip().endswith(('.', '?', '!'))
+    ):
+        return True
+
+    # A final phrase can wrap without carrying a comma onto the next physical
+    # line: ``Water`` / ``Level Monitoring.``. Accept only a short, title-like
+    # continuation of the final one-word item in an already delimited list.
+    if (
+        not previous_line
+        or not _KEYWORD_SPLIT.search(previous_line)
+        or not 2 <= len(words) <= 3
+    ):
+        return False
+    previous_tail = _KEYWORD_SPLIT.split(previous_line)[-1].strip()
+    if len(previous_tail.split()) != 1:
+        return False
+    if words[0].lower().strip('.,;:!?()[]{}') in {
+        'a', 'an', 'the', 'this', 'that', 'these', 'those', 'it', 'we',
+        'our', 'in', 'on', 'at', 'for', 'with',
+    }:
+        return False
+    return all(
+        (core := word.strip('.,;:!?()[]{}'))
+        and (core[0].isupper() or core.isupper() or any(ch.isdigit() for ch in core))
+        for word in words
+    )
+
+
+def _is_keyword_block_terminator(line: str) -> bool:
+    """Stop at structural text or a real author line without rejecting lists.
+
+    The title detector's broader block terminator treats comma-rich lines as
+    possible surname/given-name entries. Keyword phrases also use commas, so
+    exempt clearly list-shaped lines unless a standalone initial still marks
+    the line as an author entry.
+    """
+    if _is_non_title_boilerplate(line):
+        return True
+    if not _looks_like_author_line(line):
+        return False
+
+    separator_count = len(_KEYWORD_SPLIT.findall(line))
+    has_standalone_initial = any(
+        _STANDALONE_INITIAL.fullmatch(token) for token in line.split()
+    )
+    first_fragment = _KEYWORD_SPLIT.split(line, maxsplit=1)[0]
+    first_words = first_fragment.split()
+    first_word = (
+        first_words[0].strip('.,;:!?()[]{}').lower() if first_words else ''
+    )
+    if (
+        not has_standalone_initial
+        and (
+            separator_count >= 2
+            or first_word in _TITLE_KEYWORDS
+        )
+    ):
+        return False
+    return True
+
+
+def _keyword_continuation_overrides_weak_author(
+    line: str,
+    previous_line: str,
+) -> bool:
+    """Prefer a clearly continued labeled list over a weak surname-comma hit.
+
+    A few real lists wrap as ``... Dogs,`` / ``Cats, Mabalacat City`` or
+    ``... Agile`` / ``Software Development Methodology, Web-based Approach``.
+    Those fragments resemble surname-comma-given names to the title helper.
+    Strong author markers (initials, honorifics, suffixes) still stop the list.
+    """
+    if (
+        not _KEYWORD_SPLIT.search(line)
+        or _looks_like_keyword_prose(line)
+    ):
+        return False
+
+    tokens = line.split()
+    has_strong_author_marker = any(
+        _STANDALONE_INITIAL.fullmatch(token.rstrip(','))
+        or token.rstrip(',.').lower() in _GENERATIONAL_SUFFIXES
+        or token.rstrip(',.').lower() in _HONORIFICS
+        for token in tokens
+    )
+    if has_strong_author_marker:
+        return False
+
+    if re.search(r'[;,·•|]\s*$', previous_line) and len(tokens) >= 3:
+        return True
+
+    previous_delimiters = len(_KEYWORD_SPLIT.findall(previous_line))
+    fragments = _KEYWORD_SPLIT.split(line)
+    return (
+        previous_delimiters >= 2
+        and len(fragments) >= 2
+        and all(len(fragment.split()) >= 2 for fragment in fragments[:2])
+    )
+
+
+def _looks_like_single_keyword_token(line: str) -> bool:
+    """Recognize a one-token item beneath a bare label, without prose guesses."""
+    token = line.strip(' .;:!?()[]{}')
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9'’\-]*", token):
+        return False
+    # A bare label followed by ordinary title-case prose like "The study..."
+    # is ambiguous. A single all-caps/mixed-case token (e.g. CyberEscape) is
+    # sufficiently label-like to retain as one medium-confidence item.
+    return token.isupper() or any(char.isupper() for char in token[1:])
+
+
+def _is_keyword_section_stop(line: str) -> bool:
+    """Recognize abstract stops plus numbered headings seen in the PDFs."""
+    return bool(
+        _ABSTRACT_STOP.match(line)
+        or _CHAPTER_PATTERNS.match(_noise_key(line))
+        or _KEYWORD_NUMBERED_SECTION.match(line)
+    )
 
 
 def detect_keywords(text: str) -> tuple[list[str], str]:
@@ -1158,15 +1587,27 @@ def detect_keywords(text: str) -> tuple[list[str], str]:
     lines = [collapse_whitespace(raw) for raw in text.split('\n')]
 
     raw_value = ''
+    value_line_idx: int | None = None
     for idx, line in enumerate(lines):
-        # STRICT first, so every shape that worked before keeps working with
-        # identical semantics — including case-insensitive 'Key words:'. The
-        # capitalisation-gated LOOSE pattern only gets a say on lines the strict
-        # one rejects, which is exactly the separator-less shapes B3 adds.
-        match = _KEYWORDS_LABEL.match(line) or _KEYWORDS_LABEL_LOOSE.match(line)
+        # STRICT first, so explicit labels retain priority, including
+        # case-insensitive 'Key words:'. The capitalisation-gated LOOSE pattern
+        # only gets a say on separator-less shapes.
+        strict_match = _KEYWORDS_LABEL.match(line)
+        match = strict_match or _KEYWORDS_LABEL_LOOSE.match(line)
         if not match:
             continue
-        raw_value = match.group(2).strip()
+        raw_value = match.group(2 if strict_match else 1).strip()
+        value_line_idx = idx
+
+        # Separator-less inline forms are inherently ambiguous. The corpus'
+        # ACM-style forms carry a real list delimiter; require one and reject
+        # clear sentence clauses so ordinary prose cannot become a keyword set.
+        if raw_value and (
+            (not strict_match and not _KEYWORD_SPLIT.search(raw_value))
+            or _looks_like_keyword_prose(raw_value)
+        ):
+            raw_value = ''
+            break
 
         # ACM house style puts the label on a line of its own and the list on
         # the NEXT line. This is the largest failing group in the corpus — 9 of
@@ -1178,26 +1619,86 @@ def detect_keywords(text: str) -> tuple[list[str], str]:
         # The separator requirement is what stops a bare label in body prose
         # from swallowing the sentence that follows it.
         if not raw_value:
-            for nxt in lines[idx + 1:]:
+            for nxt_idx in range(idx + 1, len(lines)):
+                nxt = lines[nxt_idx]
                 if not nxt:
                     continue
-                if _ABSTRACT_STOP.match(nxt) or _is_block_terminator(nxt):
+                if (
+                    _is_keyword_section_stop(nxt)
+                    or _is_keyword_block_terminator(nxt)
+                ):
                     break
                 if _noise_key(nxt) in _SECTION_NOISE:
                     break
-                if not _KEYWORD_SPLIT.search(nxt):
+                if _looks_like_keyword_prose(nxt):
                     break
+                if not _KEYWORD_SPLIT.search(nxt):
+                    if not _looks_like_single_keyword_token(nxt):
+                        break
                 raw_value = nxt
+                value_line_idx = nxt_idx
                 break
 
-        # Keyword lists wrap onto following lines; keep reading until the
-        # blank line or the next heading.
-        for nxt in lines[idx + 1:]:
-            if not nxt or _ABSTRACT_STOP.match(nxt) or _is_block_terminator(nxt):
+        if not raw_value:
+            break
+
+        # Keyword lists wrap onto following lines. Continue only while the
+        # next line carries a list delimiter, or the previous line ends with a
+        # delimiter that visibly moved the next keyword onto its own line.
+        previous_line = lines[value_line_idx] if value_line_idx is not None else line
+        first_continuation_idx = (
+            value_line_idx if value_line_idx is not None else idx
+        ) + 1
+        cursor = first_continuation_idx
+        blank_wrap_pending = False
+        partial_tail = False
+        while cursor < len(lines):
+            nxt = lines[cursor]
+            if not nxt:
+                # Some two-column PDF text layers insert a blank between a
+                # delimiter-led wrapped fragment ("Social") and its final
+                # word ("Media"). Bridge at most one such blank and only when
+                # the next line has the shape of a wrapped keyword tail.
+                if (
+                    not blank_wrap_pending
+                    or cursor + 1 >= len(lines)
+                    or not _looks_like_wrapped_keyword_tail(
+                        lines[cursor + 1], previous_line,
+                    )
+                ):
+                    break
+                cursor += 1
+                nxt = lines[cursor]
+            if _is_keyword_section_stop(nxt):
                 break
-            if nxt == raw_value:
-                continue  # already consumed by the next-line read above
+            if _noise_key(nxt) in _SECTION_NOISE:
+                break
+
+            is_continuation = _looks_like_keyword_continuation(nxt, previous_line)
+            is_wrapped_tail = _looks_like_wrapped_keyword_tail(nxt, previous_line)
+            if (
+                _is_keyword_block_terminator(nxt)
+                and not _keyword_continuation_overrides_weak_author(
+                    nxt, previous_line,
+                )
+            ):
+                break
+            if not is_continuation and not is_wrapped_tail:
+                break
+
+            prior_ends_with_delimiter = bool(
+                re.search(r'[;,·•|]\s*$', previous_line)
+            )
+            if is_wrapped_tail and len(nxt.split()) == 1:
+                fragment = nxt.strip(' .;:!?()[]{}')
+                if re.fullmatch(r'[A-Z][a-z]?', fragment):
+                    partial_tail = True
             raw_value = f'{raw_value} {nxt}'
+            blank_wrap_pending = (
+                prior_ends_with_delimiter and not _KEYWORD_SPLIT.search(nxt)
+            )
+            previous_line = nxt
+            cursor += 1
         break
 
     if not raw_value:
@@ -1224,7 +1725,14 @@ def detect_keywords(text: str) -> tuple[list[str], str]:
 
     # A single item usually means the separators were lost in extraction, so
     # the split is suspect even though the label was explicit.
-    confidence = 'high' if len(keywords) >= 3 else 'medium'
+    visibly_truncated = bool(
+        re.search(r'(?:[;,·•|]\s*|\.{2,}\s*|…\s*)$', raw_value)
+    )
+    confidence = (
+        'high'
+        if len(keywords) >= 3 and not visibly_truncated and not partial_tail
+        else 'medium'
+    )
     return keywords, confidence
 
 
@@ -1246,6 +1754,14 @@ _MONTH_YEAR = re.compile(
     re.IGNORECASE,
 )
 _BARE_YEAR = re.compile(r'\b(19\d{2}|20\d{2})\b')
+_CITATION_YEAR_INTRODUCER = re.compile(r'\baccording\s+to\b', re.IGNORECASE)
+_ABSTRACT_SECTION_HEADING = re.compile(r'^\s*abstract\b', re.IGNORECASE)
+_NUMBERED_BODY_HEADING = re.compile(
+    r'^\s*\d+(?:\.\d+)*\.?\s*'
+    r'(?:abstract|introduction|chapter\s+[ivxlcdm\d]+|methodology|'
+    r'results\s+and\s+discussion|conclusion|references|bibliography|appendix)\b',
+    re.IGNORECASE,
+)
 
 # Legislation references — "Act of 2000", "Act No. 10175". The year names the
 # statute, not the thesis.
@@ -1264,8 +1780,8 @@ _DATE_WORD_BEFORE_YEAR = re.compile(
 _YEAR_AT_LINE_END = re.compile(r'^[\s\.,;:\)\]\-–—]*$')
 
 
-def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
-    """True when this year occurrence is not a submission date.
+def _is_incidental_year_context(line: str, start: int, end: int) -> bool:
+    """True when a year span in this line is not a submission date.
 
     Measured against the real corpus: every wrong year the bare-year fallback
     produced came from one of these shapes, and none came from a title-page
@@ -1278,7 +1794,6 @@ def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
 
     so this rejects all four rather than citations alone.
     """
-    start, end = match.span(1)
     before, after = line[:start], line[end:]
 
     # POSITIVE EXEMPTION, checked first: an explicit date word immediately
@@ -1287,6 +1802,12 @@ def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
     # corpus' wrong years carry one of these, so this costs no precision.
     if _DATE_WORD_BEFORE_YEAR.search(before):
         return False
+
+    # Line-wrapped citations can leave a statistic's year at the very end of
+    # the extracted line (for example, "According to the PSA 2017"), making it
+    # look like a date despite the following line continuing the citation.
+    if _CITATION_YEAR_INTRODUCER.search(before):
+        return True
 
     # Part of a longer identifier: '20201017', '2020@dhvsu.edu.ph'.
     if before[-1:].isalnum() or after[:1].isalnum() or after[:1] == '@':
@@ -1306,6 +1827,11 @@ def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
     if not _YEAR_AT_LINE_END.match(after):
         return True
     return False
+
+
+def _is_incidental_year(line: str, match: 're.Match[str]') -> bool:
+    """True when this bare-year occurrence is not a submission date."""
+    return _is_incidental_year_context(line, *match.span(1))
 
 
 def max_year() -> int:
@@ -1331,18 +1857,51 @@ def detect_year(text: str) -> tuple[int | None, str]:
         return None, 'low'
 
     lines = [collapse_whitespace(raw) for raw in text.split('\n') if collapse_whitespace(raw)]
-    window = '\n'.join(lines[:TITLE_PAGE_LINES])
+    title_page_lines = lines[:TITLE_PAGE_LINES]
+    for index, line in enumerate(title_page_lines):
+        if (
+            _CHAPTER_PATTERNS.match(_noise_key(line))
+            or _ABSTRACT_STOP.match(line)
+            or _ABSTRACT_SECTION_HEADING.match(line)
+            or _NUMBERED_BODY_HEADING.match(line)
+        ):
+            title_page_lines = title_page_lines[:index]
+            break
+
+    # Abstract and section text can occur on the same extracted PDF page as
+    # the title and authors. Stop at its heading so body dates cannot compete
+    # with a genuine date printed in the title block.
+    window = '\n'.join(title_page_lines)
     upper = max_year()
 
     def in_range(value: int) -> bool:
         return MIN_YEAR <= value <= upper
 
-    month_years = [int(m.group(2)) for m in _MONTH_YEAR.finditer(window)]
-    month_years = [y for y in month_years if in_range(y)]
+    month_years: list[int] = []
+    for match in _MONTH_YEAR.finditer(window):
+        value = int(match.group(2))
+        if not in_range(value):
+            continue
+
+        # A month/year is strong evidence only when its surrounding line also
+        # looks date-shaped. This removes parenthesized citations and inline
+        # prose while retaining standalone dates and title-page address/date
+        # lines. Context is evaluated within the existing bounded scan.
+        line_start = window.rfind('\n', 0, match.start())
+        line_start = 0 if line_start < 0 else line_start + 1
+        line_end = window.find('\n', match.end())
+        line_end = len(window) if line_end < 0 else line_end
+        line = window[line_start:line_end]
+        year_start = match.start(2) - line_start
+        year_end = match.end(2) - line_start
+        if _is_incidental_year_context(line, year_start, year_end):
+            continue
+        month_years.append(value)
+
     if month_years:
         return max(month_years), 'high'
 
-    for line in lines[:TITLE_PAGE_LINES]:
+    for line in title_page_lines:
         if re.fullmatch(r'(19\d{2}|20\d{2})', line) and in_range(int(line)):
             return int(line), 'high'
 
@@ -1361,7 +1920,7 @@ def detect_year(text: str) -> tuple[int | None, str]:
     # '2000' reads as deliberate. The 'medium' label was also the least accurate
     # band in the whole extractor, and these years were most of it.
     candidates: list[int] = []
-    for line in lines[:TITLE_PAGE_LINES]:
+    for line in title_page_lines:
         for match in _BARE_YEAR.finditer(line):
             value = int(match.group(1))
             if not in_range(value):
@@ -1396,7 +1955,7 @@ CANONICAL_PROGRAMS = (
 # the program from the title rather than from the degree line.
 _DEGREE_LINE = re.compile(
     r'\b(bachelor|associate|degree|undergraduate\s+program|'
-    r'bsis|bsit|bscs|bs\s?is|bs\s?it|bs\s?cs|act)\b',
+    r'bsis|bsit|bscs|bs\s?is|bs\s?it|bs\s?cs)\b|(?-i:\bACT\b)',
     re.IGNORECASE,
 )
 
@@ -1414,7 +1973,7 @@ _PROGRAM_ACRONYMS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r'\bbs\s?is\b', re.IGNORECASE), 'BS Information System'),
     (re.compile(r'\bbs\s?it\b', re.IGNORECASE), 'BS Information Technology'),
     (re.compile(r'\bbs\s?cs\b', re.IGNORECASE), 'BS Computer Science'),
-    (re.compile(r'\bact\b'), 'Associate in Computer Technology'),
+    (re.compile(r'\bACT\b'), 'Associate in Computer Technology'),
 )
 
 # Fuzzy fallback, used ONLY when the deterministic rules find nothing — it
@@ -1542,6 +2101,11 @@ _HONORIFICS = frozenset({
 
 # "SURNAME, Given" — the author-list convention throughout this corpus.
 _SURNAME_COMMA_GIVEN = re.compile(r',\s+[A-Z]')
+_INLINE_SURNAME_START = re.compile(
+    r"(?<![A-Za-z])(?P<surname>(?:(?:de|del|dela|delos|delas|da|di|du|"
+    r"van|von|der|la|le)\s+)?[A-Z][A-Za-z'’\-]{1,}),\s+",
+    re.IGNORECASE,
+)
 
 # A standalone middle initial: "E." or "S.".
 #
@@ -1550,6 +2114,44 @@ _SURNAME_COMMA_GIVEN = re.compile(r',\s+[A-Z]')
 # SEMANTIC RETRIEVAL ENGINE' was cut to nothing. The period is what
 # distinguishes an initial from a one-letter word.
 _STANDALONE_INITIAL = re.compile(r'^[A-Z]\.$')
+_INITIAL_CLUSTER = re.compile(r'^(?:[A-Z]\.){2,}$')
+
+
+def _is_name_initial(token: str) -> bool:
+    cleaned = token.rstrip(',')
+    return bool(
+        _STANDALONE_INITIAL.fullmatch(cleaned)
+        or _INITIAL_CLUSTER.fullmatch(cleaned)
+    )
+
+# An unmarked title-page author still needs name-specific evidence. Affiliations
+# and addresses are capitalised just like names, so exclude their common
+# vocabulary before applying the stricter author-line shape below.
+_UNMARKED_AUTHOR_AFFILIATION = re.compile(
+    r'\b(?:university|college|school|institute|campus|faculty|department|'
+    r'computing\s+studies|'
+    r'state|dhvsu|don\s+honorio(?:\s+ventura)?|pampanga|philippines|'
+    r'province|city|municipality|barangay|barrio|purok|sitio|street|avenue|'
+    r'road|highway|village|subdivision)\b',
+    re.IGNORECASE,
+)
+_UNMARKED_AUTHOR_INSTITUTION = re.compile(
+    r'\b(?:university|college|school|institute|campus|faculty|department|'
+    r'computing\s+studies|'
+    r'state|dhvsu|don\s+honorio(?:\s+ventura)?)\b',
+    re.IGNORECASE,
+)
+_UNMARKED_AUTHOR_LOCALITY = re.compile(
+    r'\b(?:pampanga|philippines|province|city|municipality|barangay|barrio|'
+    r'brgy|purok|sitio|street|avenue|road|highway|village|subdivision|'
+    r'resettlement)\b',
+    re.IGNORECASE,
+)
+_UNMARKED_AUTHOR_ROLE = re.compile(
+    r'^\s*(?:thesis\s+)?(?:adviser|advisor|panel(?:ist|ists|\s+members?)?|'
+    r'chair(?:person)?|committee|approved\s+by|reviewed\s+by|examined\s+by)\b',
+    re.IGNORECASE,
+)
 
 
 def _looks_like_author_line(line: str) -> bool:
@@ -1587,7 +2189,11 @@ def _looks_like_author_line(line: str) -> bool:
 
     if not carries_title_vocabulary and not _NAME_DISALLOWED.search(line):
         for token in line.split():
-            if _STANDALONE_INITIAL.match(token):
+            # pypdf can attach the comma introducing an affiliation to a
+            # middle initial ("... IVAN A., Don Honorio Ventura State
+            # University"). Strip only that delimiter before checking the
+            # existing standalone-initial signal.
+            if _STANDALONE_INITIAL.fullmatch(token.rstrip(',')):
                 return True
             lowered = token.lower()
             if lowered in _GENERATIONAL_SUFFIXES or lowered in _HONORIFICS:
@@ -1642,7 +2248,466 @@ def _looks_like_person_name(line: str) -> bool:
     return _has_name_shape(line)
 
 
-def detect_authors(text: str) -> tuple[list[str], str]:
+def _title_boundary_key(value: str) -> str:
+    """Compact title text for locating its exact span in extracted lines."""
+    return re.sub(r'[^A-Za-z0-9]', '', fold_quotes(value)).casefold()
+
+
+def _find_detected_title_end(lines: list[str]) -> int | None:
+    """Return the line after the detected title, or None if it cannot be mapped.
+
+    Markerless author inference is safe only when it can anchor the candidate
+    block after a title already recognised by the existing title detector.
+    The punctuation-insensitive key handles wrapped hyphens and quote folding
+    without moving or re-scoring the title boundary.
+    """
+    title, _ = detect_title('\n'.join(lines))
+    return _find_title_end_for_title(lines, title)
+
+
+def _find_title_end_for_title(lines: list[str], title: str) -> int | None:
+    """Map an already detected title back to the equivalent extracted rows."""
+    target = _title_boundary_key(title)
+    if not target:
+        return None
+
+    limit = min(len(lines), TITLE_PAGE_LINES)
+    for start in range(limit):
+        if not lines[start]:
+            continue
+        accumulated = ''
+        for end in range(start, min(limit, start + 12)):
+            accumulated += _title_boundary_key(lines[end])
+            if accumulated == target:
+                return end + 1
+            if len(accumulated) > len(target):
+                break
+    return None
+
+
+def _is_author_marker_candidate(line: str, match: re.Match) -> bool:
+    """Reject body prose that happens to begin with a marker word.
+
+    In particular, ``Researchers used ...`` is ordinary abstract prose, not an
+    author heading. Marker labels may stand alone (``by:`` / ``Researchers:``)
+    or introduce a name on the same line.
+    """
+    marker = match.group(1).casefold()
+    remainder = _remove_contact_details(line[match.end():].strip(' :,'))
+    if remainder:
+        if marker == 'by':
+            # ``by`` can open a title continuation. An inline author marker
+            # needs either surname/initial structure or a short name; a long
+            # all-caps phrase such as ``BY AI CHATBOT AND EMERGENCY RESPONSE``
+            # is not a person block.
+            return (
+                _looks_like_author_line(remainder)
+                or (
+                    len(remainder.split()) <= 3
+                    and _looks_like_person_name(remainder)
+                )
+            )
+        return (
+            len(_split_inline_author_names(remainder)) >= 2
+            or _looks_like_person_name(remainder)
+            or _looks_like_author_line(remainder)
+        )
+
+    if marker.startswith('researcher'):
+        return bool(re.fullmatch(r'researchers?\s*:?\s*', line, re.IGNORECASE))
+    return True
+
+
+def _split_inline_author_names(line: str) -> list[str]:
+    """Split a row containing multiple ``Surname, Given`` author entries.
+
+    DOCX extraction can keep several authors in one paragraph, and PDF
+    extraction can place a whole column of names on one visual row. A new
+    surname-comma boundary is strong evidence of the next entry. Only return
+    the split when at least two resulting spans independently look like
+    surname-first names, so ordinary comma-containing title or affiliation
+    lines stay intact.
+    """
+    cleaned = line or ''
+    if re.search(r'\d', cleaned):
+        return []
+    # A locality row such as "San Basilio, Sta Rita, Pampanga" can look like
+    # two short surname-first names after comma splitting. A name row carrying
+    # an affiliation can also look like two names when the given name ends in
+    # a word such as "Gerald" ("Oliva, Edmar Gerald, ... University"). Defer
+    # those multi-comma rows to the affiliation-aware parser below.
+    if (
+        cleaned.count(',') >= 2
+        and _UNMARKED_AUTHOR_AFFILIATION.search(cleaned)
+    ):
+        return []
+
+    matches = list(_INLINE_SURNAME_START.finditer(cleaned))
+    if len(matches) < 2:
+        return []
+
+    names: list[str] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(cleaned)
+        candidate = collapse_whitespace(cleaned[match.start():end]).strip(' ,;')
+        if (
+            _looks_like_person_name(candidate)
+            and _SURNAME_COMMA_GIVEN.search(candidate)
+        ):
+            names.append(candidate)
+
+    return names if len(names) == len(matches) else []
+
+
+def _looks_like_unmarked_author_name(line: str) -> bool:
+    """Require a surname/given-name or middle-initial structure without a label."""
+    cleaned = _remove_contact_details(line)
+    if not cleaned:
+        return False
+    lowered = cleaned.casefold()
+    if _UNMARKED_AUTHOR_AFFILIATION.search(cleaned):
+        return False
+    if any(keyword in lowered for keyword in _TITLE_KEYWORDS):
+        return False
+
+    words = cleaned.split()
+    comma_count = cleaned.count(',')
+    if not _looks_like_person_name(cleaned):
+        # A title-page surname can be printed in lower case (as in the
+        # source's ``ingat, Randy Jr. M..``). Accept that only in the
+        # surname-first form, and only when the given-name side still carries
+        # a middle initial or generational suffix.
+        if comma_count != 1:
+            return False
+        surname, given = cleaned.split(',', maxsplit=1)
+        given_words = given.split()
+        titlecase_shape = _has_name_shape(f'{surname.title()}, {given}')
+        has_given_marker = (
+            any(_STANDALONE_INITIAL.fullmatch(word.rstrip('.,')) for word in given_words)
+            or any(word.rstrip('.,').casefold() in _GENERATIONAL_SUFFIXES for word in given_words)
+        )
+        if not titlecase_shape or not has_given_marker:
+            return False
+
+    if comma_count == 1:
+        surname, given = cleaned.split(',', maxsplit=1)
+        given_words = given.split()
+        # A single given-name token after a comma is a common address shape
+        # ("Villa de Bacolor, Pampanga"). Requiring at least two keeps that
+        # shape out while allowing names such as "Bonifacio, Ralph Christian".
+        return 1 <= len(surname.split()) <= 2 and 2 <= len(given_words) <= 4
+
+    if comma_count == 0 and 3 <= len(words) <= 5:
+        return (
+            any(_is_name_initial(word) for word in words[1:-1])
+            or any(word.rstrip('.,').lower() in _GENERATIONAL_SUFFIXES for word in words)
+        )
+    return False
+
+
+def _unmarked_author_name_from_line(line: str) -> str:
+    """Return a verified name prefix when an author shares a line with an affiliation."""
+    cleaned = _remove_contact_details(line)
+    if re.search(r'\d', cleaned):
+        return ''
+
+    # An uppercase degree abbreviation may follow a printed middle initial
+    # without a delimiter (for example, ``Mallari, Christian S. MIT``). Keep
+    # the name only when the prefix already satisfies the full name rule.
+    trailing_abbreviation = re.fullmatch(
+        r'(?P<name>.+\b[A-Z]\.)\s+[A-Z]{2,5}', cleaned,
+    )
+    if (
+        trailing_abbreviation
+        and _looks_like_unmarked_author_name(trailing_abbreviation.group('name'))
+    ):
+        return trailing_abbreviation.group('name')
+
+    # Two or more commas plus a locality term indicate an address row, not an
+    # author followed by an institution. This blocks fragments such as
+    # "San Basilio, Sta Rita, Pampanga" before suffix splitting can read them
+    # as surname/given pairs.
+    if (
+        cleaned.count(',') >= 2
+        and _UNMARKED_AUTHOR_LOCALITY.search(cleaned)
+    ):
+        return ''
+
+    # PDF text can wrap the end of the previous affiliation onto the same row
+    # as the next surname-first author (for example, "University BENITEZ,
+    # CHRISTIAN M."). Discard only that leading affiliation fragment; the
+    # author still has to pass the name and affiliation boundary checks below.
+    cleaned = _strip_leading_affiliation_continuation(cleaned)
+
+    if _looks_like_unmarked_author_name(cleaned):
+        return cleaned
+
+    # Some title pages print ``Given Middle Surname, University`` on one line.
+    # Split only at a comma whose right side contains known affiliation
+    # vocabulary; a surname-first author comma is otherwise left untouched.
+    comma_matches = list(re.finditer(r',\s*', cleaned))
+    for comma_index, match in enumerate(comma_matches):
+        name = collapse_whitespace(cleaned[:match.start()]).strip(' ,;')
+        affiliation = cleaned[match.end():]
+        words = name.split()
+        has_initial = any(
+            _is_name_initial(word)
+            for word in words
+        )
+        has_title_word = any(
+            keyword in name.casefold() for keyword in _TITLE_KEYWORDS
+        )
+        # With two commas, the first may separate surname from given names,
+        # while the next one separates the complete name from its affiliation
+        # (``DELA CRUZ, CHARLES IVAN A., University``). Do not truncate that
+        # layout to its two-word surname prefix.
+        leading_surname_only = (
+            comma_index == 0
+            and len(comma_matches) > 1
+            and len(words) <= 2
+            and not has_initial
+        )
+        # The affiliation delimiter is strong context for common given-first
+        # layouts, including two-word names and initials placed before the
+        # surname. Without that delimiter, those shapes remain too ambiguous.
+        name_before_affiliation = (
+            _looks_like_unmarked_author_name(name)
+            or (
+                _looks_like_person_name(name)
+                and not _UNMARKED_AUTHOR_AFFILIATION.search(name)
+                and not has_title_word
+                and (2 <= len(words) <= 5 or has_initial)
+            )
+        )
+        locality_only_suffix = (
+            _UNMARKED_AUTHOR_LOCALITY.search(affiliation)
+            and not _UNMARKED_AUTHOR_INSTITUTION.search(affiliation)
+        )
+        if (
+            not leading_surname_only
+            and
+            _UNMARKED_AUTHOR_AFFILIATION.search(affiliation)
+            and name_before_affiliation
+            and not locality_only_suffix
+        ):
+            return name
+    return ''
+
+
+def _strip_leading_affiliation_continuation(line: str) -> str:
+    """Remove a wrapped affiliation prefix before the next surname-first name."""
+    for surname_match in _INLINE_SURNAME_START.finditer(line):
+        leading_fragment = line[:surname_match.start()]
+        if (
+            leading_fragment
+            and _UNMARKED_AUTHOR_INSTITUTION.search(leading_fragment)
+        ):
+            return line[surname_match.start():].lstrip(' ,;')
+    return line
+
+
+def _name_before_wrapped_affiliation(line: str, following_line: str) -> str:
+    """Recover a surname-first name when its final affiliation word wrapped."""
+    if (
+        _is_unmarked_author_contact(following_line)
+        or not _UNMARKED_AUTHOR_INSTITUTION.search(following_line)
+    ):
+        return ''
+
+    cleaned = _strip_leading_affiliation_continuation(
+        _remove_contact_details(line)
+    )
+    separators = list(re.finditer(r',\s*', cleaned))
+    if len(separators) < 2:
+        return ''
+
+    name = collapse_whitespace(cleaned[:separators[1].start()]).strip(' ,;')
+    partial_affiliation = cleaned[separators[1].end():].strip(' ,;')
+    if (
+        not re.fullmatch(r"[A-Z][A-Za-z'’\-]{1,}", partial_affiliation)
+        or not _looks_like_unmarked_author_name(name)
+    ):
+        return ''
+    return name
+
+
+def _trailing_name_fragment_after_affiliation(line: str) -> str:
+    """Return a single name token accidentally left after a wrapped affiliation."""
+    cleaned = _remove_contact_details(line)
+    matches = list(_UNMARKED_AUTHOR_AFFILIATION.finditer(cleaned))
+    if not matches:
+        return ''
+    trailing = cleaned[matches[-1].end():].strip(' ,;')
+    return trailing if re.fullmatch(r"[A-Z][A-Za-z'’\-]{1,}", trailing) else ''
+
+
+def _is_unmarked_author_block_stop(line: str) -> bool:
+    """Stop before sections, submission details, and labelled reviewers."""
+    return bool(
+        _UNMARKED_AUTHOR_ROLE.match(line)
+        or _AUTHOR_MARKER.match(line)
+        or _ABSTRACT_HEADING.match(line)
+        or _ABSTRACT_STOP.match(line)
+        or _CHAPTER_PATTERNS.match(_noise_key(line))
+        or _FRONTMATTER_STOP.match(line)
+        or _TITLE_KEYWORD_LABEL.fullmatch(line)
+        or _DEGREE_LINE.search(line)
+        or _MONTH_YEAR.search(line)
+        or re.fullmatch(r'(?:19|20)\d{2}', line)
+    )
+
+
+def _is_unmarked_author_affiliation_or_contact(line: str) -> bool:
+    """Recognise intervening title-page details without returning them as names."""
+    return bool(
+        _is_unmarked_author_contact(line)
+        or _UNMARKED_AUTHOR_AFFILIATION.search(line)
+        or _UNMARKED_AUTHOR_LOCALITY.search(line)
+        or line.count(',') >= 2
+        or _looks_like_wrapped_address_fragment(line)
+    )
+
+
+def _looks_like_wrapped_address_fragment(line: str) -> bool:
+    """Recognise a capitalised place fragment whose comma wrapped to the next row."""
+    if not line.rstrip().endswith(','):
+        return False
+    words = line.rstrip(' ,').split()
+    return (
+        len(words) >= 3
+        and all(re.fullmatch(r'[A-Z][A-Za-z.\-]*', word) for word in words)
+    )
+
+
+def _is_unmarked_author_contact(line: str) -> bool:
+    """Recognise contacts even when PDF extraction spaces digits or splits email."""
+    digits = sum(char.isdigit() for char in line)
+    return _has_contact_details(line) or '@' in line or digits >= 6
+
+
+def _detect_unmarked_title_page_authors(
+    lines: list[str], *, title_end: int | None = None,
+) -> list[str]:
+    """Infer a names-only block immediately after a confidently located title.
+
+    The fallback intentionally requires multiple structured names on the
+    title page. A lone capitalised line, a name elsewhere in the document, or
+    a block that cannot be bounded remains unknown for manual entry.
+    """
+    cursor = title_end if title_end is not None else _find_detected_title_end(lines)
+    if cursor is None:
+        return []
+
+    page_limit = min(len(lines), TITLE_PAGE_LINES)
+    while cursor < page_limit and not lines[cursor]:
+        cursor += 1
+    if cursor >= page_limit or _is_unmarked_author_block_stop(lines[cursor]):
+        return []
+
+    first_inline_names = _split_inline_author_names(
+        _remove_contact_details(lines[cursor])
+    )
+    first_name = _unmarked_author_name_from_line(lines[cursor])
+    if first_inline_names:
+        authors = first_inline_names
+    elif first_name:
+        authors = [first_name]
+    else:
+        return []
+    pending_name_fragment = _trailing_name_fragment_after_affiliation(lines[cursor])
+    cursor += 1
+    non_name_lines = 0
+    max_non_name_lines = 48
+    blank_run = 0
+    previous_contact_line = False
+    previous_affiliation_line = False
+    while cursor < page_limit and len(authors) < MAX_AUTHORS:
+        line = lines[cursor]
+        cursor += 1
+        if not line:
+            blank_run += 1
+            if blank_run > 3:
+                break
+            continue
+        if _is_unmarked_author_block_stop(line):
+            break
+
+        inline_names = _split_inline_author_names(_remove_contact_details(line))
+        if inline_names:
+            authors.extend(inline_names)
+            non_name_lines = 0
+            blank_run = 0
+            previous_contact_line = False
+            previous_affiliation_line = False
+            continue
+        candidate = _unmarked_author_name_from_line(line)
+        if not candidate and cursor < page_limit:
+            candidate = _name_before_wrapped_affiliation(line, lines[cursor])
+        if candidate:
+            if (
+                pending_name_fragment
+                and re.match(r'^[A-Z]\.(?:\s|$)', candidate)
+            ):
+                candidate = f'{pending_name_fragment} {candidate}'
+            authors.append(candidate)
+            pending_name_fragment = _trailing_name_fragment_after_affiliation(line)
+            non_name_lines = 0
+            blank_run = 0
+            previous_contact_line = False
+            previous_affiliation_line = False
+            continue
+
+        if _is_unmarked_author_affiliation_or_contact(line):
+            pending_name_fragment = ''
+            non_name_lines += 1
+            blank_run = 0
+            previous_contact_line = _is_unmarked_author_contact(line)
+            previous_affiliation_line = bool(
+                _UNMARKED_AUTHOR_AFFILIATION.search(line)
+            ) and not previous_contact_line
+            if non_name_lines > max_non_name_lines:
+                break
+            continue
+
+        # pypdf sometimes wraps the final few letters of a long email onto a
+        # separate line (for example ``...@gmail.c`` / ``om``). Skip only a
+        # short fragment immediately following a contact line; this is not a
+        # general licence to bridge arbitrary text between names.
+        if previous_contact_line and re.fullmatch(r'[A-Za-z0-9]{1,4}', line):
+            non_name_lines += 1
+            previous_contact_line = False
+            previous_affiliation_line = False
+            if non_name_lines > max_non_name_lines:
+                break
+            continue
+
+        # Address blocks can wrap a locality onto its own short line after a
+        # street/highway line (for example, ``114 MacArthur Highway Sampaloc``
+        # followed by ``Apalit``). A one- or two-word place fragment cannot
+        # satisfy the author-name rule above, so bridge it only immediately
+        # after a recognised affiliation/address line.
+        if previous_affiliation_line and re.fullmatch(
+            r'[A-Z][A-Za-z.,-]*(?:\s+[A-Z][A-Za-z.,-]*)?', line,
+        ):
+            non_name_lines += 1
+            previous_affiliation_line = False
+            if non_name_lines > max_non_name_lines:
+                break
+            continue
+
+        previous_contact_line = False
+        previous_affiliation_line = False
+
+        break
+
+    # One unmarked candidate is too ambiguous: it could be a reviewer, a
+    # caption, or another title-page line. Leave it for manual entry.
+    return authors if len(authors) >= 2 else []
+
+
+def detect_authors(
+    text: str, *, title_override: str | None = None,
+) -> tuple[list[str], str]:
     """Extract the author block that follows a "by" / "Submitted by" marker.
 
     Returns ``(authors, confidence)``.
@@ -1659,68 +2724,87 @@ def detect_authors(text: str) -> tuple[list[str], str]:
     lines = [collapse_whitespace(raw) for raw in text.split('\n')]
 
     marker_idx = -1
-    first_inline = ''
+    first_inline: list[str] = []
+    title_end = (
+        _find_title_end_for_title(lines, title_override)
+        if title_override else _find_detected_title_end(lines)
+    )
     for idx, line in enumerate(lines[:TITLE_PAGE_LINES * 2]):
         if not line:
             continue
+        if (
+            _ABSTRACT_HEADING.match(line)
+            or _CHAPTER_PATTERNS.match(_noise_key(line))
+        ):
+            break
         match = _AUTHOR_MARKER.match(line)
-        if not match:
+        if not match or not _is_author_marker_candidate(line, match):
             continue
         marker_idx = idx
         remainder = _remove_contact_details(line[match.end():].strip(' :,'))
-        if remainder and _looks_like_person_name(remainder):
-            first_inline = remainder
+        if remainder:
+            first_inline = _split_inline_author_names(remainder)
+            if not first_inline and _looks_like_person_name(remainder):
+                first_inline = [remainder]
         break
 
     if marker_idx < 0:
-        return [], 'low'
+        authors = _detect_unmarked_title_page_authors(lines, title_end=title_end)
+    else:
+        authors: list[str] = []
+        if first_inline:
+            authors.extend(first_inline)
 
-    authors: list[str] = []
-    if first_inline:
-        authors.append(first_inline)
-
-    # Blanks cannot terminate the author block, only bound it. Two different
-    # real layouts require tolerating them:
-    #   * the THESYS+ PDF puts a blank line between "by:" and the first name,
-    #     then lists the names contiguously;
-    #   * DOCX extraction makes every paragraph its own block, so a blank sits
-    #     between EVERY name.
-    # Termination is therefore driven by "this line is no longer a name",
-    # with a small blank budget to bridge the gaps.
-    MAX_CONSECUTIVE_BLANKS = 2
-    blank_run = 0
-
-    for line in lines[marker_idx + 1:]:
-        if not line:
-            blank_run += 1
-            if blank_run > MAX_CONSECUTIVE_BLANKS:
-                break
-            continue
-
-        # Contact details are removed BEFORE the name test, then the remainder
-        # is judged. Previously any line carrying an email or a phone number
-        # failed _looks_like_person_name — '@' and digits are outside
-        # _NAME_DISALLOWED's character class — which broke the walk and
-        # silently dropped that author AND every author after it. Title pages
-        # in this corpus commonly print contacts beside or beneath each name,
-        # so that was the normal case, not an edge one.
-        cleaned = _remove_contact_details(line)
-
-        if not cleaned:
-            # A line that is ONLY contact details. Skip it rather than
-            # terminate — the names often continue after it — but spend the
-            # blank budget so a long contact block cannot run away.
-            blank_run += 1
-            if blank_run > MAX_CONSECUTIVE_BLANKS:
-                break
-            continue
-
-        if not _looks_like_person_name(cleaned):
-            break
+        # Blanks cannot terminate the author block, only bound it. Two different
+        # real layouts require tolerating them:
+        #   * the THESYS+ PDF puts a blank line between "by:" and the first name,
+        #     then lists the names contiguously;
+        #   * DOCX extraction makes every paragraph its own block, so a blank sits
+        #     between EVERY name.
+        # Termination is therefore driven by "this line is no longer a name",
+        # with a small blank budget to bridge the gaps.
+        MAX_CONSECUTIVE_BLANKS = 2
         blank_run = 0
-        authors.append(cleaned)
-        if len(authors) >= MAX_AUTHORS:
-            break
+
+        for line in lines[marker_idx + 1:]:
+            if not line:
+                blank_run += 1
+                if blank_run > MAX_CONSECUTIVE_BLANKS:
+                    break
+                continue
+
+            # Contact details are removed BEFORE the name test, then the remainder
+            # is judged. Previously any line carrying an email or a phone number
+            # failed _looks_like_person_name — '@' and digits are outside
+            # _NAME_DISALLOWED's character class — which broke the walk and
+            # silently dropped that author AND every author after it. Title pages
+            # in this corpus commonly print contacts beside or beneath each name,
+            # so that was the normal case, not an edge one.
+            cleaned = _remove_contact_details(line)
+
+            if not cleaned:
+                # A line that is ONLY contact details. Skip it rather than
+                # terminate — the names often continue after it — but spend the
+                # blank budget so a long contact block cannot run away.
+                blank_run += 1
+                if blank_run > MAX_CONSECUTIVE_BLANKS:
+                    break
+                continue
+
+            inline_names = _split_inline_author_names(cleaned)
+            if inline_names:
+                blank_run = 0
+                authors.extend(inline_names)
+                if len(authors) >= MAX_AUTHORS:
+                    break
+                continue
+
+            if not _looks_like_person_name(cleaned):
+                break
+            blank_run = 0
+            authors.append(cleaned)
+            if len(authors) >= MAX_AUTHORS:
+                break
 
     seen: set[str] = set()
     deduped: list[str] = []
@@ -1737,6 +2821,41 @@ def detect_authors(text: str) -> tuple[list[str], str]:
     return deduped, 'low'
 
 
+def _order_authors_by_visual_rows(
+    authors: list[str], author_lines: tuple[str, ...] | list[str],
+) -> list[str]:
+    """Reorder recognized authors by their positions in first-page visual rows.
+
+    The row hints come from the PDF text layer and are never used to invent
+    names. If any extracted name cannot be mapped back to a row, keep the
+    detector's original order rather than returning a partial ordering.
+    """
+    if len(authors) < 2 or not author_lines:
+        return authors
+
+    def key(value: str) -> str:
+        return ''.join(char.casefold() for char in value if char.isalnum())
+
+    row_keys = [key(line) for line in author_lines]
+    positions: list[tuple[int, int]] = []
+    for author in authors:
+        author_key = key(author)
+        matches = [
+            (row_index, row_key.find(author_key))
+            for row_index, row_key in enumerate(row_keys)
+            if author_key and row_key.find(author_key) >= 0
+        ]
+        if not matches:
+            return authors
+        positions.append(matches[0])
+
+    if len(set(positions)) != len(authors):
+        return authors
+    return [
+        author for _position, author in sorted(zip(positions, authors))
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Aggregate
 # ---------------------------------------------------------------------------
@@ -1746,7 +2865,9 @@ def detect_authors(text: str) -> tuple[list[str], str]:
 METADATA_FIELDS = ('title', 'abstract', 'authors', 'keywords', 'program', 'year')
 
 
-def extract_metadata(text: str) -> dict[str, dict]:
+def extract_metadata(
+    text: str, *, author_lines: tuple[str, ...] | list[str] = (),
+) -> dict[str, dict]:
     """Run every field extractor over ``text``.
 
     Returns a mapping of field name to ``{'value': ..., 'confidence': ...}``
@@ -1775,6 +2896,22 @@ def extract_metadata(text: str) -> dict[str, dict]:
     for field in METADATA_FIELDS:
         try:
             value, confidence = extractors[field](text)
+            if field == 'authors':
+                # Some scanned pages have several author columns. The primary
+                # OCR pass can read only one column even though the source
+                # page clearly contains more names. A second author-only pass
+                # over positioned first-page rows may supply a more complete
+                # block; all names still pass the same title-page checks and
+                # confidence remains low.
+                if author_lines:
+                    visual_title, _ = detect_title(text)
+                    visual_value, visual_confidence = detect_authors(
+                        '\n'.join(author_lines),
+                        title_override=visual_title or None,
+                    )
+                    if len(visual_value) > len(value):
+                        value, confidence = visual_value, visual_confidence
+                value = _order_authors_by_visual_rows(value, author_lines)
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Metadata extraction failed for field %s: %s', field, exc)
             value, confidence = empties[field], 'low'

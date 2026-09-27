@@ -175,7 +175,8 @@ class TestAbstractAndKeywords:
         assert MARKER_KEYWORDS in result.markers
 
     @pytest.mark.parametrize('label', [
-        'Keywords:', 'Keyword:', 'KEYWORDS:', 'Key words:', 'Index Terms:',
+        'Keywords:', 'Keyword:', 'KEYWORDS:', 'KEYWORD/S:',
+        'Key words:', 'Index Terms:',
     ])
     def test_keyword_label_variants(self, label):
         text = f'ABSTRACT\n{FILLER}\n{label} alpha, beta, gamma\n'

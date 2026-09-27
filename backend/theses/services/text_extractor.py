@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from itertools import islice
 from pathlib import Path
 
@@ -54,6 +55,11 @@ FRONT_MATTER_PAGES = 5
 # approval sheet, acknowledgements and dedication, so it can land as late as
 # page 8. Still a ~9x reduction against a typical 93-page thesis.
 METADATA_PAGES = 10
+
+# Keyword labels occasionally land just beyond the abstract window. The upload
+# endpoint may retry only keyword detection through this small extension; the
+# other metadata fields and the general OCR ceiling remain unchanged.
+KEYWORD_FALLBACK_PAGES = 15
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +164,242 @@ def despace_text(text: str) -> tuple[str, int]:
     return '\n'.join(out), repaired
 
 
+def _extract_visual_page_lines(page) -> tuple[str, ...]:
+    """Read one PDF page's text rows in visual order for author ordering.
+
+    pypdf's normal extraction order can follow text-object creation order
+    instead of the printed reading order on multi-column title pages. The
+    metadata text itself must stay untouched, so collect a separate set of
+    short positioned text fragments and group them by their page coordinates.
+    The author detector later uses these rows only to reorder names it already
+    recognized in the primary extraction.
+
+    This intentionally skips long multi-line runs: they are usually body
+    paragraphs and their individual line positions cannot be recovered from a
+    single visitor callback. If a page has no usable positioned text, callers
+    receive an empty tuple and retain the normal extraction order.
+    """
+    fragments: list[tuple[float, float, float, str]] = []
+
+    def visitor(text, cm, tm, _font, _font_size):
+        if not text or not text.strip() or len(text) > 400:
+            return
+        if text.count('\n') > 1:
+            return
+
+        try:
+            # pypdf represents affine matrices as [a, b, c, d, e, f].
+            # Compose the current text matrix with the active page transform
+            # so different text objects can be compared on the same page.
+            x = float(cm[0]) * float(tm[4]) + float(cm[2]) * float(tm[5]) + float(cm[4])
+            y = float(cm[1]) * float(tm[4]) + float(cm[3]) * float(tm[5]) + float(cm[5])
+            vertical_axis = float(cm[1]) * float(tm[2]) + float(cm[3]) * float(tm[3])
+        except (IndexError, TypeError, ValueError):
+            return
+
+        repaired, _ = despace_text(text.strip())
+        line = re.sub(r'\s+', ' ', repaired).strip()
+        if line:
+            fragments.append((x, y, vertical_axis, line))
+
+    try:
+        page.extract_text(visitor_text=visitor)
+    except Exception:  # pragma: no cover - defensive pypdf fallback
+        return ()
+
+    if not fragments:
+        return ()
+
+    # Group fragments on the same visual baseline. A small tolerance covers
+    # font metric differences without merging adjacent printed rows.
+    by_y = sorted(fragments, key=lambda item: item[1])
+    groups: list[tuple[float, list[tuple[float, str]]]] = []
+    for x, y, _axis, line in by_y:
+        if not groups or abs(groups[-1][0] - y) > 5.0:
+            groups.append((y, [(x, line)]))
+        else:
+            groups[-1][1].append((x, line))
+
+    # Ordinary PDF user space grows upward; flipped/scaled text objects in
+    # some Canva exports yield coordinates that grow downward. The composed
+    # vertical axis tells us which direction to use for top-to-bottom order.
+    vertical_axis = sorted(item[2] for item in fragments)[len(fragments) // 2]
+    if vertical_axis < 0:
+        groups.sort(key=lambda group: group[0])
+    else:
+        groups.sort(key=lambda group: group[0], reverse=True)
+
+    return tuple(
+        re.sub(r'\s+', ' ', ' '.join(line for _x, line in sorted(parts))).strip()
+        for _y, parts in groups
+        if any(line.strip() for _x, line in parts)
+    )
+
+
+def _extract_ocr_visual_page_lines(image) -> tuple[str, ...]:
+    """Read OCR words as top-to-bottom, left-to-right page rows.
+
+    This is a separate author-only hint for scanned or letter-spaced PDFs.
+    The ordinary OCR string remains unchanged for the other metadata fields.
+    Tesseract's single-column segmentation can omit parallel author columns;
+    sparse-text page segmentation preserves those text boxes without changing the primary
+    OCR text or its page ceiling.
+    """
+    import pytesseract
+
+    data = pytesseract.image_to_data(
+        image,
+        config='--psm 11',
+        output_type=pytesseract.Output.DICT,
+        timeout=30,
+    )
+    grouped: dict[tuple[int, int, int], list[tuple[int, int, str]]] = {}
+    for index, raw_word in enumerate(data.get('text', [])):
+        word = re.sub(r'\s+', ' ', raw_word or '').strip()
+        if not word:
+            continue
+        try:
+            key = (
+                int(data['block_num'][index]),
+                int(data['par_num'][index]),
+                int(data['line_num'][index]),
+            )
+            left = int(data['left'][index])
+            top = int(data['top'][index])
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+        grouped.setdefault(key, []).append((top, left, word))
+
+    rows = []
+    for fragments in grouped.values():
+        fragments.sort(key=lambda item: item[1])
+        rows.append((min(item[0] for item in fragments), min(item[1] for item in fragments),
+                     ' '.join(item[2] for item in fragments)))
+    rows.sort(key=lambda item: (item[0], item[1]))
+
+    # PSM 11 can assign slightly different vertical coordinates to separate
+    # author blocks on the same printed row. Cluster nearby baselines, then
+    # retain the blocks individually in left-to-right order.
+    visual_rows: list[tuple[float, list[tuple[float, str]]]] = []
+    for top, left, row in rows:
+        if not visual_rows or top - visual_rows[-1][0] > 28:
+            visual_rows.append((top, [(left, row)]))
+        else:
+            visual_rows[-1][1].append((left, row))
+    visual_lines = tuple(
+        row
+        for _top, fragments in visual_rows
+        for _left, row in sorted(fragments)
+        if row
+    )
+    # Sparse segmentation is useful for preserving the separate author
+    # columns, but can misread a single character in a name. A second, faster
+    # column-aware pass supplies spelling evidence only when all other name
+    # tokens (including any middle initial) agree exactly.
+    try:
+        alternate_text = pytesseract.image_to_string(
+            image, config='--psm 4', timeout=30,
+        )
+        visual_lines = _repair_ocr_author_name_tokens(
+            visual_lines, alternate_text,
+        )
+    except Exception as exc:  # pragma: no cover - defensive OCR fallback
+        logger.info('Alternate author OCR pass unavailable: %s', exc)
+    return visual_lines
+
+
+def _repair_ocr_author_name_tokens(
+    visual_lines: tuple[str, ...], alternate_text: str,
+) -> tuple[str, ...]:
+    """Correct one OCR token only when a second pass agrees on every anchor."""
+    token_pattern = re.compile(
+        r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[.'’\-][A-Za-zÀ-ÖØ-öø-ÿ]+)*",
+    )
+
+    def normalized(token: str) -> str:
+        return ''.join(char.casefold() for char in token if char.isalpha())
+
+    def one_edit_apart(left: str, right: str) -> bool:
+        if abs(len(left) - len(right)) > 1:
+            return False
+        if len(left) == len(right):
+            return sum(a != b for a, b in zip(left, right)) == 1
+        shorter, longer = sorted((left, right), key=len)
+        index = other_index = differences = 0
+        while index < len(shorter) and other_index < len(longer):
+            if shorter[index] == longer[other_index]:
+                index += 1
+                other_index += 1
+            else:
+                differences += 1
+                other_index += 1
+                if differences > 1:
+                    return False
+        return True
+
+    author_region = re.split(r'\bABSTRACT\b', alternate_text, maxsplit=1, flags=re.I)[0]
+    alternate_tokens = [match.group() for match in token_pattern.finditer(author_region)]
+    repaired: list[str] = []
+
+    for line in visual_lines:
+        if re.search(r'\bABSTRACT\b', line, re.IGNORECASE):
+            repaired.append(line)
+            continue
+
+        matches = list(token_pattern.finditer(line))
+        tokens = [match.group() for match in matches]
+        normalized_tokens = [normalized(token) for token in tokens]
+        if (
+            len(tokens) < 3
+            or len(tokens) > 7
+            or not any(len(token) == 1 for token in normalized_tokens)
+        ):
+            repaired.append(line)
+            continue
+
+        variants: dict[tuple[int, str], set[str]] = {}
+        for start in range(len(alternate_tokens) - len(tokens) + 1):
+            candidate = alternate_tokens[start:start + len(tokens)]
+            candidate_normalized = [normalized(token) for token in candidate]
+            differing = [
+                index for index, (original, alternate) in enumerate(
+                    zip(normalized_tokens, candidate_normalized),
+                )
+                if original != alternate
+            ]
+            if len(differing) != 1:
+                continue
+            changed_index = differing[0]
+            if any(
+                len(original) == 1 and original != candidate_normalized[index]
+                for index, original in enumerate(normalized_tokens)
+            ):
+                continue
+            original_word = normalized_tokens[changed_index]
+            alternate_word = candidate_normalized[changed_index]
+            if not one_edit_apart(original_word, alternate_word):
+                continue
+            variants.setdefault((changed_index, original_word), set()).add(
+                candidate[changed_index],
+            )
+
+        unique_changes = [
+            (index, variants_for_token)
+            for (index, _original), variants_for_token in variants.items()
+            if len(variants_for_token) == 1
+        ]
+        if len(unique_changes) != 1:
+            repaired.append(line)
+            continue
+
+        index, variants_for_token = unique_changes[0]
+        alternate_word = next(iter(variants_for_token))
+        span = matches[index].span()
+        repaired.append(f'{line[:span[0]]}{alternate_word}{line[span[1]:]}')
+
+    return tuple(repaired)
+
+
 @dataclass(frozen=True)
 class ExtractionResult:
     """Result of a thesis text extraction.
@@ -178,12 +420,21 @@ class ExtractionResult:
         True when at least one character was extracted.
     error:
         Human-readable error message when ``success`` is False.
+    author_lines:
+        First-page text rows in visual order, when a PDF text layer provides
+        usable character positions. This is an author-only ordering hint; the
+        primary ``text`` value is unchanged and remains the input for every
+        other metadata field.
     """
 
     text: str
     method: str
     success: bool
     error: str | None = None
+    author_lines: tuple[str, ...] = ()
+    # Raw page boundaries cached for bounded preview passes. Repairs are
+    # deferred until abstract recovery; the primary text remains unchanged.
+    page_texts: tuple[str, ...] = ()
 
 
 class ThesisTextExtractor:
@@ -237,11 +488,21 @@ class ThesisTextExtractor:
 
     # ── PDF ─────────────────────────────────────────────────────────────
 
+    def extract_cover_text(self, path: Path) -> ExtractionResult:
+        """Read cover text for keyword/abstract retry without unused author OCR.
+
+        The endpoint already gathered visual author rows from the first pass.
+        This preserves the cover's ordinary text/OCR result while avoiding a
+        second expensive author-only Tesseract pass.
+        """
+        return self._extract_pdf(path, max_pages=1, include_ocr_author_lines=False)
+
     def _extract_pdf(
         self,
         path: Path,
         *,
         max_pages: int | None = None,
+        include_ocr_author_lines: bool = True,
     ) -> ExtractionResult:
         """Try direct text extraction; fall back to OCR for scanned PDFs."""
         # Step 1: try pypdf for machine-readable PDFs
@@ -256,11 +517,18 @@ class ThesisTextExtractor:
                 else islice(reader.pages, max_pages)
             )
             pages_text = []
-            for page in pages:
+            captured_pages = []
+            author_lines: tuple[str, ...] = ()
+            for page_index, page in enumerate(pages):
+                page_text = ''
                 try:
-                    pages_text.append(page.extract_text() or '')
+                    if page_index == 0:
+                        author_lines = _extract_visual_page_lines(page)
+                    page_text = page.extract_text() or ''
+                    pages_text.append(page_text)
                 except Exception as page_err:  # pragma: no cover - defensive
                     logger.warning('pypdf page failed for %s: %s', path, page_err)
+                captured_pages.append(page_text)
             direct_text = '\n\n'.join(pages_text).strip()
 
             # Repair letter-spaced lines HERE, at assembly, rather than at each
@@ -287,6 +555,8 @@ class ThesisTextExtractor:
                     text=direct_text,
                     method=pypdf_method,
                     success=True,
+                    author_lines=author_lines,
+                    page_texts=tuple(captured_pages) if max_pages is not None else (),
                 )
             # Else: proceed to OCR fallback
         except Exception as exc:
@@ -298,10 +568,20 @@ class ThesisTextExtractor:
         try:
             ocr_text = self._ocr_pdf(path, max_pages=max_pages)
             if ocr_text.strip():
+                ocr_author_lines: tuple[str, ...] = ()
+                if include_ocr_author_lines:
+                    try:
+                        ocr_author_lines = self._ocr_first_page_author_lines(path)
+                    except Exception as author_ocr_err:  # pragma: no cover - defensive
+                        logger.info(
+                            'Author-only OCR rows unavailable for %s: %s',
+                            path, author_ocr_err,
+                        )
                 return ExtractionResult(
                     text=ocr_text,
                     method='ocr_tesseract',
                     success=True,
+                    author_lines=ocr_author_lines,
                 )
             # Last resort — return whatever pypdf gave us, even if short
             if direct_text:
@@ -309,6 +589,7 @@ class ThesisTextExtractor:
                     text=direct_text,
                     method=pypdf_method,
                     success=True,
+                    author_lines=author_lines,
                 )
             return ExtractionResult(
                 text='',
@@ -323,6 +604,7 @@ class ThesisTextExtractor:
                     text=direct_text,
                     method=pypdf_method,
                     success=True,
+                    author_lines=author_lines,
                 )
             return ExtractionResult(
                 text='',
@@ -367,6 +649,47 @@ class ThesisTextExtractor:
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning('Tesseract failed on PDF page: %s', exc)
         return '\n\n'.join(t.strip() for t in page_texts if t and t.strip())
+
+    def _ocr_first_page_author_lines(self, path: Path) -> tuple[str, ...]:
+        """Return positioned OCR rows from only page one for author detection."""
+        from pdf2image import convert_from_path
+        from identity_verification.services.ocr_extractor import (
+            _configure_tesseract_path,
+            OCRExtractor,
+        )
+
+        if not OCRExtractor._tesseract_configured:
+            _configure_tesseract_path()
+            OCRExtractor._tesseract_configured = True
+
+        images = convert_from_path(
+            str(path), dpi=200, first_page=1, last_page=1,
+        )
+        return _extract_ocr_visual_page_lines(images[0]) if images else ()
+
+    def ocr_abstract_page(self, path: Path, page_number: int) -> str:
+        """OCR exactly one preview page; never affect document-wide extraction."""
+        if not 1 <= page_number <= KEYWORD_FALLBACK_PAGES:
+            return ''
+        import pytesseract
+        from pdf2image import convert_from_path
+        from identity_verification.services.ocr_extractor import (
+            _configure_tesseract_path,
+            OCRExtractor,
+        )
+
+        if not OCRExtractor._tesseract_configured:
+            _configure_tesseract_path()
+            OCRExtractor._tesseract_configured = True
+        images = convert_from_path(
+            str(path), dpi=250, first_page=page_number, last_page=page_number,
+            timeout=15,
+        )
+        try:
+            return pytesseract.image_to_string(images[0], timeout=20) if images else ''
+        finally:
+            for image in images:
+                image.close()
 
     # ── DOCX ────────────────────────────────────────────────────────────
 
