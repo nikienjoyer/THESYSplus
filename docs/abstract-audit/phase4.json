@@ -1,0 +1,47 @@
+{
+  "fields": {
+    "title": {
+      "value": "CYBERESCAPE: A Mobile Educational Escape Room Application For Networking Fundamentals",
+      "confidence": "high"
+    },
+    "abstract": {
+      "value": "Networking Fundamentals play a crucial role im modem technology, and it is important for educational institutions to equip students with the necessary skills. The researchers developed a game base mobile application CyberEscape with the aim of evaluating its effectiveness and determining its effects on students understanding of networking concepts. The researchers have used a mixed-methods research design which involves combining both qualitative and quantitative research methods within a single study to provide a more comprehensive understanding of the research problem. The CyberEscape study utilized the nominal group process for consensus sampling, ensuring diverse opinions and insights from TVL-ICT Senior High School students during pre-test, post-test, and Beta-test evaluations. There's a significant improvement from the pre-test to post-test, with the average correct responses increasing from 56% to 73%. The percentage of correct answers increased significantly by 17%, indicating an Important Improvement m the understanding and proficiency of the participants. Overall, CyberEscape has received positive feedback from players, expressing enjoyment and appreciation for its educational value, despite areas for improvement. Future research could enhance the CyberEscape by tuming it into a 3D educational game, allowing for the development of educational games that cater to varlous requirements.",
+      "confidence": "medium"
+    },
+    "authors": {
+      "value": [
+        "Dindin, Ma. Dannylene G.",
+        "Garcia, Joshua S.",
+        "Jimenez, Jen Rose B.",
+        "Martin, John Kenshin R.",
+        "Quiambao, John Dale S",
+        "Salenga, Romar M",
+        "Mallari, Christian S.",
+        "Cruz, Myka A."
+      ],
+      "confidence": "low"
+    },
+    "keywords": {
+      "value": [
+        "CyberEscape"
+      ],
+      "confidence": "medium"
+    },
+    "program": {
+      "value": "",
+      "confidence": "low"
+    },
+    "year": {
+      "value": null,
+      "confidence": "low"
+    }
+  },
+  "filled_fields": [
+    "title",
+    "abstract",
+    "authors",
+    "keywords"
+  ],
+  "method": "pypdf+despaced",
+  "message": "Detected 4 of 6 fields. Please fill in and review the rest (program, year)."
+}

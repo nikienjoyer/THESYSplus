@@ -1,0 +1,50 @@
+{
+  "fields": {
+    "title": {
+      "value": "CODEQUEST: When Java Programming Meets Playful Learning",
+      "confidence": "medium"
+    },
+    "abstract": {
+      "value": "In the contemporary age, diverse learning approaches are surfacing, with a notable rise in the importance of game-based learning. Conventional programming teaching methods are often perceived as cumbersome, contributing to shortened attention spans. Recognizing the practical nature of programming skills, CodeQuest: Where Java Programming Meets Playful Learning introduces a blended learning mode, supplementing traditional instruction to enhance engagement and sustain interest through the infusion of novel elements. A descriptive research design and quantitative approach were employed to assess preferences of 103 respondents (3 Alpha Testers, 100 Beta Testers) at DHVSU campus. The study aimed to evaluate the reception of the game-based web-based Java Programming teaching, considering effectiveness, engagement, satisfaction, performance, reliability, usability, content, and personalization. Alpha testers, with a consensus score of 3.57 (agree), offered expert insights. Beta testers, mostly CCS students, demonstrated a significantly higher average score of 4.28 (strongly agree), indicating a positive reception among target respondents. The project reveals that integrating playful learning into Java programming education through CodeQuest enhances engagement and deepens understanding. Positive responses from Alpha and Beta testing phases suggest the potential of gamified learning to make programming education more accessible and enjoyable, contributing to evolving educational methodologies.",
+      "confidence": "high"
+    },
+    "authors": {
+      "value": [
+        "Den Dave M. Alcantara",
+        "Archie M. De Jesus",
+        "Zhannen C. Dimarucut",
+        "Nathaniel A. Lusung",
+        "Angel Diana Mae B. Marin",
+        "Jayson Morano",
+        "Ivan Ryan C. Torres",
+        "Myka A. Cruz"
+      ],
+      "confidence": "low"
+    },
+    "keywords": {
+      "value": [
+        "Gamification",
+        "Blended",
+        "Engagement",
+        "Effectiveness"
+      ],
+      "confidence": "high"
+    },
+    "program": {
+      "value": "",
+      "confidence": "low"
+    },
+    "year": {
+      "value": null,
+      "confidence": "low"
+    }
+  },
+  "filled_fields": [
+    "title",
+    "abstract",
+    "authors",
+    "keywords"
+  ],
+  "method": "pypdf+despaced",
+  "message": "Detected 4 of 6 fields. Please fill in and review the rest (program, year)."
+}

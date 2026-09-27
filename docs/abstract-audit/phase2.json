@@ -1,0 +1,163 @@
+[
+  {
+    "document": "HUBISKO",
+    "response": {
+      "fields": {
+        "title": {
+          "value": "HUBISKO: Scholarship Management In Pampanga Through Centralized Automation",
+          "confidence": "high"
+        },
+        "abstract": {
+          "value": "Traditional scholarship administration processes are often inefficient and time-consuming. To address these challenges, this study developed and implemented HubIsko, a web-based automation system designed to improve the scholarship application and management process. The system aims to simplify student applicants' application process and enhance scholarship providers' efficiency. The system offers features such as online application forms, document upload, and real-time notifications. Through accurate testing and user feedback, HubIsko was refined to ensure a user -friendly and efficient experience. The successful implementation of HubIsko demonstrates the potential of technology to improve scholarship administration, providing a more efficient process for both student applicants and scholarship providers.",
+          "confidence": "high"
+        },
+        "authors": {
+          "value": [
+            "Aguilar, Airam Gabriel S.",
+            "Alfaro, Aian Louise A.",
+            "Bernal, Leonalyn B.",
+            "Ibay, Armyn Jace R.",
+            "Luzano, Nicole M.",
+            "Maglalang, MR Rey C."
+          ],
+          "confidence": "low"
+        },
+        "keywords": {
+          "value": [
+            "Web Based Automation System",
+            "Scholarship"
+          ],
+          "confidence": "medium"
+        },
+        "program": {
+          "value": "BS Computer Science",
+          "confidence": "high"
+        },
+        "year": {
+          "value": 2024,
+          "confidence": "high"
+        }
+      },
+      "filled_fields": [
+        "title",
+        "abstract",
+        "authors",
+        "keywords",
+        "program",
+        "year"
+      ],
+      "method": "pypdf",
+      "message": "All fields were detected. Please review them before uploading."
+    }
+  },
+  {
+    "document": "EXTHEALTH",
+    "response": {
+      "fields": {
+        "title": {
+          "value": "EXTHEALTH: A Browser Extension For Health Information On X Using Natural Language Processing (NLP)",
+          "confidence": "high"
+        },
+        "abstract": {
+          "value": "Many social media users need more time or motivation to fact-check health claims, which often leads to the spread of misinformation. This study introduces eXtHealth, a browser extension designed to provide timely health reminders to users and detect and verify health-related posts by displaying supporting or opposing articles on social media platforms such as (formerly Twitter) using Natural Language Processing (NLP). Using an iterative model as the software development methodology guaranteed flexibility and responsiveness to user feedback. Through quantitative methodology, numerical data were statistically treated to evaluate test results. The testing phases through purposive sampling were essential to this progression. The alpha test involved health and IT professionals, while users were included in the beta test. Overall, the results showed a remarkably high weighted mean of 3.61 with a verbal interpretation of “Strongly Agree.” The results suggest that respondents were satisfied and supported the system’s usability. The research findings demonstrate that the extension effectively detects and verifies health-related posts. Additionally, the extension provides valuable health tips and reminders to help users stay informed about health issues. The extension is useful and reliable for fact-checking health-related claims and providing accurate health information. Ultimately, eXtHealth can help web users fight health misinformation and stay informed about health topics.",
+          "confidence": "medium"
+        },
+        "authors": {
+          "value": [
+            "Agaloos, Aaron Bruce L.",
+            "Bernardo, Phoebe Otreas L.",
+            "Capili, Dana Maxine I.",
+            "Castro, Shania Nicole L.",
+            "Fernandez, Drexler C.",
+            "Hizer, Rosgen D.",
+            "Tagle, Aries Joseph V."
+          ],
+          "confidence": "low"
+        },
+        "keywords": {
+          "value": [
+            "Health Misinformation",
+            "Browser Extension",
+            "Fact-checking",
+            "X",
+            "Twitter",
+            "Social Media"
+          ],
+          "confidence": "high"
+        },
+        "program": {
+          "value": "BS Computer Science",
+          "confidence": "high"
+        },
+        "year": {
+          "value": 2024,
+          "confidence": "high"
+        }
+      },
+      "filled_fields": [
+        "title",
+        "abstract",
+        "authors",
+        "keywords",
+        "program",
+        "year"
+      ],
+      "method": "pypdf",
+      "message": "All fields were detected. Please review them before uploading."
+    }
+  },
+  {
+    "document": "APPOKO",
+    "response": {
+      "fields": {
+        "title": {
+          "value": "APPOKO: A Web-Based Elderly Medication Monitoring System with Descriptive Analytics and GPS Tracking",
+          "confidence": "high"
+        },
+        "abstract": {
+          "value": "The elderly care facility located at Telabastagan, San Fernando, Pampanga, faced challenges in monitoring and medication tracking of the elderly residents within the Bahay Pag-ibig due to having many elderly inside the Bahay Pag-ibig. Administrators and caregivers were having a hard time maintaining the healthcare management in the facility, and there needs to be more workforce. To address these concerns, a web-based solution emerged: “APPOKO: A Web-Based Elderly Medication Monitoring System with Descriptive Analytics and GPS Tracking.” Developed using the Agile Software Development Methodology, semi-structured interview questionnaires, gathered through a quantitative and qualitative research design; this innovative system achieved notable success. The evaluation results of the beta testing, with Functional Suitability scoring 3.86, Performance Efficiency achieving 3.9, Compatibility reaching 3.85, Usability scoring 3.91, Reliability achieving 3.82, Security scoring 4, Maintainability achieving 3.98, and Portability reaching 3.76, collectively resulted in an acceptable interpretation with an overall average mean of 3.88. The positive outcome underscores the effectiveness of the employed methodology and data collection approach. The successful implementation of the Appoko system demonstrates its potential to address the identified limitations in the outdated manual processes, offering an efficient and reliable solution for managing elderly healthcare within the Bahay Pag-ibig. This signifies a significant shift from traditional paper-based systems to a modernized, web-based approach, aligning with the study’s emphasis on the necessity for a digital transition. The system prioritizes efficiency by streamlining stakeholder registration of the elderly, medication scheduling, organizing health records, and location tracking of the elderly. Robust access control ensured data security, granting verification access with an intuitive user experience and enhancing effectiveness for administrators, caregivers, doctors, and relatives of the elderly in Bahay Pag-ibig.",
+          "confidence": "high"
+        },
+        "authors": {
+          "value": [
+            "Almo, Darren S.",
+            "Arce, Jhenslee C.",
+            "Arcega, Abigail",
+            "Aspan, Romeo Lloyd F.",
+            "Atchico, Kiarna Mersche M.",
+            "Manalang, Axl Denz M."
+          ],
+          "confidence": "low"
+        },
+        "keywords": {
+          "value": [
+            "Elderly healthcare management",
+            "web-based system",
+            "GPS tracking",
+            "Agile Software Development Methodology",
+            "Web-based Approach"
+          ],
+          "confidence": "high"
+        },
+        "program": {
+          "value": "BS Information Technology",
+          "confidence": "high"
+        },
+        "year": {
+          "value": 2024,
+          "confidence": "high"
+        }
+      },
+      "filled_fields": [
+        "title",
+        "abstract",
+        "authors",
+        "keywords",
+        "program",
+        "year"
+      ],
+      "method": "pypdf",
+      "message": "All fields were detected. Please review them before uploading."
+    }
+  }
+]
