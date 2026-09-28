@@ -1,0 +1,17 @@
+# Topic Trend Analysis methodology
+
+The main Topic Trend Analysis view counts **confirmed primary research subjects**. The group reviewed the source PDF or DOCX for each of the initial 52 approved theses and assigned one primary subject based on the study's central research problem or service. The review worksheet records each thesis UUID, linked file, SHA-256, source location, evidence, and proposed subject. Faculty or administrators may confirm or change a subject independently of thesis publication approval. Approved theses awaiting subject review remain in the repository and are excluded from reviewed-subject charts.
+
+The 12 subjects are Education and learning; Academic services and research; Agriculture and growing systems; Health and medicine; Public and community services; Commerce and marketplaces; Housing and accommodation; Transportation and mobility; Safety and security; Accessibility and assistive technology; Careers and placements; and Everyday life and productivity. Classification follows the main research purpose, not the software technique. Author keywords remain the authors' terms and are not rewritten as subject tags.
+
+For each subject, the main view reports the count of approved theses with a confirmed subject. The average is the reviewed total divided by the 12 defined subjects. A subject is **saturated** at or above 1.5 times that average, **underexplored** at or below half the average, and **emerging** between those thresholds. These labels compare relative counts in the current corpus. They do not measure growth over time or predict future research activity. The view also reports approved, reviewed, and awaiting-review totals; reviewed subject counts sum to the reviewed total.
+
+**Explore text clusters** retains the existing TF-IDF and K-Means endpoint and membership lists. It groups approved theses by vocabulary in their titles, abstracts, and author keywords. Cluster labels are heuristic and may change as the corpus changes. They are exploratory groups, not the reviewed primary subjects.
+
+## Initial mapping and release
+
+The initial mapping is keyed by thesis UUID, linked file identity, and SHA-256. Before applying it, create a PostgreSQL backup and compare the complete approved UUID set, each linked path, stored hash, and actual source-file hash with the approved mapping. Any mismatch stops the import. Apply all 52 assignments together, with the importing administrator and import time as subject-review provenance, and reconcile the counts before enabling reviewed subjects as the main view. New approved theses enter an awaiting-review state while remaining published.
+
+## Manuscript wording for group review
+
+> The main Topic Trend Analysis view uses one primary research subject per approved thesis, assigned after source-document review and confirmed by faculty or an administrator. The initial corpus was matched by thesis UUID, linked document, and SHA-256 before assignments were applied. The view counts only confirmed subjects; theses awaiting subject review remain available in the repository. Saturated, emerging, and underexplored describe each subject's thesis count relative to the average across the defined subjects, not growth over time. A separate exploratory view retains TF-IDF vectorization of title, abstract, and author keywords followed by K-Means clustering. These algorithmic groups are presented as text-similarity exploration and are distinct from the reviewed subject assignments.
