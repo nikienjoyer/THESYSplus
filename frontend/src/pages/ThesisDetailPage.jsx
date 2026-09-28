@@ -1,6 +1,6 @@
 /**
- * ThesisDetailPage — thesis detail view. The PDF opens in a dedicated,
- * watermarked full-screen preview in a new tab (PdfPreviewPage) rather
+ * ThesisDetailPage — thesis detail view. The document opens in a dedicated,
+ * watermarked full-screen preview in this tab (PdfPreviewPage) rather
  * than inline here. A Download button is also offered, but it never
  * exposes the raw file: both paths go through GET /theses/:id/download/,
  * which serves the document with an institutional watermark burned into
@@ -75,6 +75,7 @@ export default function ThesisDetailPage() {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [savingSubject, setSavingSubject] = useState(false);
@@ -138,7 +139,7 @@ export default function ThesisDetailPage() {
   };
 
   const handlePreview = () => {
-    window.open(`/theses/${id}/preview`, '_blank', 'noopener,noreferrer');
+    navigate(`/theses/${id}/preview`);
   };
 
   /**
@@ -152,10 +153,14 @@ export default function ThesisDetailPage() {
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    setDownloadProgress(null);
     let objectUrl = '';
     try {
       const res = await client.get(`/theses/${id}/download/?disposition=attachment`, {
         responseType: 'blob',
+        onDownloadProgress: (event) => {
+          if (event.total) setDownloadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        },
       });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       objectUrl = window.URL.createObjectURL(blob);
@@ -174,6 +179,7 @@ export default function ThesisDetailPage() {
     } finally {
       if (objectUrl) window.URL.revokeObjectURL(objectUrl);
       setDownloading(false);
+      setDownloadProgress(null);
     }
   };
 
@@ -457,7 +463,7 @@ export default function ThesisDetailPage() {
                       ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
                       : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
-                  title="Open watermarked preview in a new tab"
+                  title="Open watermarked preview"
                 >
                   <Eye className="w-4 h-4" aria-hidden="true" />
                   Preview Document
@@ -474,7 +480,7 @@ export default function ThesisDetailPage() {
                   title="Download the watermarked document"
                 >
                   {downloading ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" aria-hidden="true" />}
-                  {downloading ? 'Downloading…' : 'Download'}
+                  {downloading ? `Downloading${downloadProgress === null ? '…' : ` ${downloadProgress}%`}` : 'Download'}
                 </button>
               </div>
             </div>

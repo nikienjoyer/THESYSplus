@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 import uuid
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
-from django.http import Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status
@@ -43,6 +44,7 @@ from .serializers import (
     ThesisUploadSerializer,
 )
 from .services.preview_pdf import render_docx_to_pdf
+from .services.preview_pages import InvalidPreviewPage, render_preview_page
 from .services.text_extractor import ThesisTextExtractor
 from .services.watermark_pdf import (
     DOWNLOAD_WATERMARK,
@@ -501,7 +503,7 @@ class ThesisSubjectReviewView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# GET /theses/{id}/download/ — inline PDF stream for the in-browser previewer
+# GET /theses/{id}/download/ — protected watermarked PDF download
 # ---------------------------------------------------------------------------
 
 def _preview_filename(thesis: Thesis, *, preview: bool = True) -> str:
@@ -737,6 +739,7 @@ class ThesisDownloadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id, *args, **kwargs):
+        started = time.perf_counter()
         thesis = _resolve_thesis(id, request.user)
 
         # Unknown values fall back to inline rather than erroring: this
@@ -770,8 +773,23 @@ class ThesisDownloadView(APIView):
 
         filename = _preview_filename(thesis, preview=(disposition == 'inline'))
 
+        cache_name = _watermark_cache_name(thesis, disposition)
+        cache_hit = False
         try:
-            pdf_bytes = _stamped_pdf_bytes(thesis, disposition)
+            try:
+                cached = default_storage.exists(cache_name)
+            except (OSError, ValueError, NotImplementedError):
+                cached = False
+            if cached:
+                response = FileResponse(
+                    default_storage.open(cache_name, 'rb'), content_type='application/pdf'
+                )
+                cache_hit = True
+                served_bytes = response.get('Content-Length', 'unknown')
+            else:
+                pdf_bytes = _stamped_pdf_bytes(thesis, disposition)
+                response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                served_bytes = len(pdf_bytes)
         except EncryptedPdfError as exc:
             logger.warning('Thesis %s: source PDF is encrypted (%s)', thesis.id, exc)
             return _document_unavailable_response(thesis, 'source_encrypted')
@@ -787,10 +805,46 @@ class ThesisDownloadView(APIView):
             logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
             return _document_unavailable_response(thesis, 'docx_conversion_failed')
 
-        # FileResponse's streaming is given up deliberately: stamping needs the
-        # whole document in memory anyway, so there is nothing left to stream.
-        response = HttpResponse(pdf_bytes, content_type='application/pdf')
         response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
+        response['Cache-Control'] = 'private, no-store'
+        logger.info(
+            'thesis_download disposition=%s cache_hit=%s bytes=%s elapsed_ms=%.0f',
+            disposition, cache_hit, served_bytes, (time.perf_counter() - started) * 1000,
+        )
+        return response
+
+
+class ThesisPreviewPageView(APIView):
+    """Serve one watermarked page image through the same thesis permission gate."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id, page, *args, **kwargs):
+        started = time.perf_counter()
+        thesis = _resolve_thesis(id, request.user)
+        if not thesis.uploaded_file or not thesis.uploaded_file.name:
+            return _document_unavailable_response(thesis, 'no_file_on_record')
+        try:
+            file_present = thesis.uploaded_file.storage.exists(thesis.uploaded_file.name)
+        except (OSError, ValueError, NotImplementedError):
+            file_present = False
+        if not file_present:
+            return _document_unavailable_response(thesis, 'file_missing_from_storage')
+        try:
+            image_bytes, total, cache_hit = render_preview_page(thesis, page)
+        except InvalidPreviewPage:
+            raise NotFound(detail='Preview page not found.')
+        except Exception as exc:
+            logger.warning('Thesis %s: preview page %s unavailable (%s)', thesis.id, page, exc)
+            return _document_unavailable_response(thesis, 'preview_render_failed')
+
+        response = HttpResponse(image_bytes, content_type='image/jpeg')
+        response['X-Page-Count'] = str(total)
+        response['Cache-Control'] = 'private, no-store'
+        logger.info(
+            'thesis_preview_page page=%s cache_hit=%s bytes=%s elapsed_ms=%.0f',
+            page, cache_hit, len(image_bytes), (time.perf_counter() - started) * 1000,
+        )
         return response
 
 

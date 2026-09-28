@@ -10,6 +10,7 @@ from .views import (
     ResearchSubjectListView,
     ThesisDetailView,
     ThesisDownloadView,
+    ThesisPreviewPageView,
     ThesisExtractMetadataView,
     ThesisExtractTitleView,
     ThesisListView,
@@ -36,5 +37,6 @@ urlpatterns = [
     path('analytics/', ThesisAnalyticsView.as_view(), name='thesis-analytics'),
     path('<str:id>/', ThesisDetailView.as_view(), name='thesis-detail'),
     path('<str:id>/download/', ThesisDownloadView.as_view(), name='thesis-download'),
+    path('<str:id>/preview/pages/<int:page>/', ThesisPreviewPageView.as_view(), name='thesis-preview-page'),
     path('<str:id>/subject/', ThesisSubjectReviewView.as_view(), name='thesis-subject-review'),
 ]

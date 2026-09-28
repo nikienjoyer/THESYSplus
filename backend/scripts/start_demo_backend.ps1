@@ -48,7 +48,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'collectstatic failed.' }
 
     $process = Start-Process -FilePath $waitress `
-        -ArgumentList @('--listen=127.0.0.1:8000', '--threads=2', '--no-clear-untrusted-proxy-headers', 'thesys.demo_wsgi:application') `
+        -ArgumentList @('--listen=127.0.0.1:8000', '--threads=4', '--no-clear-untrusted-proxy-headers', 'thesys.demo_wsgi:application') `
         -WorkingDirectory $backend -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $runtime 'backend.stdout.log') `
         -RedirectStandardError (Join-Path $runtime 'backend.stderr.log')

@@ -364,6 +364,81 @@ def _get(client, thesis, user, disposition=None):
     return client.get(url, HTTP_AUTHORIZATION=f'Bearer {_bearer(user)}')
 
 
+def _response_bytes(response):
+    return b''.join(response.streaming_content) if response.streaming else response.content
+
+
+@pytest.mark.django_db
+class TestPreviewPages:
+    def test_two_pages_render_as_private_images(self, client, faculty_user, monkeypatch):
+        thesis = _make_thesis(faculty_user, payload=_build_pdf([(LETTER, 0), (A4, 90)]))
+        import theses.services.preview_pages as pages
+        original_stamp = pages.stamp_pdf
+        watermarks = []
+        def record_stamp(data, watermark):
+            watermarks.append(watermark)
+            return original_stamp(data, watermark)
+        monkeypatch.setattr(pages, 'stamp_pdf', record_stamp)
+        url = reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 1})
+        first = client.get(url, HTTP_AUTHORIZATION=f'Bearer {_bearer(faculty_user)}')
+        second = client.get(
+            reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 2}),
+            HTTP_AUTHORIZATION=f'Bearer {_bearer(faculty_user)}',
+        )
+        assert first.status_code == second.status_code == 200
+        assert first['Content-Type'] == 'image/jpeg'
+        assert first['X-Page-Count'] == second['X-Page-Count'] == '2'
+        assert first.content.startswith(b'\xff\xd8')
+        assert first.content != second.content
+        assert first['Cache-Control'] == 'private, no-store'
+        assert watermarks == [PREVIEW_WATERMARK, PREVIEW_WATERMARK]
+
+    def test_pages_keep_auth_and_bounds(self, client, faculty_user):
+        thesis = _make_thesis(faculty_user)
+        first = reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 1})
+        invalid = reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 2})
+        assert client.get(first).status_code in (401, 403)
+        assert client.get(invalid, HTTP_AUTHORIZATION=f'Bearer {_bearer(faculty_user)}').status_code == 404
+
+    def test_cached_page_skips_rasterization(self, client, faculty_user, monkeypatch):
+        thesis = _make_thesis(faculty_user)
+        url = reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 1})
+        headers = {'HTTP_AUTHORIZATION': f'Bearer {_bearer(faculty_user)}'}
+        first = client.get(url, **headers)
+        assert first.status_code == 200
+        import theses.services.preview_pages as pages
+        monkeypatch.setattr(pages, 'convert_from_bytes', lambda *args, **kwargs: pytest.fail('cache miss'))
+        second = client.get(url, **headers)
+        assert second.status_code == 200
+        assert second.content == first.content
+
+    def test_cached_download_streams(self, client, faculty_user):
+        thesis = _make_thesis(faculty_user)
+        first = _get(client, thesis, faculty_user, 'attachment')
+        second = _get(client, thesis, faculty_user, 'attachment')
+        assert first.status_code == second.status_code == 200
+        assert second.streaming
+        assert _response_bytes(second) == _response_bytes(first)
+
+    def test_docx_conversion_is_reused_for_preview(self, client, faculty_user, monkeypatch):
+        from docx import Document
+
+        document = Document()
+        document.add_paragraph('A DOCX thesis preview page.')
+        source = io.BytesIO()
+        document.save(source)
+        thesis = _make_thesis(
+            faculty_user, file_type=FileType.DOCX, payload=source.getvalue(),
+            name='preview.docx', sha='9' * 64,
+        )
+        url = reverse('thesis-preview-page', kwargs={'id': str(thesis.id), 'page': 1})
+        headers = {'HTTP_AUTHORIZATION': f'Bearer {_bearer(faculty_user)}'}
+        assert client.get(url, **headers).status_code == 200
+        import theses.services.preview_pages as pages
+        monkeypatch.setattr(pages, 'render_docx_to_pdf', lambda *args: pytest.fail('converted twice'))
+        assert client.get(url, **headers).status_code == 200
+
+
 @pytest.mark.django_db
 class TestDownloadEndpointWatermarking:
     def test_inline_response_is_stamped(self, client, faculty_user):
