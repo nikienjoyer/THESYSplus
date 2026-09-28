@@ -109,8 +109,12 @@ the verified ngrok HTTPS URL:
 {
   "rewrites": [
     {
-      "source": "^/api/v1/(.*)$",
-      "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/$1"
+      "source": "/api/v1/:path*/",
+      "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/:path*/"
+    },
+    {
+      "source": "/api/v1/:path*",
+      "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/:path*"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
