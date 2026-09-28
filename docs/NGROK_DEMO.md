@@ -22,7 +22,9 @@ From the repository root in PowerShell, start the secure backend:
 This collects Django admin static files and starts Waitress on
 `127.0.0.1:8000`. It refuses to start if another process owns the port. The
 launcher and listener PIDs and logs are under ignored `backend/.demo-run/`.
-It does not install an automatic startup service.
+It does not install an automatic startup service. The demo WSGI wrapper accepts
+an HTTPS forwarding chain from the local tunnel and removes other forwarding
+headers before Django receives the request.
 
 To stop it:
 
@@ -85,18 +87,17 @@ Restart the backend with `-NgrokHost` set to that assigned hostname, then test
 not an ngrok warning or error page. Do not expose ports 5432, 4040, or a file
 server. Do not add a Traffic Policy or warning-bypass header without approval.
 
-At this rehearsal URL, a command-line request reached the JSON health route,
-but an ordinary browser request displayed ngrok's free-tier "Visit Site"
-warning. This blocks the current Vercel browser flow until a separately
-approved resolution is implemented and retested. The warning page suggests
-the `ngrok-skip-browser-warning` request header; adding it is a deliberate
-bypass and requires approval. A paid ngrok account is another option.
+At this rehearsal URL, a direct browser visit displays ngrok's free-tier
+"Visit Site" warning. With the operator's approval, the Vercel frontend sends
+`ngrok-skip-browser-warning: true` on API requests through its rewrite. The
+warning remains on direct visits to the ngrok hostname. A paid ngrok account
+is another way to remove it.
 
 Monitor the tunnel through [ngrok's dashboard](https://dashboard.ngrok.com/)
 or its local inspection interface at `http://127.0.0.1:4040` on this computer.
 The local inspection interface must never be tunneled.
 
-## Vercel integration (requires separate approval)
+## Vercel integration
 
 The existing browser client reads `VITE_API_BASE_URL`. In the Vercel project,
 set it to `/api/v1` for the environment serving
@@ -108,8 +109,8 @@ the verified ngrok HTTPS URL:
 {
   "rewrites": [
     {
-      "source": "/api/v1/:path*",
-      "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/:path*"
+      "source": "^/api/v1/(.*)$",
+      "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
@@ -120,10 +121,9 @@ The second rule allows React routes such as `/login` to load after a browser
 refresh. The browser then calls `/api/v1` on the Vercel origin, which matters because
 THESYSplus refreshes its in-memory access token using an HttpOnly,
 `SameSite=Lax` cookie. Direct browser calls to an unrelated ngrok origin do
-not reliably carry that cookie. If Vercel's root directory is `frontend`, the
-rewrite belongs in `frontend/vercel.json`; confirm the configured root before
-adding it. No Vercel setting or live deployment should be changed without
-separate approval.
+not reliably carry that cookie. This project's confirmed Vercel root is
+`frontend`, so the rewrite is in `frontend/vercel.json`. The production
+environment variable and deployment were changed with the operator's approval.
 
 ## Rehearsal and backup
 
