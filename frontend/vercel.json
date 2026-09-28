@@ -8,9 +8,19 @@
       "source": "/api/v1/:path*",
       "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/:path*"
     },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/sign-in", "destination": "/index.html" },
+    { "source": "/request-access", "destination": "/index.html" },
+    { "source": "/forgot-password", "destination": "/index.html" },
+    { "source": "/reset-password", "destination": "/index.html" },
+    { "source": "/setup-account", "destination": "/index.html" },
+    { "source": "/verify-email", "destination": "/index.html" },
+    { "source": "/repository", "destination": "/index.html" },
+    { "source": "/repository/:id", "destination": "/index.html" },
+    { "source": "/theses/:id/preview", "destination": "/index.html" },
+    { "source": "/title-similarity", "destination": "/index.html" },
+    { "source": "/trend-analysis", "destination": "/index.html" },
+    { "source": "/analytics", "destination": "/index.html" },
+    { "source": "/profile", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" }
   ]
 }

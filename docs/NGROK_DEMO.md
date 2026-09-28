@@ -116,13 +116,17 @@ the verified ngrok HTTPS URL:
       "source": "/api/v1/:path*",
       "destination": "https://province-veal-eleven.ngrok-free.dev/api/v1/:path*"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/sign-in", "destination": "/index.html" },
+    { "source": "/repository", "destination": "/index.html" },
+    { "source": "/repository/:id", "destination": "/index.html" },
+    { "source": "/theses/:id/preview", "destination": "/index.html" }
   ]
 }
 ```
 
-The second rule allows React routes such as `/login` to load after a browser
-refresh. The browser then calls `/api/v1` on the Vercel origin, which matters because
+The actual `frontend/vercel.json` includes the remaining React page routes.
+Listing them explicitly lets `/media/...` return 404 instead of the app HTML.
+The browser calls `/api/v1` on the Vercel origin, which matters because
 THESYSplus refreshes its in-memory access token using an HttpOnly,
 `SameSite=Lax` cookie. Direct browser calls to an unrelated ngrok origin do
 not reliably carry that cookie. This project's confirmed Vercel root is
