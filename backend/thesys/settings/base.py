@@ -248,6 +248,10 @@ VERIFICATION_DOCS_PATH = 'verification_docs'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Enable the reviewed-subject default only after the guarded initial mapping
+# has been imported and reconciled. Exploratory clusters remain accessible.
+REVIEWED_SUBJECTS_MAIN_ENABLED = env.bool('REVIEWED_SUBJECTS_MAIN_ENABLED', default=False)
+
 
 # ---------------------------------------------------------------------------
 # Django REST Framework (Foundation Phase minimum)
@@ -349,6 +353,16 @@ CACHES = {
             default='django.core.cache.backends.locmem.LocMemCache',
         ),
         'LOCATION': env('RATE_LIMIT_LOCATION', default='thesys-rate-limit'),
+    },
+    # Shared across web workers and retained across restarts. Keep this outside
+    # media/static directories: Django's file cache contains pickled data.
+    'topic_trends': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': env(
+            'TOPIC_TRENDS_CACHE_DIR',
+            default=str(BASE_DIR / '.cache' / 'topic_trends'),
+        ),
+        'OPTIONS': {'MAX_ENTRIES': 32},
     },
 }
 

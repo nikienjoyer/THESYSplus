@@ -89,6 +89,8 @@ class ThesisDetailSerializer(serializers.ModelSerializer):
 
     uploaded_by_name = serializers.SerializerMethodField()
     download_url = serializers.SerializerMethodField()
+    primary_subject = serializers.SerializerMethodField()
+    subject_reviewed_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Thesis
@@ -108,6 +110,9 @@ class ThesisDetailSerializer(serializers.ModelSerializer):
             'rejection_reason',
             'uploaded_by_name',
             'reviewed_at',
+            'primary_subject',
+            'subject_reviewed_at',
+            'subject_reviewed_by_name',
             'created_at',
             'updated_at',
             'download_url',
@@ -123,3 +128,15 @@ class ThesisDetailSerializer(serializers.ModelSerializer):
 
     def get_download_url(self, obj) -> str:
         return f'/api/v1/theses/{obj.id}/download/'
+
+    def get_primary_subject(self, obj):
+        subject = obj.primary_subject
+        if not subject or not obj.subject_reviewed_at:
+            return None
+        return {'code': subject.code, 'name': subject.name}
+
+    def get_subject_reviewed_by_name(self, obj) -> str:
+        reviewer = obj.subject_reviewed_by
+        if not reviewer:
+            return ''
+        return f'{reviewer.first_name} {reviewer.last_name}'.strip() or reviewer.email

@@ -27,7 +27,7 @@ from django.utils.html import format_html
 
 from common import audit_logger
 
-from .models import EmbeddingStatus, Thesis, ThesisStatus
+from .models import EmbeddingStatus, ResearchSubject, Thesis, ThesisStatus
 from .services.redundancy import (
     LABEL_CLEAN,
     LABEL_HIGH,
@@ -40,6 +40,18 @@ from .services.redundancy import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@admin.register(ResearchSubject)
+class ResearchSubjectAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'sort_order')
+    readonly_fields = ('code', 'name', 'definition', 'sort_order')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # Per-request stash of the current page's redundancy map, populated once by
 # _RedundancyChangeList. Kept for introspection; the render path reads the
@@ -178,6 +190,9 @@ class ThesisAdmin(admin.ModelAdmin):
         # Provenance is written only by save_model, never by the form.
         'reviewed_by',
         'reviewed_at',
+        'primary_subject',
+        'subject_reviewed_by',
+        'subject_reviewed_at',
     )
 
     fieldsets = (
@@ -208,6 +223,10 @@ class ThesisAdmin(admin.ModelAdmin):
                 'reviewed_by',
                 'reviewed_at',
             )
+        }),
+        ('Research Subject', {
+            'fields': ('primary_subject', 'subject_reviewed_by', 'subject_reviewed_at'),
+            'description': 'Confirm or change the primary subject from the thesis detail page.',
         }),
         ('AI/Semantic Search', {
             'fields': (

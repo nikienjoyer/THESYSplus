@@ -36,7 +36,7 @@ from rest_framework.views import APIView
 from accounts.models import Role
 from common.errors import make_error_response
 
-from .models import EmbeddingStatus, FileType, Thesis, ThesisStatus
+from .models import EmbeddingStatus, FileType, ResearchSubject, Thesis, ThesisStatus
 from .serializers import (
     ThesisDetailSerializer,
     ThesisListItemSerializer,
@@ -196,6 +196,24 @@ class ThesisListView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             qs = qs.filter(status=status_filter)
+
+        subject_review = request.query_params.get('subject_review')
+        if subject_review is not None:
+            if getattr(request.user, 'role', None) not in (Role.FACULTY, Role.ADMINISTRATOR):
+                return make_error_response(
+                    code='FORBIDDEN', message='Subject review is available to faculty and administrators.',
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if subject_review not in ('pending', 'reviewed'):
+                return make_error_response(
+                    code='INVALID_FILTER', message="subject_review must be 'pending' or 'reviewed'.",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(status=ThesisStatus.APPROVED)
+            qs = qs.filter(
+                primary_subject__isnull=(subject_review == 'pending'),
+                subject_reviewed_at__isnull=(subject_review == 'pending'),
+            )
 
         mine = request.query_params.get('mine')
         if mine is not None:
@@ -415,6 +433,70 @@ class ThesisDetailView(APIView):
 
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
+        return Response(ThesisDetailSerializer(thesis).data)
+
+
+class ResearchSubjectListView(APIView):
+    """The group-approved subject vocabulary, in display order."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response([
+            {'code': item.code, 'name': item.name, 'definition': item.definition}
+            for item in ResearchSubject.objects.all()
+        ])
+
+
+class ThesisSubjectReviewView(APIView):
+    """Confirm or change an approved thesis's independent primary subject."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, id, *args, **kwargs):
+        if getattr(request.user, 'role', None) not in (Role.FACULTY, Role.ADMINISTRATOR):
+            return make_error_response(
+                code='FORBIDDEN', message='Only faculty and administrators may review subjects.',
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not isinstance(request.data, dict):
+            return make_error_response(
+                code='INVALID_SUBJECT', message='Provide a subject_code.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        code = request.data.get('subject_code')
+        if not isinstance(code, str) or not code.strip():
+            return make_error_response(
+                code='INVALID_SUBJECT', message='Provide a subject_code.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            subject = ResearchSubject.objects.get(pk=code.strip())
+        except ResearchSubject.DoesNotExist:
+            return make_error_response(
+                code='INVALID_SUBJECT', message='Choose an available research subject.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            uid = uuid.UUID(str(id))
+        except (ValueError, TypeError):
+            raise NotFound(detail='Thesis not found.')
+        with transaction.atomic():
+            try:
+                thesis = Thesis.objects.select_for_update().get(pk=uid)
+            except Thesis.DoesNotExist:
+                raise NotFound(detail='Thesis not found.')
+            if thesis.status != ThesisStatus.APPROVED:
+                return make_error_response(
+                    code='THESIS_NOT_APPROVED', message='Approve the thesis before reviewing its subject.',
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if thesis.primary_subject_id != subject.pk or not thesis.subject_reviewed_at:
+                thesis.primary_subject = subject
+                thesis.subject_reviewed_by = request.user
+                thesis.subject_reviewed_at = timezone.now()
+                thesis.save(update_fields=['primary_subject', 'subject_reviewed_by', 'subject_reviewed_at'])
+        thesis = Thesis.objects.select_related('primary_subject', 'subject_reviewed_by', 'uploaded_by').get(pk=uid)
         return Response(ThesisDetailSerializer(thesis).data)
 
 
@@ -1155,10 +1237,10 @@ class ThesisTopicTrendsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        from .services.topic_analysis import analyze_topics, get_topic_trends_queryset, to_dict
+        from .services.cached_topic_trends import get_topic_trends_data
 
         try:
-            result = analyze_topics(get_topic_trends_queryset(), k=k)
+            result = get_topic_trends_data(k=k)
         except Exception as exc:  # pragma: no cover — defensive
             logger.warning('Topic analysis failed: %s', exc)
             return make_error_response(
@@ -1167,7 +1249,17 @@ class ThesisTopicTrendsView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response(to_dict(result))
+        return Response(result)
+
+
+class ThesisSubjectTrendsView(APIView):
+    """Reviewed subject counts; unreviewed approved theses remain visible elsewhere."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        from .services.reviewed_subjects import build_subject_trends
+        return Response(build_subject_trends())
 
 
 # ---------------------------------------------------------------------------
@@ -1664,22 +1756,25 @@ class ThesisAnalyticsView(APIView):
         ]
 
         # ── 5. Topic saturation summary — reuse trend analysis ───────
-        # Call the existing analyze_topics service to get cluster stats
-        # without hitting the network; silently degrade if it fails.
+        # Reuse the same cached cluster result without a network request;
+        # silently degrade if analysis fails.
         topic_summary = {'emerging_count': 0, 'saturated_count': 0, 'underexplored_count': 0}
         try:
-            from .services.topic_analysis import analyze_topics, get_topic_trends_queryset
+            from .services.cached_topic_trends import get_topic_trends_data
             # Use the shared queryset helper (same scope/fields/order as the
             # /topic-trends/ endpoint) so both pages cluster identical input
             # and never drift apart on SATURATED/EMERGING/UNDEREXPLORED counts.
-            trend_result = analyze_topics(get_topic_trends_queryset())
+            trend_result = get_topic_trends_data()
             topic_summary = {
-                'emerging_count': trend_result.emerging_count,
-                'saturated_count': trend_result.saturated_count,
-                'underexplored_count': trend_result.underexplored_count,
+                'emerging_count': trend_result['emerging_count'],
+                'saturated_count': trend_result['saturated_count'],
+                'underexplored_count': trend_result['underexplored_count'],
             }
         except Exception as exc:  # pragma: no cover — defensive
             logger.warning('Analytics: topic summary failed: %s', exc)
+
+        from .services.reviewed_subjects import build_subject_trends
+        reviewed_subject_summary = build_subject_trends()
 
         # ── 6. Role-gated extras ─────────────────────────────────────
         role = getattr(request.user, 'role', None)
@@ -1705,6 +1800,14 @@ class ThesisAnalyticsView(APIView):
 
             # Topic summary (from existing trend analysis)
             'topic_summary': topic_summary,
+            'reviewed_subject_summary': {
+                key: reviewed_subject_summary[key]
+                for key in (
+                    'approved_count', 'reviewed_count', 'awaiting_review_count',
+                    'saturated_count', 'emerging_count', 'underexplored_count',
+                    'main_view_enabled',
+                )
+            },
 
             # Role-gated
             'pending_review_count': pending_review_count,
@@ -1737,4 +1840,17 @@ class ThesisPublicStatsView(APIView):
 
     def get(self, request, *args, **kwargs):
         count = Thesis.objects.filter(status=ThesisStatus.APPROVED).count()
-        return Response({'indexed_theses_count': count})
+        enabled = bool(getattr(settings, 'REVIEWED_SUBJECTS_MAIN_ENABLED', False))
+        preview = []
+        if enabled:
+            from .services.reviewed_subjects import build_subject_trends
+            summary = build_subject_trends()
+            preview = [
+                {'topic': group['topic'], 'count': group['thesis_count'], 'trend': group['trend']}
+                for group in sorted(summary['subjects'], key=lambda group: (-group['thesis_count'], group['topic']))[:4]
+            ]
+        return Response({
+            'indexed_theses_count': count,
+            'reviewed_subjects_enabled': enabled,
+            'reviewed_subject_preview': preview,
+        })

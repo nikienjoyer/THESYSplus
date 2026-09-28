@@ -7,6 +7,7 @@ from django.urls import path
 
 from .views import (
     ThesisAnalyticsView,
+    ResearchSubjectListView,
     ThesisDetailView,
     ThesisDownloadView,
     ThesisExtractMetadataView,
@@ -15,6 +16,8 @@ from .views import (
     ThesisPublicStatsView,
     ThesisSearchView,
     ThesisTopicTrendsView,
+    ThesisSubjectTrendsView,
+    ThesisSubjectReviewView,
     ThesisUploadView,
     ThesisValidateTitleView,
 )
@@ -28,7 +31,10 @@ urlpatterns = [
     path('extract-title/', ThesisExtractTitleView.as_view(), name='thesis-extract-title'),
     path('extract-metadata/', ThesisExtractMetadataView.as_view(), name='thesis-extract-metadata'),
     path('topic-trends/', ThesisTopicTrendsView.as_view(), name='thesis-topic-trends'),
+    path('subject-trends/', ThesisSubjectTrendsView.as_view(), name='thesis-subject-trends'),
+    path('subjects/', ResearchSubjectListView.as_view(), name='research-subjects'),
     path('analytics/', ThesisAnalyticsView.as_view(), name='thesis-analytics'),
     path('<str:id>/', ThesisDetailView.as_view(), name='thesis-detail'),
     path('<str:id>/download/', ThesisDownloadView.as_view(), name='thesis-download'),
+    path('<str:id>/subject/', ThesisSubjectReviewView.as_view(), name='thesis-subject-review'),
 ]

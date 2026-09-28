@@ -42,6 +42,22 @@ class Program(models.TextChoices):
     ACT = 'Associate in Computer Technology', 'Associate in Computer Technology'
 
 
+class ResearchSubject(models.Model):
+    """Group-reviewed primary research subjects, independent of author keywords."""
+
+    code = models.CharField(max_length=8, primary_key=True)
+    name = models.CharField(max_length=96, unique=True)
+    definition = models.TextField()
+    sort_order = models.PositiveSmallIntegerField(unique=True)
+
+    class Meta:
+        db_table = 'research_subjects'
+        ordering = ['sort_order']
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Thesis(models.Model):
     """A single thesis record.
 
@@ -126,6 +142,24 @@ class Thesis(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # Subject review is separate from publication approval and author keywords.
+    # The three fields are set together when faculty/admin confirms a subject.
+    primary_subject = models.ForeignKey(
+        ResearchSubject,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='theses',
+    )
+    subject_reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='subject_reviewed_theses',
+    )
+    subject_reviewed_at = models.DateTimeField(null=True, blank=True)
+
     # ── Timestamps ──────────────────────────────────────────────────────
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -144,6 +178,13 @@ class Thesis(models.Model):
             models.Index(fields=['year'], name='theses_year_idx'),
         ]
         constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(primary_subject__isnull=True, subject_reviewed_at__isnull=True)
+                    | models.Q(primary_subject__isnull=False, subject_reviewed_at__isnull=False)
+                ),
+                name='theses_subject_review_pair_check',
+            ),
             models.CheckConstraint(
                 check=models.Q(status__in=[s.value for s in ThesisStatus]),
                 name='theses_status_check',
