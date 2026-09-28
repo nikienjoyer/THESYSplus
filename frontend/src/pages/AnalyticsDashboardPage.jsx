@@ -194,26 +194,26 @@ function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
 // ---------------------------------------------------------------------------
 // Trend summary mini-cards
 // ---------------------------------------------------------------------------
-function TrendSummary({ summary, isDark }) {
+function TrendSummary({ summary, isDark, reviewed = false }) {
   if (!summary) return null;
   const items = [
     {
       key: 'emerging',
-      label: 'Emerging Topics',
+      label: reviewed ? 'Emerging subjects' : 'Emerging Topics',
       count: summary.emerging_count,
       emoji: '🟡',
       chip: isDark ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
       key: 'saturated',
-      label: 'Saturated Topics',
+      label: reviewed ? 'Saturated subjects' : 'Saturated Topics',
       count: summary.saturated_count,
       emoji: '🔴',
       chip: isDark ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' : 'bg-rose-50 text-rose-700 border-rose-200',
     },
     {
       key: 'underexplored',
-      label: 'Underexplored Areas',
+      label: reviewed ? 'Underexplored subjects' : 'Underexplored Areas',
       count: summary.underexplored_count,
       emoji: '🟢',
       chip: isDark ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -426,6 +426,11 @@ export default function AnalyticsDashboardPage() {
                   }
                 />
               )}
+              {data.pending_review_count !== null && data.reviewed_subject_summary && (
+                <Link to="/repository?subject_review=pending" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                  <StatCard label="Subject review" value={data.reviewed_subject_summary.awaiting_review_count} sublabel="approved theses awaiting a subject" isDark={isDark} />
+                </Link>
+              )}
             </div>
 
             {/* ── Section 2 + 3: Charts row — open on canvas ── */}
@@ -462,9 +467,11 @@ export default function AnalyticsDashboardPage() {
 
             {/* ── Section 5: Trend summary ── */}
             <section>
-              <h2 className={sectionHeader}>Topic Trend Summary</h2>
+              <h2 className={sectionHeader}>{data.reviewed_subject_summary?.main_view_enabled ? 'Reviewed subject summary' : 'Exploratory cluster summary'}</h2>
               <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Derived from TF-IDF + K-Means clustering.{' '}
+                {data.reviewed_subject_summary?.main_view_enabled
+                  ? `Based on ${data.reviewed_subject_summary.reviewed_count} confirmed subjects among ${data.reviewed_subject_summary.approved_count} approved theses. Labels compare relative thesis counts, not growth over time. `
+                  : 'Derived from TF-IDF + K-Means exploratory grouping. Labels compare relative thesis counts, not growth over time. '}
                 <Link
                   to="/trend-analysis"
                   className="underline text-primary hover:opacity-80"
@@ -472,7 +479,7 @@ export default function AnalyticsDashboardPage() {
                   View full Trend Analysis →
                 </Link>
               </p>
-              <TrendSummary summary={data.topic_summary} isDark={isDark} />
+              <TrendSummary summary={data.reviewed_subject_summary?.main_view_enabled ? data.reviewed_subject_summary : data.topic_summary} isDark={isDark} reviewed={Boolean(data.reviewed_subject_summary?.main_view_enabled)} />
             </section>
 
           </div>

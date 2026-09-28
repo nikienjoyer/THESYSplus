@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
@@ -334,8 +334,7 @@ function StatCard({ label, value, sublabel, isDark, accent }) {
 // Cluster card — shadcn Card + Badge
 // ---------------------------------------------------------------------------
 
-function ClusterCard({ cluster, isDark, paletteColor }) {
-  const { fadeUp } = useMotionVariants();
+function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
   const styles = trendStyles(cluster.trend, isDark);
   return (
     // The whole card is a Link (not an onClick on the <article>) so the
@@ -343,15 +342,9 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
     // "open in new tab" for free. Nothing inside the card is interactive
     // (badges are plain spans/divs), so nesting them inside the <a> is
     // safe — no interactive-in-interactive violation.
-    <Link to={`?cluster=${cluster.cluster_id}`} className="block">
+    <Link to={reviewed ? `?subject=${cluster.subject_code}` : `?view=clusters&cluster=${cluster.cluster_id}`} className="block">
       <article className="thesys-panel thesys-card-lift">
-        {/* Entrance animation lives on this inner wrapper, not the <article>
-            itself — the outer element owns the CSS hover lift (transform)
-            and its own reduced-motion suppression via .thesys-card-lift in
-            index.css. Animating `transform` on both the outer element (CSS
-            hover) and an inner Framer Motion wrapper would fight each other;
-            keeping them on separate elements avoids that entirely. */}
-        <m.div variants={fadeUp}>
+        <div>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -376,7 +369,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
           <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
             {cluster.thesis_count}
           </strong>{' '}
-          thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this cluster
+          thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
         </div>
 
         {cluster.keywords && cluster.keywords.length > 0 && (
@@ -420,7 +413,7 @@ function ClusterCard({ cluster, isDark, paletteColor }) {
             </ul>
           </div>
         )}
-      </m.div>
+      </div>
       </article>
     </Link>
   );
@@ -468,7 +461,8 @@ function ClusterThesisRow({ thesis, isDark }) {
  * added to GET /theses/ (Task 1) — no new backend endpoint. Owns its own
  * loading/error state, independent of the overview's.
  */
-function ClusterDetailView({ cluster, isDark, paletteColor }) {
+function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fromThesisDetail = false }) {
+  const navigate = useNavigate();
   const thesisIds = cluster.thesis_ids || [];
   const hasIds = thesisIds.length > 0;
 
@@ -520,17 +514,33 @@ function ClusterDetailView({ cluster, isDark, paletteColor }) {
     <div>
       {/* ── Panel header ──────────────────────────────────────────── */}
       <div className="mb-6">
-        <Link
-          to="/trend-analysis"
-          className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors ${
-            isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Trend Analysis
-        </Link>
+        {reviewed && fromThesisDetail ? (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Back to thesis"
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
+              isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to thesis
+          </button>
+        ) : (
+          <Link
+            to={reviewed ? '/trend-analysis' : '/trend-analysis?view=clusters'}
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
+              isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to {reviewed ? 'reviewed subjects' : 'text clusters'}
+          </Link>
+        )}
 
         <div className="flex items-center gap-2 mb-2">
           <span
@@ -551,7 +561,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor }) {
         </div>
 
         <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this cluster
+          {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
         </p>
 
         {cluster.keywords && cluster.keywords.length > 0 && (
@@ -591,12 +601,12 @@ function ClusterDetailView({ cluster, isDark, paletteColor }) {
         </div>
       ) : rowsError ? (
         <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
-          Failed to load theses for this cluster. Please try again.
+          Failed to load theses for this {reviewed ? 'subject' : 'cluster'}. Please try again.
         </div>
       ) : rows && rows.length === 0 ? (
         <div className="thesys-empty">
           <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-            No theses found for this cluster.
+            No theses found for this {reviewed ? 'subject' : 'cluster'}.
           </p>
         </div>
       ) : rows ? (
@@ -619,19 +629,36 @@ export default function TrendAnalysisPage() {
   const { theme } = useTheme();
   const { isAuthenticated, isInitializing } = useAuth();
   const isDark = theme === 'dark';
-  const { staggerContainer } = useMotionVariants();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   // Seed state from cache immediately — avoids blank flash on revisit
-  const [data, setData] = useState(() => getTrendsCached());
-  const [loading, setLoading] = useState(() => !getTrendsCached());
-  const [error, setError] = useState('');
+  const [clusterData, setData] = useState(() => getTrendsCached());
+  const [clusterLoading, setLoading] = useState(() => !getTrendsCached());
+  const [clusterError, setError] = useState('');
+  const [subjectData, setSubjectData] = useState(null);
+  const [subjectLoading, setSubjectLoading] = useState(true);
+  const [subjectError, setSubjectError] = useState('');
+  const reviewedEnabled = Boolean(subjectData?.main_view_enabled);
+  const showClusters = !reviewedEnabled || searchParams.get('view') === 'clusters' || searchParams.has('cluster');
+  const shouldLoadClusters = !subjectLoading && showClusters;
+  const reviewed = reviewedEnabled && !showClusters;
+
+  useEffect(() => {
+    if (isInitializing || !isAuthenticated) return;
+    let cancelled = false;
+    client.get('/theses/subject-trends/')
+      .then((res) => { if (!cancelled) setSubjectData(res.data); })
+      .catch(() => { if (!cancelled) setSubjectError('Failed to load reviewed subjects. Please try again.'); })
+      .finally(() => { if (!cancelled) setSubjectLoading(false); });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, isInitializing]);
 
   useEffect(() => {
     // Wait for auth initialization to complete before fetching.
     // This prevents a request firing with no token (causing an unnecessary
     // 401 → refresh → retry round-trip that extends the skeleton duration).
-    if (isInitializing || !isAuthenticated) return;
+    if (isInitializing || !isAuthenticated || !shouldLoadClusters) return;
     let cancelled = false;
 
     (async () => {
@@ -659,7 +686,22 @@ export default function TrendAnalysisPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated, isInitializing, shouldLoadClusters]);
+
+  const data = reviewed && subjectData ? {
+    status: subjectData.reviewed_count ? 'ok' : 'empty',
+    total_theses: subjectData.approved_count,
+    total_topics: subjectData.subjects.length,
+    clusters: subjectData.subjects.map((subject) => ({
+      ...subject,
+      cluster_id: subject.subject_code,
+      keywords: [],
+    })),
+    saturated_count: subjectData.saturated_count,
+    underexplored_count: subjectData.underexplored_count,
+  } : clusterData;
+  const loading = subjectLoading || (showClusters && clusterLoading);
+  const error = reviewed ? subjectError : clusterError;
 
   // Memoise palette mapping so cluster colours stay stable across re-renders
   const colourFor = useMemo(() => {
@@ -670,8 +712,8 @@ export default function TrendAnalysisPage() {
   // Doughnut segments — caps slices at MAX_DOUGHNUT_SLICES, grouping the tail
   // into "Other" so the ring and its legend stay readable at high cluster counts.
   const doughnutSegments = useMemo(
-    () => (data?.clusters ? buildDoughnutSegments(data.clusters, isDark) : []),
-    [data, isDark]
+    () => (data?.clusters ? buildDoughnutSegments(reviewed ? data.clusters.filter((group) => group.thesis_count > 0) : data.clusters, isDark) : []),
+    [data, isDark, reviewed]
   );
 
   // ── Cluster drill-down resolution ───────────────────────────────────
@@ -681,13 +723,15 @@ export default function TrendAnalysisPage() {
   // `data.clusters` on every render rather than trusting it blindly; a
   // stale/unknown value simply fails to resolve and the overview renders
   // with a brief notice instead of crashing or showing wrong data.
-  const clusterParam = searchParams.get('cluster');
+  const clusterParam = reviewed ? searchParams.get('subject') : searchParams.get('cluster');
   const resolvedClusterIndex = useMemo(() => {
     if (clusterParam === null || !data?.clusters) return -1;
     return data.clusters.findIndex((c) => String(c.cluster_id) === clusterParam);
   }, [clusterParam, data]);
   const resolvedCluster = resolvedClusterIndex >= 0 ? data.clusters[resolvedClusterIndex] : null;
   const clusterIdStale = clusterParam !== null && !!data?.clusters && resolvedClusterIndex === -1;
+  const hasDetailParam = searchParams.has('subject') || searchParams.has('cluster');
+  const showOverviewChrome = !hasDetailParam || (!loading && !error && Boolean(data) && !resolvedCluster);
 
   return (
     <LazyMotion features={domAnimation}>
@@ -697,16 +741,31 @@ export default function TrendAnalysisPage() {
       <PageShell>
         {/* ── Header ──────────────────────────────────────────────── */}
         <PageHeader title="Topic Trend Analysis">
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            AI-assisted topic clustering and trend identification using TF-IDF + K-Means.
-          </p>
+          {showOverviewChrome && (
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {reviewed ? 'Group-reviewed research subjects across approved theses.' : 'Explore text clusters generated with TF-IDF and K-Means.'}
+            </p>
+          )}
         </PageHeader>
+
+        {reviewedEnabled && showOverviewChrome && (
+          <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
+            <Link to="/trend-analysis" aria-current={reviewed ? 'page' : undefined}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              Reviewed subjects
+            </Link>
+            <Link to="/trend-analysis?view=clusters" aria-current={!reviewed ? 'page' : undefined}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${!reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              Explore text clusters
+            </Link>
+          </nav>
+        )}
 
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (
           <div className="space-y-6">
             <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              Clustering research topics…
+              {subjectLoading ? 'Loading trend analysis…' : reviewed ? 'Loading reviewed subjects…' : 'Loading text clusters…'}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -738,10 +797,10 @@ export default function TrendAnalysisPage() {
           <div className="thesys-empty">
             <BarChart3 className="w-10 h-10 text-primary" aria-hidden="true" />
             <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              Not enough approved theses yet.
+              {reviewed ? 'No reviewed subjects yet.' : 'Not enough approved theses yet.'}
             </p>
             <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.
+              {reviewed ? 'Approved theses remain in the repository while faculty or administrators review their subjects.' : 'Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.'}
             </p>
           </div>
         ) : data && resolvedCluster ? (
@@ -750,6 +809,8 @@ export default function TrendAnalysisPage() {
             cluster={resolvedCluster}
             isDark={isDark}
             paletteColor={colourFor(resolvedClusterIndex)}
+            reviewed={reviewed}
+            fromThesisDetail={Boolean(location.state?.fromThesisDetail && location.state?.thesisId)}
           />
         ) : data ? (
           <>
@@ -757,47 +818,36 @@ export default function TrendAnalysisPage() {
               <div className={`rounded-lg px-4 py-3 mb-6 text-sm ${
                 isDark ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25' : 'bg-amber-50 text-amber-700 border border-amber-200'
               }`}>
-                That topic cluster is no longer available — clusters are
-                recomputed as the repository changes. Showing the current
-                overview instead.
+                {reviewed
+                  ? 'That reviewed subject is no longer available. Showing the current overview.'
+                  : 'That topic cluster is no longer available — clusters are recomputed as the repository changes. Showing the current overview instead.'}
               </div>
             )}
 
             {/* ── Stat metrics — open, de-boxed ────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 mb-12">
-              <StatCard
-                label="Total Theses"
-                value={data.total_theses}
-                sublabel="Approved corpus"
-                isDark={isDark}
-              />
-              <StatCard
-                label="Total Topics"
-                value={data.total_topics}
-                sublabel="K-Means clusters"
-                isDark={isDark}
-              />
-              <StatCard
-                label="Saturated"
-                value={data.saturated_count}
-                sublabel="High relative volume"
-                isDark={isDark}
-                accent={isDark ? '#f87171' : '#e11d48'}
-              />
-              <StatCard
-                label="Underexplored"
-                value={data.underexplored_count}
-                sublabel="Low relative volume"
-                isDark={isDark}
-                accent={isDark ? '#34d399' : '#059669'}
-              />
+              {reviewed ? (
+                <>
+                  <StatCard label="Approved" value={subjectData.approved_count} sublabel="Published theses" isDark={isDark} />
+                  <StatCard label="Reviewed" value={subjectData.reviewed_count} sublabel="In subject charts" isDark={isDark} />
+                  <StatCard label="Awaiting review" value={subjectData.awaiting_review_count} sublabel="Still in repository" isDark={isDark} />
+                  <StatCard label="Subjects" value={data.total_topics} sublabel="Group-approved definitions" isDark={isDark} />
+                </>
+              ) : (
+                <>
+                  <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" isDark={isDark} />
+                  <StatCard label="Total Topics" value={data.total_topics} sublabel="K-Means clusters" isDark={isDark} />
+                  <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" isDark={isDark} accent={isDark ? '#f87171' : '#e11d48'} />
+                  <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" isDark={isDark} accent={isDark ? '#34d399' : '#059669'} />
+                </>
+              )}
             </div>
 
             {/* ── Charts row — open on canvas ──────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-12 mb-12">
               <section>
                 <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                  Topic Distribution
+                  {reviewed ? 'Subject distribution' : 'Topic Distribution'}
                 </h2>
                 <DoughnutChart segments={doughnutSegments} isDark={isDark} />
                 <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 justify-center">
@@ -821,7 +871,7 @@ export default function TrendAnalysisPage() {
 
               <section className="lg:col-span-2">
                 <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                  Theses per Topic
+                  {reviewed ? 'Theses per subject' : 'Theses per Topic'}
                 </h2>
                 <CountsBarChart clusters={data.clusters} isDark={isDark} />
               </section>
@@ -834,24 +884,19 @@ export default function TrendAnalysisPage() {
                   isDark ? 'text-gray-400' : 'text-gray-600'
                 }`}
               >
-                Topic Clusters ({data.clusters.length})
+                {reviewed ? 'Reviewed subjects' : 'Topic Clusters'} ({data.clusters.length})
               </h2>
-              <m.div
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-80px' }}
-                variants={staggerContainer}
-              >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {data.clusters.map((c, idx) => (
                   <ClusterCard
                     key={c.cluster_id}
                     cluster={c}
                     isDark={isDark}
                     paletteColor={colourFor(idx)}
+                    reviewed={reviewed}
                   />
                 ))}
-              </m.div>
+              </div>
             </div>
 
             {/* ── How this works ───────────────────────────────────── */}
@@ -860,20 +905,17 @@ export default function TrendAnalysisPage() {
                 How this works
               </h3>
               <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Topic trend analysis follows the THESYS+ research methodology:
-                each approved thesis is converted into a TF-IDF vector built from
-                its title, abstract, and keywords. K-Means
-                clustering groups vectors with similar vocabulary into topic
-                clusters, and the highest-weight TF-IDF terms in each cluster's
-                centroid become the surfaced keywords.
+                {reviewed
+                  ? 'Faculty and administrators confirm one primary research subject for each thesis. Only approved theses with a confirmed subject appear in these charts. Theses awaiting subject review remain published in the repository.'
+                  : 'Exploratory text clusters group approved thesis titles, abstracts, and author keywords with TF-IDF and K-Means. Cluster names describe shared vocabulary and may change as the corpus changes.'}
               </p>
               <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <li>🔴 <strong>Saturated</strong> — High volume (≥ 1.5x average cluster size; well-explored research area)</li>
-                <li>🟡 <strong>Emerging</strong> — Active volume (near average cluster size; growing area)</li>
-                <li>🟢 <strong>Underexplored</strong> — Low volume (≤ 0.5x average cluster size; potential research gap)</li>
+                <li><strong>Saturated</strong> — at least 1.5 times the average {reviewed ? 'subject' : 'cluster'} count.</li>
+                <li><strong>Emerging</strong> — between the high- and low-count thresholds.</li>
+                <li><strong>Underexplored</strong> — at most half the average {reviewed ? 'subject' : 'cluster'} count.</li>
               </ul>
               <p className={`text-xs italic mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                Note: Thresholds scale dynamically based on the total repository volume.
+                These labels compare relative thesis counts. They do not measure growth over time.
               </p>
             </section>
           </>

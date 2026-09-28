@@ -298,7 +298,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
 
 export default function RepositoryPage() {
   const { theme } = useTheme();
-  const { isAuthenticated, isInitializing } = useAuth();
+  const { isAuthenticated, isInitializing, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isDark = theme === 'dark';
@@ -310,6 +310,8 @@ export default function RepositoryPage() {
   // truth. `q`/`year`/`program`/`page` remain local state — this change does
   // not migrate them, only adds `keyword` alongside.
   const activeKeyword = searchParams.get('keyword') || '';
+  const canReviewSubjects = user?.role === 'faculty' || user?.role === 'administrator';
+  const awaitingSubjectReview = canReviewSubjects && searchParams.get('subject_review') === 'pending';
 
   const [theses, setTheses] = useState([]);
   // loading: true only when no results are currently displayed (first load / hard filter change)
@@ -365,6 +367,7 @@ export default function RepositoryPage() {
     if (year) params.set('year', year);
     if (program) params.set('program', program);
     if (activeKeyword) params.set('keyword', activeKeyword);
+    if (awaitingSubjectReview) params.set('subject_review', 'pending');
     params.set('page', String(page));
     params.set('page_size', String(PAGE_SIZE));
 
@@ -410,7 +413,7 @@ export default function RepositoryPage() {
       setLoading(false);
       setSoftLoading(false);
     }
-  }, [effectiveSearch, year, program, activeKeyword, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveSearch, year, program, activeKeyword, awaitingSubjectReview, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
   // Note: `theses` is intentionally excluded from deps — it's read only to
   // decide skeleton vs soft-indicator, and including it would cause an extra
   // render cycle after every fetch.
@@ -522,7 +525,9 @@ export default function RepositoryPage() {
                   // Not "Browsing all approved theses" — the list is filtered,
                   // and the keyword header below names the filter.
                   ? <>Filtered by keyword</>
-                  : <>Browsing all approved theses from PampangaStateU CCS</>
+                  : awaitingSubjectReview
+                    ? <>Approved theses awaiting subject review</>
+                    : <>Browsing all approved theses from PampangaStateU CCS</>
               }
             </span>
             {!effectiveSearch && !activeKeyword && (
@@ -550,6 +555,16 @@ export default function RepositoryPage() {
             )}
           </p>
         </div>
+
+        {canReviewSubjects && (
+          <div className="mb-5 flex flex-wrap items-center gap-3 text-sm">
+            {awaitingSubjectReview ? (
+              <Link to="/repository" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Show all theses</Link>
+            ) : (
+              <Link to="/repository?subject_review=pending" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Awaiting subject review</Link>
+            )}
+          </div>
+        )}
 
         {/* ── Filter bar ────────────────────────────────────────────────── */}
         <div className="thesys-card p-4 mb-6">
@@ -730,7 +745,13 @@ export default function RepositoryPage() {
             {error}
           </div>
         ) : theses.length === 0 ? (
-          activeKeyword ? (
+          awaitingSubjectReview && !activeKeyword && !effectiveSearch ? (
+            <div className="thesys-empty">
+              <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
+              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>No approved theses await subject review.</p>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Newly approved theses will appear here until faculty or an administrator confirms their subject.</p>
+            </div>
+          ) : activeKeyword ? (
             /* ── No theses carry this keyword ────────────────────────────
                Checked BEFORE the `search` branch: without this, a
                zero-match keyword fell through to "No theses in repository

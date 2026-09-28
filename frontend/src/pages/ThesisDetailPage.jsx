@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Bookmark, Download, Eye, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
@@ -75,6 +75,11 @@ export default function ThesisDetailPage() {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [savingSubject, setSavingSubject] = useState(false);
+  const [subjectError, setSubjectError] = useState('');
+  const canReviewSubject = user?.role === 'faculty' || user?.role === 'administrator';
 
   // Re-read saved status once user is available (user may be null during auth init)
   useEffect(() => {
@@ -89,7 +94,10 @@ export default function ThesisDetailPage() {
       setError('');
       try {
         const res = await client.get(`/theses/${id}/`);
-        if (!cancelled) setThesis(res.data);
+        if (!cancelled) {
+          setThesis(res.data);
+          setSelectedSubject(res.data.primary_subject?.code || '');
+        }
       } catch (err) {
         if (!cancelled) {
           if (err?.response?.status === 404) {
@@ -104,6 +112,30 @@ export default function ThesisDetailPage() {
     })();
     return () => { cancelled = true; };
   }, [isAuthenticated, id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !canReviewSubject) return;
+    let cancelled = false;
+    client.get('/theses/subjects/')
+      .then((res) => { if (!cancelled) setSubjects(res.data); })
+      .catch(() => { if (!cancelled) setSubjectError('Subject choices could not be loaded. Reload this page to try again.'); });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, canReviewSubject]);
+
+  const saveSubject = async () => {
+    if (!selectedSubject || savingSubject) return;
+    setSavingSubject(true);
+    setSubjectError('');
+    try {
+      const res = await client.put(`/theses/${id}/subject/`, { subject_code: selectedSubject });
+      setThesis(res.data);
+      toast.success('Research subject confirmed.');
+    } catch {
+      setSubjectError('The research subject could not be saved. Please try again.');
+    } finally {
+      setSavingSubject(false);
+    }
+  };
 
   const handlePreview = () => {
     window.open(`/theses/${id}/preview`, '_blank', 'noopener,noreferrer');
@@ -337,6 +369,58 @@ export default function ThesisDetailPage() {
                 </span>
               )}
             </div>
+
+            {thesis.status === 'approved' && (
+              <section className="mb-6" aria-labelledby="research-subject-heading">
+                <h2 id="research-subject-heading" className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Research subject
+                </h2>
+                <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                  {thesis.primary_subject ? (
+                    <Link
+                      to={`/trend-analysis?subject=${encodeURIComponent(thesis.primary_subject.code)}`}
+                      state={{ fromThesisDetail: true, thesisId: id }}
+                      aria-label={`View theses in ${thesis.primary_subject.name}`}
+                      className={`inline-flex items-center text-xs px-2 py-1 rounded-md transition-colors
+                        hover:underline focus-visible:underline
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        isDark
+                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
+                          : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
+                      }`}
+                    >
+                      {thesis.primary_subject.name}
+                    </Link>
+                  ) : 'Awaiting subject review'}
+                </p>
+                {canReviewSubject && (
+                  <div className="mt-3 max-w-xl">
+                    <label htmlFor="primary-subject" className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Confirm or change primary subject
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select id="primary-subject" value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)}
+                        style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                        className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? 'bg-[#111a37] border-white/15 text-gray-100' : 'bg-white border-gray-300 text-gray-800'}`}>
+                        <option value="">Choose a subject</option>
+                        {subjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
+                      </select>
+                      <button type="button" onClick={saveSubject}
+                        disabled={!selectedSubject || savingSubject || selectedSubject === thesis.primary_subject?.code}
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                        {savingSubject ? 'Saving…' : thesis.primary_subject ? 'Save change' : 'Confirm subject'}
+                      </button>
+                    </div>
+                    {thesis.subject_reviewed_at && (
+                      <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Reviewed by {thesis.subject_reviewed_by_name || 'a former staff member'} on {new Date(thesis.subject_reviewed_at).toLocaleDateString()}.
+                      </p>
+                    )}
+                    {subjectError && <p role="alert" className="mt-2 text-xs text-rose-600 dark:text-rose-300">{subjectError}</p>}
+                  </div>
+                )}
+              </section>
+            )}
 
             <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
 

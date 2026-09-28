@@ -93,7 +93,7 @@ const FEATURES = [
     iconBg:   { light: 'bg-emerald-50', dark: 'bg-emerald-500/15' },
     iconColor:{ light: 'text-emerald-600', dark: 'text-emerald-300' },
     title: 'Trend Analysis',
-    desc:  'Discover emerging and saturated research areas using TF-IDF and clustering algorithm.',
+    desc:  'Compare research areas by thesis count, with reviewed subjects and exploratory text clusters clearly identified.',
     to:    '/trend-analysis',
     linkLabel: 'View trends',
   },
@@ -116,6 +116,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery]   = useState('');
   const [thesisCount, setThesisCount]   = useState(null);
   const [topics, setTopics]             = useState(null);
+  const [reviewedSubjectsEnabled, setReviewedSubjectsEnabled] = useState(false);
   const [legalModal, setLegalModal]     = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [heroImgFailed, setHeroImgFailed] = useState(false);
@@ -153,8 +154,11 @@ export default function LandingPage() {
     let cancelled = false;
     client.get('/theses/public-stats/')
       .then((res) => {
-        if (!cancelled && typeof res.data.indexed_theses_count === 'number')
-          setThesisCount(res.data.indexed_theses_count);
+        if (!cancelled) {
+          if (typeof res.data.indexed_theses_count === 'number') setThesisCount(res.data.indexed_theses_count);
+          setReviewedSubjectsEnabled(Boolean(res.data.reviewed_subjects_enabled));
+          if (res.data.reviewed_subjects_enabled) setTopics(res.data.reviewed_subject_preview || []);
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -164,12 +168,14 @@ export default function LandingPage() {
   useEffect(() => {
     if (isInitializing || !isAuthenticated) return;
     let cancelled = false;
-    client.get('/theses/topic-trends/')
+    client.get('/theses/subject-trends/')
       .then((res) => {
-        if (!cancelled && res.data?.clusters)
-          setTopics(res.data.clusters.slice(0, 6).map((c) => ({
-            topic: c.topic, count: c.thesis_count, trend: c.trend,
-          })));
+        if (cancelled || res.data?.main_view_enabled) return null;
+        return client.get('/theses/topic-trends/');
+      })
+      .then((res) => {
+        if (!cancelled && res?.data?.clusters)
+          setTopics(res.data.clusters.slice(0, 6).map((c) => ({ topic: c.topic, count: c.thesis_count, trend: c.trend })));
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -191,14 +197,7 @@ export default function LandingPage() {
     return map[trend] || map.EMERGING;
   };
 
-  const TREND_FALLBACK = [
-    { topic: 'Attendance Monitoring Systems', count: 12, trend: 'SATURATED'     },
-    { topic: 'Inventory Management Systems',  count: 12, trend: 'SATURATED'     },
-    { topic: 'AI and Machine Learning',       count:  9, trend: 'EMERGING'      },
-    { topic: 'Mobile Applications',           count:  8, trend: 'EMERGING'      },
-    { topic: 'Health Information Systems',    count:  6, trend: 'UNDEREXPLORED' },
-  ];
-  const trendList = (topics && topics.length > 0) ? topics.slice(0, 4) : TREND_FALLBACK.slice(0, 4);
+  const trendList = topics?.slice(0, 4) || [];
 
   return (
     <div className={`min-h-screen flex flex-col ${isDark ? 'bg-[#080d24]' : 'bg-white'} transition-colors duration-300`}>
@@ -413,7 +412,7 @@ export default function LandingPage() {
             {/* Supporting text */}
             <m.p variants={fadeUp} className={`text-sm sm:text-base leading-relaxed mb-7 max-w-lg ${heroParagraphCls}`}>
               Search previous studies by meaning, check title originality,
-              and analyze emerging research trends through AI-assisted retrieval.
+              and compare research areas by thesis count.
             </m.p>
 
             {/* Unified search unit — kept as-is; handles its own states well. */}
@@ -563,10 +562,12 @@ export default function LandingPage() {
           {/* LEFT — Trending Topics Preview */}
           <div>
             <h2 className={`text-base font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Trending Topics Preview
+              {reviewedSubjectsEnabled ? 'Reviewed subjects preview' : 'Exploratory text clusters preview'}
             </h2>
             <p className={`text-xs mb-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              Aggregate topic clusters — labels and counts only.
+              {reviewedSubjectsEnabled
+                ? 'Confirmed primary subjects among approved theses. Labels compare relative counts, not growth over time.'
+                : 'TF-IDF/K-Means text clusters. Labels compare relative counts, not growth over time.'}
             </p>
 
             <m.div
@@ -576,6 +577,11 @@ export default function LandingPage() {
               viewport={{ once: true, margin: '-80px' }}
               variants={staggerContainer}
             >
+              {trendList.length === 0 && (
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {isAuthenticated ? 'Current topic results are unavailable.' : 'Sign in to explore current text clusters.'}
+                </p>
+              )}
               {trendList.map((t) => {
                 const chip = trendChip(t.trend);
                 return (
@@ -650,7 +656,9 @@ export default function LandingPage() {
                 <div>
                   <h3 className={`text-sm font-semibold mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Reveal Research Trends</h3>
                   <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Identify saturated and emerging research areas to guide future thesis topics.
+                    {reviewedSubjectsEnabled
+                      ? 'Compare relative thesis counts in reviewed subjects, with exploratory text clusters available separately.'
+                      : 'Explore AI-generated text clusters while subject assignments are being prepared.'}
                   </p>
                 </div>
               </m.div>
