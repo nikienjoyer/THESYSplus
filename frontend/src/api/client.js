@@ -66,6 +66,11 @@ export function configureAuthCallbacks(callbacks) {
 // ---------------------------------------------------------------------------
 client.interceptors.request.use(
   (config) => {
+    // The temporary free ngrok tunnel shows a browser warning unless API
+    // requests carry this header. Vercel forwards it through the API rewrite.
+    if (typeof window !== 'undefined' && window.location.hostname === 'thesysplus.vercel.app') {
+      config.headers['ngrok-skip-browser-warning'] = 'true';
+    }
     const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

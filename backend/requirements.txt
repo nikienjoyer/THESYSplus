@@ -56,3 +56,7 @@ sentence-transformers==3.3.1
 # Converts extracted DOCX content into a real, paginated PDF so
 # /theses/{id}/download/ can always return application/pdf.
 reportlab==4.2.5
+
+# Windows-compatible WSGI server and Django admin static assets for demos.
+waitress==3.0.2
+whitenoise==6.12.0

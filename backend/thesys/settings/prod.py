@@ -23,6 +23,22 @@ from .base import env
 DEBUG = False
 
 ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
+CSRF_TRUSTED_ORIGINS = env.list('DJANGO_CSRF_TRUSTED_ORIGINS', default=[])
+
+# ngrok terminates HTTPS and forwards to a loopback-only HTTP listener. Trust
+# this header only while the application server is inaccessible from the LAN.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Django admin uses static assets, while uploaded manuscripts remain in the
+# separate MEDIA_ROOT and are never included in collectstatic/WhiteNoise.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 
 # ---------------------------------------------------------------------------
