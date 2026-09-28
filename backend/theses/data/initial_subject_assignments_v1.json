@@ -1,0 +1,314 @@
+[
+  {
+    "uuid": "10416ed7-4445-456d-9c4c-c9504765e40f",
+    "file": "theses/2026/CyberDefender.pdf",
+    "sha256": "be5538552cb001c77b915b90240b1e3dbf303241950ea39ffa204f65e0a0f672",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "11fdc7b9-4308-4e65-ac11-b57be86f8550",
+    "file": "theses/2026/Web-Based_Qualifying_Examination_for_Accountancy_Students_of_Don_Honorio_Ventura_State_University__Main_Campus.pdf",
+    "sha256": "35cebe5bb12913dae8e5e89599af45211212ccb61bca833ace24062f607ff6a3",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "143fb188-2e1a-41f9-8400-ca42466fd8a3",
+    "file": "theses/2026/ANIDELIVERY.pdf.pdf",
+    "sha256": "a60678dbe33ccd4e9fe7c70ab944a1360d12110d97e67244febc1399ec285ff1",
+    "subject_code": "COM"
+  },
+  {
+    "uuid": "18737b6e-983a-4ae6-915a-8f155aefb160",
+    "file": "theses/2026/DHVCAT.pdf.pdf",
+    "sha256": "2b1756cbdac7a09de348c2e42de83b189c4c18f843bdbb0ce1ce7b2b4268bc90",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "1bb71d5b-494c-452b-89e3-28ecafd4a81a",
+    "file": "theses/2026/HEADLINK.docx",
+    "sha256": "11e9ecf2d4e9a7515255193c7e3ca591dbd32b135bc7a54cb90d09adfd46984d",
+    "subject_code": "ACC"
+  },
+  {
+    "uuid": "22f74b8e-7c13-4714-bab3-67e10140965d",
+    "file": "theses/2026/AQUAFLOW.pdf",
+    "sha256": "6df8bd4f81667880e0731dcb8db469f3136df070c8f3583dea3f855335c906be",
+    "subject_code": "AGR"
+  },
+  {
+    "uuid": "2724801d-2dfe-43a7-a941-5d633374baa0",
+    "file": "theses/2026/MEMOLOOP.pdf",
+    "sha256": "613aac53348931f900e55589583738b39cf6a0a3d0c0f2a2c573ff3de239c790",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "2784252f-6995-4ce5-be72-87dd0d1276f1",
+    "file": "theses/2026/MY_HONORIAN_BUDDY.pdf",
+    "sha256": "b43cb7b2fd38d3def970b73d50478f392eb27af2a70058d982549c736c6da234",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "2c902b58-ba62-4198-b663-fc72afbec25c",
+    "file": "theses/2026/CGMS.pdf",
+    "sha256": "777423299ebfed13c9eff8fdbb7a3bbadad832f1452b161d14a3c7f44751dc96",
+    "subject_code": "SEC"
+  },
+  {
+    "uuid": "2db3a8d8-cf98-4f9e-bcb6-6f4390e069dd",
+    "file": "theses/2026/VAXTRACK.pdf.pdf",
+    "sha256": "5e36aace6e6e9d189b1a6cbfb17c9848b9add0ccfa2f58cdbec1a48989d7b10a",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "334eaf14-be5d-45a7-a8d2-5194f924bcf8",
+    "file": "theses/2026/MSWD_Online_Financial_Assistance_Program_Management_System_with_SMS.pdf",
+    "sha256": "11910cc71829902c23737d0615c81e7a9a63e54275df9792e8101f276db7bcb7",
+    "subject_code": "PUB"
+  },
+  {
+    "uuid": "3970223e-18b9-45df-88a2-99a83abdee02",
+    "file": "theses/2026/CODEQUEST.pdf",
+    "sha256": "42191c441974d30767142b00f879b85694f7da9ecb8b8e289e2119089c0f110e",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "3ee906b3-2e8d-4da9-b155-5a70c69ba4fa",
+    "file": "theses/2026/ShopEase.pdf",
+    "sha256": "dbd3a315a9743caf623b6519842e0be850e1fd83e3564369af6ec48e960f39e7",
+    "subject_code": "COM"
+  },
+  {
+    "uuid": "4d01b7a0-e453-43de-b900-8b84c41d6f70",
+    "file": "theses/2026/HUBISKO.pdf",
+    "sha256": "2a09e2c9e86fca11f4a829fc4427f48da256bbd01e4e714a2e0bb48b573dde22",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "53601b50-dde7-42bc-b1c2-a417a3f57cb3",
+    "file": "theses/2026/SISTEMA_de_OBRA.pdf",
+    "sha256": "1ae5033fe94689df76254a5f259b44d2c18050363bdf1e9325570eeaadef8ee7",
+    "subject_code": "PUB"
+  },
+  {
+    "uuid": "57f8a9ca-b067-48b0-9c13-9eed8047f355",
+    "file": "theses/2026/MedicScale.pdf",
+    "sha256": "015bf1064b52998fb2a2a7e482625f365f06fedcb4e8a681484cb1a433588d89",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "6486a500-ce43-45fb-9d9f-2e539fc86d41",
+    "file": "theses/2026/SABIYAHE.pdf",
+    "sha256": "4d7514ae9f664dbac32212ecd86d5efe68296d345e4f64f92d60b3608e4a8d52",
+    "subject_code": "TRA"
+  },
+  {
+    "uuid": "667fe89e-c714-484f-aaaa-7e09b0557e6c",
+    "file": "theses/2026/THESIX.pdf",
+    "sha256": "831659dfc50d2db190bd3fe04a1a0f3ea87016ce4dfca4b292c558a7fd43485f",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "7203d29b-4dba-4ede-aa25-335ef85707a5",
+    "file": "theses/2026/SINDALAN_CONNECT.pdf",
+    "sha256": "c1692c77fcd9ed37f44fd4d9d211c94498505c002dccfef7c8f4d538a30e303f",
+    "subject_code": "PUB"
+  },
+  {
+    "uuid": "7912270e-6a1b-4cb8-baa7-16ac04b6df6a",
+    "file": "theses/2026/SIMULATION_OF_LOGIC_GATES_CIRCUITS_TEST_AND_GUIDE_USING_ANDROID_APPLICATION.pdf",
+    "sha256": "a00724e8b15ac7aec50f65aecbfa3ded9a31bbed1bc825f2aa55b744f51237e9",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "7aa5c31d-8be0-4e1b-b4aa-1b6a87bb016c",
+    "file": "theses/2026/DormHonorio.pdf",
+    "sha256": "e1c374b2ff2b6ebe35b7be411aa1540900a2aba7a9494891054b8b4dcee9de7d",
+    "subject_code": "HOU"
+  },
+  {
+    "uuid": "7ab3577d-8bf4-4a3d-b329-2d4852eb481a",
+    "file": "theses/2026/E-PANGASIWA.pdf",
+    "sha256": "522811378ca50554880ac17f97351f3da903a633635494109d51ea0e6df4be5b",
+    "subject_code": "PUB"
+  },
+  {
+    "uuid": "8069344d-5287-40de-8e51-176fb13b8d2a",
+    "file": "theses/2026/EXTHEALTH.pdf",
+    "sha256": "cedca52e1c2014dbd034d08bf3e6aaf3faf66eb3d09ff89893732ea1ef20b8e2",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "8212ab33-5c0e-4b1f-8383-583f1db45722",
+    "file": "theses/2026/FUZZY.pdf.pdf",
+    "sha256": "fcf9da3642aff67b48365a92add7b7ed0e59451a82c0885d2f8df04ca134ff73",
+    "subject_code": "AGR"
+  },
+  {
+    "uuid": "827a721c-0ecc-4896-b9b4-f5571f32736c",
+    "file": "theses/2026/DORMIFY.pdf",
+    "sha256": "33c81eee235cb72b86a5700ca1052cb5b591a6751de564c9815f47e32a7ea054",
+    "subject_code": "HOU"
+  },
+  {
+    "uuid": "8a1b73df-d71c-4458-82c9-b9721f655b94",
+    "file": "theses/2026/CYBERESCAPE.pdf",
+    "sha256": "527a0da2c07132593d6bebad723be2a6e6e64fb5986fd5af6869cf307451932d",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "8fbe4f92-7420-477e-a16d-084927644b9c",
+    "file": "theses/2026/APPOKO.pdf",
+    "sha256": "bf46aff6d1645758a98e2bfec1c87365126d34351215bec8d9080d4eea3deeb4",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "942ded1d-9463-40d0-bdff-796f6add7f1d",
+    "file": "theses/2026/BARANGAYMED.pdf",
+    "sha256": "a1e54c37a3f46389ed315766ad53c5fdab5225092e7de6a7f650a05b605f52b4",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "9ade9f3c-ffde-4481-be98-b2605cc3abf1",
+    "file": "theses/2026/PALENGKIHAN.pdf.pdf",
+    "sha256": "eb60d87e66a381b51e5af28a3fa63d8c8dc6483816b8ba2759bb3193c8fdd26e",
+    "subject_code": "COM"
+  },
+  {
+    "uuid": "9ae051ee-b6b5-4df2-9d03-876f594045f9",
+    "file": "theses/2026/ARADA.pdf",
+    "sha256": "842116891f8656d40b0806938a1dfda66af1677f9ffbcb80a13eca9e43d7b16a",
+    "subject_code": "COM"
+  },
+  {
+    "uuid": "a23823a2-bda9-4a96-9ed4-085d0a24b6e7",
+    "file": "theses/2026/iSecure.docx",
+    "sha256": "c46688310fb360aeeeef44868d7e6cb996470c668dfacee2b16bfae51668679b",
+    "subject_code": "SEC"
+  },
+  {
+    "uuid": "a5d4a3d3-378c-4f59-b6f0-b3144cbc52e4",
+    "file": "theses/2026/ARAL.pdf",
+    "sha256": "0aae3137693af8b554a99aad9c7a63dab3b16a3807629643610f62bc9d2d53b5",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "a634c87e-abe4-486c-b9d7-29f6fa9585a8",
+    "file": "theses/2026/Web-Based_Grading_System_with_Data_Analytics_for_the_Modernized_Processing_of_Presidents_and_Deans_Lists_Canditates_organized..pdf",
+    "sha256": "e516d6abb06582d628af9c98053b630edd9db299cc2253c1a0079e0174075777",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "a7e917cd-448a-46ab-8f69-d4d798f4865b",
+    "file": "theses/2026/CAREER_TRACK_MOBILE_APPLICATION_USING_FUZZY_LOGIC_FOR_HIGH_SCHOOL_STUDENT.pdf",
+    "sha256": "1a5b8731973870777bc3301a554f94757e4f918041f1721233ae28bc58d820fb",
+    "subject_code": "WOR"
+  },
+  {
+    "uuid": "ab97a031-f6b2-44e6-9a7e-6abcab04c809",
+    "file": "theses/2026/ALUMNI_PORTAL_TRACKER_WITH_DATA_ANALYTICS_USING_FOLD-GROWTH_ALGORITHM.pdf",
+    "sha256": "73f2542c9ffcd0bc6805bdd4e784c573b46e9e2b889a5140e2df22851e684b5b",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "ad4f3076-3c4e-4f73-b54a-2b6f97c485e4",
+    "file": "theses/2026/Vehicle_Management_System_using_Cloud_Mapping_Technology.pdf",
+    "sha256": "4ae05c75198a07024b991e90b0024d14179e34f12ed8effbf908f3696f5fa14a",
+    "subject_code": "TRA"
+  },
+  {
+    "uuid": "b05abf84-2643-4d03-888b-80fdb187152d",
+    "file": "theses/2026/ANTABE.pdf.pdf",
+    "sha256": "a8977a2b0bdf64289163e71e1a45eb586a46a6bd47ceaf6390bb969a4dd8264a",
+    "subject_code": "ACC"
+  },
+  {
+    "uuid": "b1f3b63d-16ce-4458-8224-163564b61a8a",
+    "file": "theses/2026/AnImo.pdf",
+    "sha256": "0b7b95384dc3d8d1eecd24cd86eb7c9bb2ada23374d3d86f7de0c4c676ae5748",
+    "subject_code": "AGR"
+  },
+  {
+    "uuid": "b34020a4-99ff-4087-a7f8-09b9690e4063",
+    "file": "theses/2026/31B_A_117_EMERGENCY_COMMUNICATION_PLATFORM_FOR_ABUSE_REPORT_IN_A_MOBILE_APPLICATION.pdf",
+    "sha256": "6e17ce677c1ce978be92a4b0d271495357cf6be577004e5cbac4b718a84335f6",
+    "subject_code": "SEC"
+  },
+  {
+    "uuid": "c1b8c2f6-69c3-47f6-80cb-ecaa3fb79c1c",
+    "file": "theses/2026/ATTACHMATES.pdf",
+    "sha256": "9e5e0861e7201eacc714f8f251a5860b328815cf75591ee4febc6ddc69d7b0fa",
+    "subject_code": "PER"
+  },
+  {
+    "uuid": "c7d80880-8132-4163-b6fb-4ae63573e4ca",
+    "file": "theses/2026/REHIRELY.pdf",
+    "sha256": "9770887f0695fb7f99fac704be77f776d34ec8069fc8d2a15ea9c0dc63ef2a1b",
+    "subject_code": "WOR"
+  },
+  {
+    "uuid": "ca211b67-2032-48e0-90d8-d30c250a7804",
+    "file": "theses/2026/HTEFinder.pdf",
+    "sha256": "d448945736933c37840820c18d83182075e9c7181cb8a12520396ff8cb64faae",
+    "subject_code": "WOR"
+  },
+  {
+    "uuid": "d9078b46-77bb-425c-a996-524ae65b9f72",
+    "file": "theses/2026/MAMALAKAYA.pdf",
+    "sha256": "b4007680a3f617c9919c9b6d2f9d2f1b647d92acf8decec8916c2646c00f626f",
+    "subject_code": "HEA"
+  },
+  {
+    "uuid": "de7b079a-1e63-44ef-ad33-95b87a581174",
+    "file": "theses/2026/SIMPLIFY.pdf",
+    "sha256": "84c1e7acae10dd4f3eb6b47421120cb65cf4e909745fe25d3dfe69a0f687b2d4",
+    "subject_code": "PER"
+  },
+  {
+    "uuid": "dfd4a0cd-482f-4ad4-bb67-a8d356655640",
+    "file": "theses/2026/thesysplus-250826_1.pdf",
+    "sha256": "e6e8ad575e280afe97293f2fcbe1d491323a7a2cf244a3cba5deb4a1b68189f0",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "e2d47493-770e-4d2a-bf73-c6c191258fe0",
+    "file": "theses/2026/ChemLab_AR.pdf",
+    "sha256": "619c6ac324b707129495f34787530e16c985ce1bf1a329c5ca1730fea4e24fad",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "e5aac843-a9ed-4be6-a45e-64f29da466d8",
+    "file": "theses/2026/Web-Based_Equipment_Maintenance_Monitoring_System_for_DHVSU_Facilities.pdf",
+    "sha256": "d42d6e85f0f5d99712865dcff686cdeab23c2ee6a0aa48a336c797543c0311c1",
+    "subject_code": "ACA"
+  },
+  {
+    "uuid": "eabd1c88-7956-4f2f-9c3f-35e943079ab1",
+    "file": "theses/2026/Revolucion.pdf",
+    "sha256": "ce4cb008166e975e94b06a3ff7afdb2132834b5a5092f338e6facc36d5381d19",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "f765b44b-073e-42d0-b453-f975d592d3dd",
+    "file": "theses/2026/ModeYul.pdf",
+    "sha256": "34c0b4fd67e07322440bde1bceca4e32cade02371d940d011dad554035a920dc",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "f92512f4-5976-4844-bc95-fcbb77f47f7b",
+    "file": "theses/2026/COMPAWNION.pdf.pdf",
+    "sha256": "3f20490dbfb69bdb51e638564bf5df2283fa1b839ca57b9a556a70e645310fdf",
+    "subject_code": "PUB"
+  },
+  {
+    "uuid": "fc64acbe-4a43-4d27-bb0f-76fb7e279caf",
+    "file": "theses/2026/KLASIKOPINAS.pdf",
+    "sha256": "e3e412e86579ee4c8eb6205e25d34ebd2ef293f57f7bff678af95dc443b45217",
+    "subject_code": "EDU"
+  },
+  {
+    "uuid": "fd8a1ca0-665f-442b-b919-7afe31cdbbc5",
+    "file": "theses/2026/TASKGROVE.pdf",
+    "sha256": "abec3000b77e6b5f00efd11618946547f939520f7d8e436a85537186b7ee2f4d",
+    "subject_code": "PER"
+  }
+]
