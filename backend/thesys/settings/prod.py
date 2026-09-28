@@ -40,6 +40,19 @@ STORAGES = {
     },
 }
 
+# Demo timing logs contain only route type, page, bytes, cache state, and
+# preparation time. Compare these with browser timing to spot tunnel delay.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'thesis_console': {'class': 'logging.StreamHandler'}},
+    'loggers': {
+        'theses.views': {
+            'handlers': ['thesis_console'], 'level': 'INFO', 'propagate': False,
+        },
+    },
+}
+
 
 # ---------------------------------------------------------------------------
 # Security headers (phase-1 placeholders)

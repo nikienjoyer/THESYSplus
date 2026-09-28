@@ -781,12 +781,15 @@ class ThesisDownloadView(APIView):
             except (OSError, ValueError, NotImplementedError):
                 cached = False
             if cached:
-                response = FileResponse(
-                    default_storage.open(cache_name, 'rb'), content_type='application/pdf'
-                )
-                cache_hit = True
-                served_bytes = response.get('Content-Length', 'unknown')
-            else:
+                try:
+                    cache_file = default_storage.open(cache_name, 'rb')
+                except (OSError, ValueError, NotImplementedError):
+                    cache_file = None
+                if cache_file is not None:
+                    response = FileResponse(cache_file, content_type='application/pdf')
+                    cache_hit = True
+                    served_bytes = response.get('Content-Length', 'unknown')
+            if not cache_hit:
                 pdf_bytes = _stamped_pdf_bytes(thesis, disposition)
                 response = HttpResponse(pdf_bytes, content_type='application/pdf')
                 served_bytes = len(pdf_bytes)
@@ -808,7 +811,7 @@ class ThesisDownloadView(APIView):
         response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
         response['Cache-Control'] = 'private, no-store'
         logger.info(
-            'thesis_download disposition=%s cache_hit=%s bytes=%s elapsed_ms=%.0f',
+            'thesis_download disposition=%s cache_hit=%s bytes=%s prepare_ms=%.0f',
             disposition, cache_hit, served_bytes, (time.perf_counter() - started) * 1000,
         )
         return response
@@ -842,7 +845,7 @@ class ThesisPreviewPageView(APIView):
         response['X-Page-Count'] = str(total)
         response['Cache-Control'] = 'private, no-store'
         logger.info(
-            'thesis_preview_page page=%s cache_hit=%s bytes=%s elapsed_ms=%.0f',
+            'thesis_preview_page page=%s cache_hit=%s bytes=%s prepare_ms=%.0f',
             page, cache_hit, len(image_bytes), (time.perf_counter() - started) * 1000,
         )
         return response

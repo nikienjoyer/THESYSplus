@@ -177,7 +177,7 @@ export default function ThesisDetailPage() {
     } catch (err) {
       toast.error(describeDownloadError(err));
     } finally {
-      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+      if (objectUrl) window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60_000);
       setDownloading(false);
       setDownloadProgress(null);
     }

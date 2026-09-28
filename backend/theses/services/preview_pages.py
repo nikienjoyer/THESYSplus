@@ -25,8 +25,11 @@ def _source_pdf(thesis) -> bytes:
 
     name = f'theses/_preview_sources/{thesis.id}/{thesis.sha256}.pdf'
     if default_storage.exists(name):
-        with default_storage.open(name, 'rb') as cached:
-            return cached.read()
+        try:
+            with default_storage.open(name, 'rb') as cached:
+                return cached.read()
+        except (OSError, ValueError):
+            pass
 
     converted = render_docx_to_pdf(thesis.uploaded_file.path)
     if not default_storage.exists(name):
@@ -49,8 +52,11 @@ def render_preview_page(thesis, page_number: int) -> tuple[bytes, int, bool]:
         f'{thesis.sha256}-v{WATERMARK_VERSION}-p{page_number}.jpg'
     )
     if default_storage.exists(name):
-        with default_storage.open(name, 'rb') as cached:
-            return cached.read(), total, True
+        try:
+            with default_storage.open(name, 'rb') as cached:
+                return cached.read(), total, True
+        except (OSError, ValueError):
+            pass
 
     one_page = PdfWriter()
     one_page.add_page(reader.pages[page_number - 1])
