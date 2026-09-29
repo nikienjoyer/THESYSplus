@@ -2124,6 +2124,69 @@ a scanned PDF has to be read by OCR (about 12 MB per page at 200 dpi).
   the raw paragraphs, since this function only returns flat text — see
   below).
 
+### backend/theses/services/thesis_document_check.py — "Is this even a thesis?" 🚧
+
+A student once uploaded a **Certificate of Registration** (a class-schedule
+table) to Title Similarity. Every layer behaved correctly on its own, so the
+extractor found the most title-like line in a document that has no title, and a
+similarity score came back as if it were a real proposal. Nothing had ever asked
+whether the file was a thesis. This file is that question.
+
+- **Positive markers, not a blocklist.** It does *not* refuse documents that
+  contain words like "schedule" or "enrolment" — a thesis *about* enrolment
+  systems is a perfectly normal submission here. Instead it looks for
+  **structure a thesis manuscript has and a form does not**: an abstract
+  heading, a keywords line, chapter headings, a references section, and
+  title-page phrases ("presented to", "in partial fulfilment", the degree
+  requirements, "capstone/thesis"). `find_markers` returns the distinct markers
+  present in the text.
+- **`check_thesis_document`:** returns a `ThesisDocumentCheck` with `passed`,
+  a `reason` (`REASON_OK`, `REASON_NOT_A_THESIS` or `REASON_UNREADABLE`) and the
+  markers found. It passes when at least `MIN_MARKERS` (2) markers are present
+  and there are at least `MIN_TEXT_CHARS` (200) characters of readable text.
+- **An abstract is deliberately not required** — at least one real THESYS+
+  thesis in the repository has no abstract heading at all.
+- **It is a hard block for everyone.** The views (`_gate_document`) run it on
+  upload, metadata reading and title reading, for every role, with no override.
+  To avoid false rejections it accepts a pass on the first few pages
+  immediately, and re-reads the *whole* document only when it is about to
+  refuse.
+
+### backend/theses/services/metadata_extraction.py — "Read the title page like a librarian" 🔖
+
+The biggest module in the kitchen (about 3,000 lines). It is **pure text
+analysis** — no files, no database — so it can be tested directly against
+strings. `extract_metadata` runs one small detector per field:
+`detect_title`, `detect_abstract`, `detect_keywords`, `detect_year`,
+`detect_program` (only ever one of the fixed `CANONICAL_PROGRAMS` names, never
+free text) and `detect_authors`.
+
+- **Titles are found in two stages.** Title pages wrap long titles over two or
+  three lines, and the old single-line trick cut every multi-line title at the
+  first line break. Now the detector first *scores lines* to find where the
+  title **starts**, then *joins forward* to find where it **ends**: blank lines
+  are a strong boundary, but up to two blank lines are bridged when the next
+  line still looks like a continuation (a connector word, a one-word tail, or
+  the same capitalisation style). It stops at author markers, contact details,
+  boilerplate and sentence-like prose. ALL-CAPS titles are turned into title
+  case while known acronyms are preserved (`normalize_title_case`), and
+  typographic quotes are folded to plain ones (`fold_quotes`).
+- **Guard rails.** Titles are capped at 40 words, abstracts must be between 20
+  words and 6,000 characters, keywords are capped at 15 of at most 64
+  characters, and the year can be no later than next calendar year (`max_year`).
+- **Honest about uncertainty.** Fields that cannot be found stay empty instead
+  of being guessed, and the upload form shows a confidence hint per field.
+
+### backend/theses/services/abstract_recovery.py — "Only ever return a whole abstract" 🩹
+
+A cautious second attempt used only for the preview when the normal detector
+found no abstract. The rule is: **never invent an abstract from surrounding
+prose.** A candidate needs an explicit heading, an explicit ending, readable
+prose and at most one continuation page. `recover_text_abstract` works on the
+text, `recover_layout_abstract` inspects at most two heading-bearing pages in the
+first 15 pages, and `recover_ocr_abstract` reuses the cover OCR or OCRs at most
+two likely image-backed pages. Uncertain text stays blank.
+
 ### backend/theses/services/semantic_search.py — "Find theses by *meaning*, not just matching words" (Phase 2A)
 
 - **The model:** `sentence-transformers/all-MiniLM-L6-v2` — 384-dimensional
@@ -2156,6 +2219,52 @@ a scanned PDF has to be read by OCR (about 12 MB per page at 200 dpi).
 - **`ScoredThesis`:** The little envelope every ranking returns — a thesis, its
   score, and a `title_match` flag that Title Similarity sets when the query
   exactly matches a stored title or name.
+
+### backend/theses/services/acronyms.py — "IoT and Internet of Things are the same thing" 🔤
+
+The meaning-model does not know that "IoT" means "Internet of Things" (it splits
+"iot" into tiny pieces), so the two spellings ranked theses differently. This
+file holds a hand-curated **glossary** and makes them one query.
+
+- **`expand_query`:** returns the query plus one variant per glossary term it
+  mentions, with that term swapped for its other form ("IoT-based cart" →
+  "internet of things based cart"). Semantic ranking scores every variant and
+  keeps each thesis's best score.
+- **`glossary_term_variants`:** when the *whole* query is one glossary term, gives
+  both forms; only such term searches get the extra "term rescue".
+- **`count_mentions` / `is_about_term`:** count whole-word mentions in either
+  form and decide whether a thesis is really *about* the term: one mention in
+  the title, keywords or abstract, or at least three full-text mentions
+  (`FULL_TEXT_MIN_MENTIONS`) at a density of one per 10,000 characters.
+- **The rules:** case-insensitive, *except* acronyms that are also ordinary words
+  ("IT", "AR", "IS", "POS", "ML"), which count only in capitals — so "is it
+  working" is not about information technology. Whole words only ("iot" never
+  matches "patriot"), hyphens and dashes read as spaces, and a trailing "s" is
+  allowed ("BHWs").
+- The glossary is curated **by hand** — an acronym can mean different things, so
+  it is never filled automatically. `list_acronym_candidates` (below) suggests
+  what to add. `technology_tags.py` reuses `is_about_term`.
+
+### backend/theses/services/title_match.py — "Sometimes the name is the whole point" 🏷️
+
+Meaning-scores rate a one-word name like `thesix` far below a long title that
+contains it, so a search for the exact study name could look like noise. This
+file adds the *lexical* signal: does the query appear in a title as whole words,
+and is the query specific enough for that to mean something?
+
+- **`normalize_title`:** Unicode-normalises, ignores case, reads hyphens and
+  dashes as spaces and collapses whitespace. Other punctuation is kept, so
+  `THESYS+` still differs from `THESYS`.
+- **Whole words only:** a query matches a title as whole words or a phrase, never
+  inside a longer word ("thesix" does not match "Thesixty").
+- **"Specific enough" (`build_title_matcher`):** any of — it equals the whole
+  title or the title's *name segment* (the text before the first `:` or dash);
+  it has punctuation other than hyphens; it has two or more words; or it is a
+  single word of at least 3 letters that appears as a whole word in at most 3
+  titles of the corpus (so `rfid` qualifies in any casing, but "system" or "web"
+  never do).
+- Used by the Repository search and by Title Similarity, which shows exact
+  matches ahead of the meaning-based ones without changing the score.
 
 ### backend/theses/services/title_similarity.py — "Has this exact idea been done before?" (Phase 2B)
 
@@ -2225,6 +2334,51 @@ The most involved of the three AI services:
    the same edges the groups use — "a title and a group are never judged by
    different standards."
 
+### backend/theses/services/cached_topic_trends.py — "Don't redo the same homework" 🗂️
+
+Working out the topic groups takes real time, so the default result is saved in
+a shared file cache (`topic_trends`, kept across restarts and shared by web
+workers) and reused **until the approved corpus changes**. `get_topic_trends_data`
+builds a cache key from a hash of the algorithm's own source file plus every
+field the analysis reads or returns for every approved thesis (title, abstract,
+keywords, program, year, status, embedding timestamp, confirmed subject, subject
+review time, technology tags). Approve, edit or remove a thesis — or change the
+algorithm — and the key changes, so outdated groups can never be served. Custom
+`k` requests are rare and skip the cache. A cache read or write that fails only
+logs a warning. `warm_topic_trends` (below) fills it ahead of time.
+
+### backend/theses/services/reviewed_subjects.py — "Count what the faculty confirmed" ✅
+
+`build_subject_trends` counts, per research subject, the approved theses whose
+primary subject a human confirmed. It returns the approved, reviewed and
+awaiting-review counts, and for each subject its name, definition, thesis count,
+sample titles, thesis ids and a trend label from the same rule the groups use
+(at least 1.5× the average → `SATURATED`, at most 0.5× → `UNDEREXPLORED`, else
+`EMERGING`; no trend at all while nothing is reviewed). It also reports
+`main_view_enabled` from the `REVIEWED_SUBJECTS_MAIN_ENABLED` setting so the
+frontend knows which view to open by default.
+
+### backend/theses/services/subject_suggestions.py — "A nudge, never a decision" 🧭
+
+`suggest_subjects` proposes up to two subjects (`SUGGESTION_LIMIT`) for an
+approved thesis. Each subject's already-reviewed theses are averaged into one
+"direction" (a centroid of their meaning-vectors), and the subjects closest to
+the thesis are suggested. The file records its own measured accuracy: on the
+first 52 reviewed theses the right subject was first 65 % of the time and within
+the top two 77 % of the time, so a suggestion only **pre-selects** a choice —
+faculty or an administrator always confirms.
+
+### backend/theses/services/technology_tags.py — "Which gadgets is it about?" 🔧
+
+A thesis can be about several technologies at once and a technology is not a
+research subject (the IoT theses are about farming, accessibility, commerce and
+security). `detect_technology_tags` returns, in a fixed order, which of
+`IoT, AI, ML, DL, NLP, OCR, CNN, LLM, AR, VR, GPS, GIS, RFID, QR, SMS` the thesis
+is really about, using the same evidence rule as `acronyms.is_about_term`. The
+tags are computed when the search vector is generated and stored on
+`Thesis.technology_tags`, so reading them never loads the full text. They label
+groups but never name them.
+
 ### backend/theses/services/preview_pdf.py — the DOCX PDF renderer
 
 Added for the "Full Thesis Document (Chapters 1–3) PDF & DOCX Preview
@@ -2243,6 +2397,59 @@ a missing file silently rendered as "the preview" — complete with the stored
 `extracted_text` dumped over the watermark. `ThesisDownloadView` now returns a
 structured `DOCUMENT_NOT_AVAILABLE` 404 instead, and the frontend says outright
 that the source document is unavailable.
+
+### backend/theses/services/watermark_pdf.py — "Ink that lives in the paper, not on the glass" 💧
+
+The watermark used to be a React layer floating over the preview, while the PDF
+bytes behind it were clean — anyone could copy the original from the browser's
+network tab. A watermark that lives in the browser is decoration, not
+protection. This file **burns it into the bytes** for both kinds of download.
+
+- **`stamp_pdf(pdf_bytes, text)`** tiles the text across every page and returns
+  new bytes. `PREVIEW_WATERMARK` ("College of Computing Studies · Pampanga State
+  University · Preview Only") is used for inline preview and
+  `DOWNLOAD_WATERMARK` ("Property of Pampanga State University · College of
+  Computing Studies") for attachments. `WATERMARK_VERSION` is part of the cache
+  name, so changing the stamp invalidates every stored copy.
+- **Non-destructive:** `Thesis.uploaded_file` is never touched; stamping happens
+  at serve time on an in-memory copy.
+- **Two geometry traps handled:** pages of different sizes get an overlay sized
+  to *their own* page (a letter-size body can sit next to an odd-size scanned
+  appendix), and rotated pages get a counter-rotated overlay so the viewer's own
+  rotation does not turn the watermark sideways.
+- An encrypted PDF raises `EncryptedPdfError` (a `WatermarkError`), which the
+  views turn into a clear "document not available" answer.
+
+### backend/theses/services/preview_pages.py — "One watermarked page, on request" 🖼️
+
+`render_preview_page(thesis, page_number)` returns a **JPEG** of a single page
+(quality 82) plus the total page count and whether it came from cache. It reads
+the source PDF (converting a DOCX first, and remembering the converted copy),
+pulls out just that page, stamps it with the preview watermark via
+`watermark_pdf`, renders it at 1,600 px, and saves the image under
+`theses/_preview_pages/<thesis>/` with a name built from the file hash, the
+watermark version and the page number — so the second visit is instant and a
+changed file or stamp can never show an old image. A page number outside the document
+raises `InvalidPreviewPage`. This is what `ThesisPreviewPageView` serves to the
+page-by-page viewer.
+
+### backend/theses/services/redundancy.py — "Has this already been shelved?" (reviewer's view) 🔁
+
+For a faculty reviewer at the moment of decision: how closely does this thesis's
+**title** overlap what is already approved? `analyze_titles` takes a whole admin
+page of theses and answers all of them with **one matrix multiplication**
+(probe vectors × corpus matrix) instead of encoding titles one by one, then
+`label_for` turns each best score into a label and `advisory_for` into reviewer
+guidance. Three rules keep it safe:
+- **It never encodes text.** It deliberately does not import `semantic_search`,
+  so opening an admin page can never trigger a synchronous 90 MB model load. A
+  thesis with no stored title vector is a data problem to fix with
+  `embed_theses --titles-only`, not something to paper over at render time.
+- **Thresholds are imported, not copied** from `title_similarity`, so this
+  screen and Title Similarity can never disagree about the same score.
+- **Advisory only.** Every failure lowers the *signal* (a grey "not computed"
+  badge) but never blocks the review decision; nothing here raises.
+`invalidate_cache()` drops the cached corpus matrix.
 
 ### backend/theses/views.py — the repository's many counters
 
@@ -2364,12 +2571,36 @@ work to a `services/` file, and pass the answer back.
   delete from the admin).
 - **`apps.py`** is a minimal `AppConfig` with no custom `ready()` hook.
 
-> 📝 `theses/management/commands/` holds three Django management commands
-> (`seed_demo_data`, `seed_theses`, `embed_theses`) — developer tools run via
-> `python manage.py <command>` to seed a demo dataset or backfill missing
-> embeddings. They're operational/developer tooling rather than part of the
-> live request-handling path, so they're mentioned here rather than walked
-> through line-by-line.
+### backend/theses/management/commands/ — the back-room tools 🛠️
+
+Seven developer and operator tools, run with `python manage.py <name>`. None of
+them is part of the live request path.
+The files are `embed_theses.py`, `warm_topic_trends.py`,
+`import_reviewed_subjects.py`, `list_acronym_candidates.py`,
+`seed_demo_data.py`, `seed_theses.py` and `attach_sample_manuscripts.py`.
+
+- **`embed_theses`** — backfill or redo the meaning fingerprints. No flags fills
+  missing whole-thesis vectors; `--regenerate` redoes every one; `--titles-only`
+  fills the title-only vectors (used by the reviewer's redundancy badge) and can
+  be combined with `--regenerate`. Loads the model once for the whole run.
+- **`warm_topic_trends`** — computes the default Topic Trend result ahead of the
+  first visit and stores it in the shared cache.
+- **`import_reviewed_subjects`** — a guarded import of the faculty-reviewed
+  subject list. It is a **dry run** unless `--apply` is given, verifies the
+  approved 52-file corpus first, and takes `--reviewer-email` and
+  `--backup-file`.
+- **`list_acronym_candidates`** — read-only: lists "Long Form (ACR)" pairs found
+  in approved theses that the glossary does not have yet, so a person can review
+  and add real ones to `acronyms.py`.
+- **`seed_demo_data`** — seeds a defense-sized demo: 50 users (35 students, 10
+  faculty, 5 admins) and 100 theses across 10 topic clusters, with options
+  `--skip-embeddings`, `--regenerate-embeddings` and `--reset`.
+- **`seed_theses`** — a smaller seed of 15 theses under a system faculty user so
+  they land as `approved`, each with a tiny generated PDF (`--reset` wipes first).
+- **`attach_sample_manuscripts`** — because `backend/media/` is not in git, a
+  checkout has thesis rows but not their files, and downloads would answer
+  "document not available". This generates placeholder PDFs for theses whose
+  file is missing (`--dry-run`, `--force`, `--keep-hash`).
 
 ---
 
