@@ -3174,17 +3174,30 @@ Verification links, password-reset links and decision notices go through
 
 ## Closing note — scope of this document
 
-This document now walks through every actively-used file across both
-`frontend/src/` and `backend/` (excluding auto-generated Django migrations,
-the automated test suites, and a handful of standalone developer diagnostic
-scripts in `backend/` — none of those are part of the live request-handling
-path, so they were intentionally left out of a line-by-line walkthrough
-rather than accidentally forgotten). Several concrete audit findings turned up along the way. Two stale copy
-references to the eliminated "second email" (`RequestAccessPage.jsx` and
-`LegalModal.jsx`'s Help content) were corrected as part of this audit. Five
-small orphaned/unused components (`ForgotPasswordForm`, `ResetPasswordForm`,
-`SsoButton`, `MainLayout`/`ThemeToggle`, `ui/Logo`) were left in place —
-they're harmless dead code, not bugs — but flagged in the relevant Part
-above as candidates for a future cleanup pass.
+This document walks through every actively-used file across both
+`frontend/src/` and `backend/`, from the first page a visitor sees to the
+scripts that open the kitchen for a demonstration. It was refreshed on
+2026-09-30 to match the code as it stands: the theme-token redesign, the shared
+navbar, the background-job queue (Part 18), the demo deployment and email
+delivery (Part 19), and the newer `theses` services (document gate, watermarked
+pages, acronym and exact-title search, reviewed subjects, technology tags).
+
+What it deliberately leaves out, because none of it is part of the live
+request-handling path: auto-generated Django migrations, the automated test
+suites, and the standalone developer diagnostic and report files at the top of
+`backend/` (`diagnose_failed_extraction.py`, `inspect_ocr_text.py`, the
+`test_*.py` demo scripts, and the `*_REPORT.md` notes).
+
+Earlier audit findings still stand. Two stale copy references to the
+eliminated "second email" (`RequestAccessPage.jsx` and `LegalModal.jsx`'s Help
+content) were corrected. A few small unused components (`ForgotPasswordForm`,
+`ResetPasswordForm`, `SsoButton`, `MainLayout`/`ThemeToggle`, `ui/Logo`) were
+left in place — harmless dead code, not bugs — but flagged in the relevant Part
+as candidates for a future cleanup pass. The top comment of `App.jsx` still says
+auth routes nest under `MainLayout`; they actually nest under `AuthLayout`.
+
+For visual rules (colours, type, spacing, components) see `DESIGN.md`; this
+document explains what the code *does*, and `DESIGN.md` explains how it should
+*look*.
 
 *Document complete.*

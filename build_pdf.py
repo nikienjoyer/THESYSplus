@@ -82,8 +82,21 @@ def inline(text: str) -> str:
     text = re.sub(r"`([^`]+)`",
                   lambda m: "<font face='Courier'>%s</font>" % m.group(1), text)
     # bold
-    text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    # italics (also nested inside bold): *word* with no space just inside the marks
+    text = re.sub(r"(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])", r"<i>\1</i>", text)
     return text
+
+_ITEM = re.compile(r"^\s*(?:(-)|(\d+)\.)\s+(\S.*)$")
+
+
+def _item_start(line: str):
+    """(marker, text) when the line opens a bullet or numbered item."""
+    m = _ITEM.match(line)
+    if not m:
+        return None
+    return ("\u2022" if m.group(1) else m.group(2) + "."), m.group(3)
+
 
 # ---- parser ---------------------------------------------------------------
 def parse(md: str):
@@ -137,15 +150,24 @@ def parse(md: str):
             flow.append(Paragraph(inline(txt), styles["quote"]))
             continue
 
-        # bullet list (collect consecutive - lines)
-        if line.lstrip().startswith("- "):
+        # bullet / numbered list. An item is its first line plus any indented
+        # lines that follow it (the source wraps long items), so a wrapped item
+        # stays one item instead of leaving a stray paragraph behind.
+        if _item_start(line):
             items = []
-            while i < n and lines[i].lstrip().startswith("- "):
-                items.append(Paragraph(inline(lines[i].lstrip()[2:]), styles["body"]))
+            while i < n and _item_start(lines[i]):
+                marker, text = _item_start(lines[i])
                 i += 1
+                parts = [text]
+                while (i < n and lines[i].strip() and lines[i][0] == " "
+                       and not _item_start(lines[i])
+                       and not lines[i].lstrip().startswith((">", "```"))):
+                    parts.append(lines[i].strip())
+                    i += 1
+                items.append((marker, Paragraph(inline(" ".join(parts)), styles["body"])))
             flow.append(ListFlowable(
-                [ListItem(it, leftIndent=10, value="•") for it in items],
-                bulletType="bullet", start="•", leftIndent=14,
+                [ListItem(par, leftIndent=12, value=marker) for marker, par in items],
+                bulletType="bullet", start="\u2022", leftIndent=16,
             ))
             continue
 
@@ -157,7 +179,8 @@ def parse(md: str):
         # paragraph (collect consecutive non-special lines)
         buf = [line]
         i += 1
-        while i < n and lines[i].strip() and not lines[i].startswith(("#", "- ", ">")) \
+        while i < n and lines[i].strip() and not lines[i].startswith(("#", ">")) \
+                and not _item_start(lines[i]) \
                 and not lines[i].strip().startswith("```") and lines[i].strip() != "---":
             buf.append(lines[i])
             i += 1
