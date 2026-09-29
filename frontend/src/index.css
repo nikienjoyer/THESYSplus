@@ -496,6 +496,18 @@
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* Indeterminate progress — a segment sweeping across its track, for work
+   with no measurable percentage (server-side processing). Transform only.
+   Under reduced motion it rests as a static segment; the text label beside
+   the bar still says what is happening. */
+@keyframes thesys-progress-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+.thesys-progress-indeterminate {
+  animation: thesys-progress-sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 .thesys-overlay-enter { animation: thesys-fade-in 200ms cubic-bezier(0, 0, 0.2, 1); }
 .thesys-modal-enter   { animation: thesys-modal-in 200ms cubic-bezier(0, 0, 0.2, 1); }
 .thesys-drawer-enter  { animation: thesys-drawer-in 200ms cubic-bezier(0, 0, 0.2, 1); }
@@ -504,7 +516,8 @@
   .thesys-overlay-enter,
   .thesys-modal-enter,
   .thesys-drawer-enter,
-  .thesys-toast-enter {
+  .thesys-toast-enter,
+  .thesys-progress-indeterminate {
     animation: none;
   }
   /* Drop the hover lift for motion-sensitive users; keep the shadow/border cue */

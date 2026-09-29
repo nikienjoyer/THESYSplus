@@ -106,18 +106,71 @@ function suggestAuthorCapitalization(authorList) {
 // ---------------------------------------------------------------------------
 // Upload progress indicator
 // ---------------------------------------------------------------------------
-function UploadProgress({ stage, canDismiss, isDark }) {
+//
+// Phases, in order:
+//   'sending' — bytes going to the server; `percent` is REAL (axios
+//               onUploadProgress), so the bar is determinate.
+//   'queued' / 'running' — the server accepted the file and is checking it in
+//               the background. It reports no percentage, so the bar is
+//               indeterminate rather than a made-up number.
+//   'done'    — shown briefly before the success screen replaces the form.
+//
+// Rendered in the same slot as the error box, directly above the submit
+// button, so the progress and any failure appear in one place.
+const UPLOAD_PHASE_LABEL = {
+  sending: 'Uploading document…',
+  queued:  'Waiting to process…',
+  running: 'Checking and saving thesis…',
+  done:    'Upload complete',
+};
+
+function UploadProgress({ phase, percent, canDismiss, isDark }) {
+  const determinate = phase === 'sending' || phase === 'done';
+  const done = phase === 'done';
+  const pct = done ? 100 : Math.max(0, Math.min(100, Math.round(percent)));
+  const label = UPLOAD_PHASE_LABEL[phase] || UPLOAD_PHASE_LABEL.sending;
+
   return (
-    <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3">
-      <Spinner size="sm" />
-      <div className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-        <p className="font-medium">{stage}</p>
-        <p className="text-xs opacity-70">
+    <div className="rounded-lg border border-[var(--color-border)] px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <p
+          role="status"
+          aria-live="polite"
+          className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+        >
+          {label}
+        </p>
+        {determinate && (
+          <span className={`shrink-0 text-sm font-semibold tabular-nums ${done ? 'text-emerald-500' : 'text-blue-500'}`}>
+            {pct}%
+          </span>
+        )}
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Upload progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={determinate ? pct : undefined}
+        aria-valuetext={determinate ? `${pct}%` : label}
+        className={`relative h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/[0.08]' : 'bg-gray-100'}`}
+      >
+        {determinate ? (
+          <div
+            className={`h-full rounded-full transition-[width] duration-300 ease-out ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
+            style={{ width: `${pct}%` }}
+          />
+        ) : (
+          <div className="thesys-progress-indeterminate absolute inset-y-0 left-0 w-2/5 rounded-full bg-blue-500" />
+        )}
+      </div>
+      {!done && (
+        <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           {canDismiss
             ? 'You can close this window. Processing continues; keep this page open to receive the result.'
             : 'Please keep this window open while the file is being sent.'}
         </p>
-      </div>
+      )}
     </div>
   );
 }
@@ -144,7 +197,8 @@ export default function UploadThesisModal() {
   const [file, setFile]         = useState(null);
 
   const [submitting, setSubmitting]         = useState(false);
-  const [processingStage, setProcessingStage] = useState('Uploading document…');
+  const [uploadPhase, setUploadPhase]       = useState('sending');
+  const [sendPercent, setSendPercent]       = useState(0);
   const [uploadAcknowledged, setUploadAcknowledged] = useState(false);
   const [error, setError]                   = useState('');
   const [fieldErrors, setFieldErrors]       = useState({});
@@ -176,6 +230,7 @@ export default function UploadThesisModal() {
 
   const extractAbortRef = useRef(null);
   const activeSubmissionRef = useRef(null);
+  const statusSlotRef = useRef(null);
   const panelRef = useFocusTrap(isOpen);
   const backdropRef = useBodyScrollLock(isOpen);
 
@@ -198,7 +253,7 @@ export default function UploadThesisModal() {
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
     setProgram(''); setYear(''); setAdviser('');
     setFile(null); setError(''); setFieldErrors({});
-    setProcessingStage('Uploading document…'); setUploadAcknowledged(false); setSuccess(null);
+    setUploadPhase('sending'); setSendPercent(0); setUploadAcknowledged(false); setSuccess(null);
     setExtracting(false); setAutoFilled({}); setExtractionNote(null);
     setExtractionFoundMetadata(false);
     setAuthorSuggestion(null);
@@ -515,9 +570,14 @@ export default function UploadThesisModal() {
 
     const submission = { dismissed: false };
     activeSubmissionRef.current = submission;
-    setProcessingStage('Uploading document…');
+    setUploadPhase('sending');
+    setSendPercent(0);
     setUploadAcknowledged(false);
     setSubmitting(true);
+    // The status slot sits just above the buttons; on a short viewport keep it
+    // in view so the bar (and any error that replaces it) is actually seen.
+    requestAnimationFrame(() => statusSlotRef.current?.scrollIntoView({ block: 'nearest' }));
+    const isCurrent = () => activeSubmissionRef.current === submission;
     try {
       const fd = new FormData();
       fd.append('title', title.trim());
@@ -531,21 +591,39 @@ export default function UploadThesisModal() {
 
       const res = await client.post('/theses/upload/', fd, {
         headers: { 'Content-Type': undefined },
+        // Real bytes sent, not a simulation. `total` can be missing when the
+        // browser cannot size the body; the bar then waits at 0 until the
+        // server answers.
+        onUploadProgress: (event) => {
+          if (!isCurrent() || !event.total) return;
+          setSendPercent((event.loaded / event.total) * 100);
+        },
       });
 
-      if (res.data?.job_id) setUploadAcknowledged(true);
+      if (isCurrent()) setSendPercent(100);
 
-      const completed = res.data?.job_id
-        ? await waitForJob(res.data.job_id, undefined, (state) => {
-          if (activeSubmissionRef.current === submission) {
-            setProcessingStage(state === 'queued' ? 'Waiting to process…' : 'Checking and saving thesis…');
-          }
-        })
-        : res.data;
+      let completed = res.data;
+      if (res.data?.job_id) {
+        setUploadAcknowledged(true);
+        if (isCurrent()) setUploadPhase('queued');
+        completed = await waitForJob(res.data.job_id, undefined, (state) => {
+          if (isCurrent()) setUploadPhase(state === 'queued' ? 'queued' : 'running');
+        });
+      }
 
       clearAllCaches();
-      if (submission.dismissed) toast.success('Your thesis finished processing. Check the repository for its status.');
-      else if (activeSubmissionRef.current === submission) setSuccess(completed);
+      if (submission.dismissed) {
+        toast.success('Your thesis finished processing. Check the repository for its status.');
+      } else if (isCurrent()) {
+        // Let the full green bar register before the success screen replaces it.
+        setUploadPhase('done');
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (submission.dismissed) {
+          toast.success('Your thesis finished processing. Check the repository for its status.');
+        } else if (isCurrent()) {
+          setSuccess(completed);
+        }
+      }
     } catch (err) {
       const code = err?.response?.data?.error?.code;
       const msg  = err?.response?.data?.error?.message;
@@ -708,13 +786,6 @@ export default function UploadThesisModal() {
                 ? 'Your submission will be reviewed by a faculty member before being published.'
                 : 'Your thesis will be published immediately upon upload.'}
             </p>
-
-            {/* Upload progress — shown while submitting */}
-            {submitting && (
-              <div className="mb-4">
-                <UploadProgress stage={processingStage} canDismiss={uploadAcknowledged} isDark={isDark} />
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -923,11 +994,25 @@ export default function UploadThesisModal() {
                 {fieldErrors.adviser && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.adviser}</p>}
               </div>
 
-              {error && (
-                <div className={`rounded-lg p-3 text-sm ${
-                  isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                }`}>
-                  {error}
+              {/* Status slot — upload progress while submitting, and the error
+                  that replaces it if the upload fails. One place, directly
+                  above the button the user just pressed. */}
+              {(submitting || error) && (
+                <div ref={statusSlotRef} className="scroll-mb-4">
+                  {submitting ? (
+                    <UploadProgress
+                      phase={uploadPhase}
+                      percent={sendPercent}
+                      canDismiss={uploadAcknowledged}
+                      isDark={isDark}
+                    />
+                  ) : (
+                    <div role="alert" className={`rounded-lg p-3 text-sm ${
+                      isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {error}
+                    </div>
+                  )}
                 </div>
               )}
 
