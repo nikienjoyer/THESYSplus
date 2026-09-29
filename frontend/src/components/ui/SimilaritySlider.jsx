@@ -78,7 +78,7 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
             {value}%
           </span>
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${pillClass}`}
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${pillClass}`}
           >
             {zoneLabel}
           </span>
@@ -104,8 +104,8 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
 
       {/* Tick labels */}
       <div className="flex justify-between">
-        <span className="text-[10px] text-muted">{MIN}% Broad</span>
-        <span className="text-[10px] text-muted">{MAX}% Strict</span>
+        <span className="text-[11px] text-muted">{MIN}% Broad</span>
+        <span className="text-[11px] text-muted">{MAX}% Strict</span>
       </div>
 
       {/* Helper text */}

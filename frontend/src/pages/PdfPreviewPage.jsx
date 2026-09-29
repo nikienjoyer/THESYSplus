@@ -101,7 +101,7 @@ function PreviewDocument({ id }) {
   };
 
   return (
-    <div className={`flex h-dvh min-h-0 w-full flex-col ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`flex h-dvh min-h-0 w-full flex-col bg-canvas`}>
       <header className={`flex flex-shrink-0 items-center justify-between gap-3 border-b px-4 py-2.5 sm:px-6 ${
         isDark ? 'border-white/10 bg-black/20' : 'border-gray-200 bg-white'
       }`}>

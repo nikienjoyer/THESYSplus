@@ -221,7 +221,7 @@ export default function ThesisDetailPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen bg-canvas`}>
       <AppNavbar activePage="repository" />
 
       <PageShell>

@@ -335,7 +335,7 @@ export default function ProfilePage() {
     }`;
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen bg-canvas`}>
       <AppNavbar activePage="profile" />
 
       <PageShell>
@@ -354,7 +354,7 @@ export default function ProfilePage() {
                 Saved Theses
                 {savedTheses.length > 0 && (
                   <span
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${
                       isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
                     }`}
                   >

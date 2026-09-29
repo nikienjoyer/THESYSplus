@@ -571,7 +571,7 @@ export default function LandingPage() {
             </p>
 
             <m.div
-              className="space-y-2"
+              className={`divide-y border-y ${isDark ? 'divide-white/[0.07] border-white/[0.07]' : 'divide-gray-200 border-gray-200'}`}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
@@ -586,15 +586,13 @@ export default function LandingPage() {
                 const chip = trendChip(t.trend);
                 return (
                   <m.div key={t.topic} variants={fadeUp}
-                    className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border ${
-                      isDark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-white border-gray-200'
-                    }`}>
+                    className="flex items-center justify-between gap-3 py-2.5">
                     <span className={`text-sm truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`} title={t.topic}>
                       {t.topic}
                     </span>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t.count}</span>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${chip.cls}`}>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${chip.cls}`}>
                         {chip.label}
                       </span>
                     </div>

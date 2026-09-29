@@ -447,13 +447,13 @@ export default function TitleSimilarityPage() {
 
   const titleInputCls = `w-full px-4 py-3 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
     isDark
-      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40'
+      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400'
   }`;
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+      <div className={`min-h-screen bg-canvas`}>
         <AppNavbar activePage="similarity" />
 
         <PageShell>
@@ -729,7 +729,7 @@ export default function TitleSimilarityPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <RiskDot tone="neutral" className="w-3 h-3" />
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-muted">Result</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider mb-0.5 text-muted">Result</p>
                       <h2 className={`text-lg font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>No meaningful match found</h2>
                     </div>
                   </div>
@@ -746,7 +746,7 @@ export default function TitleSimilarityPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <RiskDot tone={visuals.tone} className="w-3 h-3" />
                     <div>
-                      <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${tone.text} opacity-70`}>Risk level</p>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-0.5 ${tone.text} opacity-70`}>Risk level</p>
                       <h2 className={`text-lg font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>{visuals.label}</h2>
                     </div>
                     <div className="ml-auto">
@@ -756,7 +756,7 @@ export default function TitleSimilarityPage() {
                     </div>
                   </div>
                   <div className={`pt-3 border-t ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${tone.text} opacity-70`}>Recommendation</div>
+                    <div className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${tone.text} opacity-70`}>Recommendation</div>
                     <p className={`text-sm leading-relaxed ${tone.text}`}>{result.recommendation}</p>
                   </div>
                 </div>
@@ -815,7 +815,7 @@ export default function TitleSimilarityPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {commonTerms.length > 0 && (
                       <div>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                           Shared terms
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -829,7 +829,7 @@ export default function TitleSimilarityPage() {
                     )}
                     {distinctiveTerms.length > 0 && (
                       <div>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                           Distinctive terms
                         </p>
                         <div className="flex flex-wrap gap-1.5">

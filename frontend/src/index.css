@@ -260,7 +260,7 @@
     background-color: var(--color-primary);
     transform: scaleX(0);
     transform-origin: center;
-    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 200ms var(--ease-out);
   }
   .thesys-nav-link.active::after,
   .thesys-nav-link[aria-current='page']::after {

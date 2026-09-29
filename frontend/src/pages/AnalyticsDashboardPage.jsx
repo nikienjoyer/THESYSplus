@@ -314,7 +314,7 @@ export default function AnalyticsDashboardPage() {
 
   return (
     <LazyMotion features={domAnimation}>
-    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen bg-canvas`}>
       <AppNavbar activePage="analytics" />
 
       <PageShell>

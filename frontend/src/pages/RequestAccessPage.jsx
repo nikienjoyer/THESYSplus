@@ -122,17 +122,17 @@ const DECISIONS = {
 function toneClasses(tone, isDark) {
   const map = {
     success: isDark
-      ? { wrap: 'bg-emerald-500/10 border-emerald-500/25', icon: 'bg-emerald-500/20', title: 'text-white', body: 'text-gray-300', note: 'text-gray-500' }
-      : { wrap: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-100', title: 'text-gray-900', body: 'text-gray-700', note: 'text-gray-500' },
+      ? { wrap: 'bg-emerald-500/10 border-emerald-500/25', icon: 'bg-emerald-500/20', title: 'text-white', body: 'text-emerald-100', note: 'text-emerald-300' }
+      : { wrap: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-100', title: 'text-emerald-950', body: 'text-emerald-900', note: 'text-emerald-800' },
     warning: isDark
-      ? { wrap: 'bg-amber-500/10 border-amber-500/25', icon: 'bg-amber-500/20', title: 'text-white', body: 'text-gray-300', note: 'text-gray-500' }
-      : { wrap: 'bg-amber-50 border-amber-200', icon: 'bg-amber-100', title: 'text-gray-900', body: 'text-gray-700', note: 'text-gray-500' },
+      ? { wrap: 'bg-amber-500/10 border-amber-500/25', icon: 'bg-amber-500/20', title: 'text-white', body: 'text-amber-100', note: 'text-amber-300' }
+      : { wrap: 'bg-amber-50 border-amber-200', icon: 'bg-amber-100', title: 'text-amber-950', body: 'text-amber-900', note: 'text-amber-800' },
     error: isDark
-      ? { wrap: 'bg-rose-500/10 border-rose-500/25', icon: 'bg-rose-500/20', title: 'text-white', body: 'text-gray-300', note: 'text-gray-500' }
-      : { wrap: 'bg-rose-50 border-rose-200', icon: 'bg-rose-100', title: 'text-gray-900', body: 'text-gray-700', note: 'text-gray-500' },
+      ? { wrap: 'bg-rose-500/10 border-rose-500/25', icon: 'bg-rose-500/20', title: 'text-white', body: 'text-rose-100', note: 'text-rose-300' }
+      : { wrap: 'bg-rose-50 border-rose-200', icon: 'bg-rose-100', title: 'text-rose-950', body: 'text-rose-900', note: 'text-rose-800' },
     neutral: isDark
-      ? { wrap: 'bg-blue-500/10 border-blue-500/20', icon: 'bg-blue-500/20', title: 'text-white', body: 'text-gray-300', note: 'text-gray-500' }
-      : { wrap: 'bg-blue-50 border-blue-200', icon: 'bg-blue-100', title: 'text-gray-900', body: 'text-gray-700', note: 'text-gray-500' },
+      ? { wrap: 'bg-blue-500/10 border-blue-500/20', icon: 'bg-blue-500/20', title: 'text-white', body: 'text-blue-100', note: 'text-blue-300' }
+      : { wrap: 'bg-blue-50 border-blue-200', icon: 'bg-blue-100', title: 'text-blue-950', body: 'text-blue-900', note: 'text-blue-800' },
   };
   return map[tone] || map.neutral;
 }

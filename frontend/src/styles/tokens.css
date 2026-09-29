@@ -274,12 +274,11 @@
      Tailwind utilities (z-sticky, z-dropdown, etc.) in JSX.
 
    Easing scale:
-     Formalizes the two curves already in tailwind.config.js plus adds
-     the spring used for nav-link underline scale-in.
+     Formalizes the curves used in tailwind.config.js. All motion eases
+     out without overshoot (the nav-link underline uses --ease-out); a
+     bouncy spring curve was removed to keep the academic register calm.
      These are declared here as CSS custom properties for use in
-     index.css @layer components. The Tailwind config's
-     transitionTimingFunction entries ('spring', 'smooth') remain and
-     now reference these variables.
+     index.css @layer components.
 
    Motion durations:
      Four named steps cover all existing transition-duration usages
@@ -299,7 +298,6 @@
   --ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);      /* Standard state transitions */
   --ease-out:      cubic-bezier(0, 0, 0.2, 1);         /* Entrances, hover reveals */
   --ease-in:       cubic-bezier(0.4, 0, 1, 1);         /* Exits */
-  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy: nav-link underline */
 
   /* ── Duration scale ───────────────────────────────────────────────── */
   --duration-fast:    120ms;  /* Chip / badge opacity transitions */

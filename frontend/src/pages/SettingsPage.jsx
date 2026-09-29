@@ -130,7 +130,7 @@ export default function SettingsPage() {
 
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors ${
     isDark
-      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40'
+      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
   }`;
   const labelCls = `block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
@@ -142,7 +142,7 @@ export default function SettingsPage() {
   const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`;
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen bg-canvas`}>
       <AppNavbar activePage="settings" breadcrumb="Settings" />
 
       <PageShell>
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                   {/* Hover overlay — fades in on hover */}
                   <div className="absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     <Camera className="w-5 h-5 text-white" aria-hidden="true" />
-                    <span className="text-[10px] font-semibold text-white leading-tight text-center px-1">
+                    <span className="text-[11px] font-semibold text-white leading-tight text-center px-1">
                       Change Photo
                     </span>
                   </div>

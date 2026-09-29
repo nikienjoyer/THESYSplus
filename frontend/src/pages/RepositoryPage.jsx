@@ -548,7 +548,7 @@ export default function RepositoryPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080d24]' : 'bg-slate-50'}`}>
+    <div className={`min-h-screen bg-canvas`}>
       <AppNavbar activePage="repository" />
 
       <PageShell>
@@ -620,7 +620,7 @@ export default function RepositoryPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
-                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40'
+                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
                     : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
                 }`}
               />
@@ -638,7 +638,7 @@ export default function RepositoryPage() {
                 value={year}
                 onChange={(e) => updateSearchParams({ year: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
@@ -654,7 +654,7 @@ export default function RepositoryPage() {
                 value={program}
                 onChange={(e) => updateSearchParams({ program: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
