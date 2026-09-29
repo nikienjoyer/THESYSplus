@@ -282,7 +282,7 @@ export default function AppNavbar({ activePage = '' }) {
                   >
                     {label}
                     {soon && (
-                      <span className="ml-1 text-[9px] uppercase tracking-wider align-middle text-subtle">soon</span>
+                      <span className="ml-1 text-[11px] uppercase tracking-wider align-middle text-subtle">soon</span>
                     )}
                   </Link>
                 </li>
@@ -368,7 +368,7 @@ export default function AppNavbar({ activePage = '' }) {
                       >
                         {label}
                         {soon && (
-                          <span className="ml-1.5 text-[9px] uppercase tracking-wider text-subtle">soon</span>
+                          <span className="ml-1.5 text-[11px] uppercase tracking-wider text-subtle">soon</span>
                         )}
                       </Link>
                     </li>

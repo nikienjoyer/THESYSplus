@@ -213,7 +213,7 @@ function ProgressStepper({ step, isDark }) {
                     i + 1
                   )}
                 </div>
-                <span className={`text-[9px] mt-1 text-center leading-tight max-w-[52px] ${
+                <span className={`text-[11px] mt-1 text-center leading-tight max-w-[52px] ${
                   isComplete
                     ? isDark ? 'text-emerald-400' : 'text-emerald-600'
                     : isActive
