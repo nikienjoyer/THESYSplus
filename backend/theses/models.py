@@ -102,6 +102,9 @@ class Thesis(models.Model):
     embedding_vector = models.JSONField(null=True, blank=True)
     embedding_model = models.CharField(max_length=64, blank=True, default='')
     embedding_generated_at = models.DateTimeField(null=True, blank=True)
+    # Technologies the thesis is about (services/technology_tags.py). Stored
+    # with the search vector so the topic analysis never loads the full text.
+    technology_tags = models.JSONField(default=list, blank=True)
 
     # ── Title-only embedding (review-time redundancy analysis) ──────────
     # Kept separate from ``embedding_vector`` on purpose: the composite

@@ -39,6 +39,8 @@ from typing import Iterable, List, Sequence
 
 from django.utils import timezone
 
+from .technology_tags import detect_technology_tags
+
 logger = logging.getLogger(__name__)
 
 # Lightweight, CPU-friendly model. 384-dim embeddings.
@@ -154,12 +156,17 @@ def generate_thesis_embedding(thesis, *, save: bool = True) -> List[float]:
         thesis.embedding_status = EmbeddingStatus.READY
         thesis.embedding_model = MODEL_NAME
         thesis.embedding_generated_at = timezone.now()
+        thesis.technology_tags = detect_technology_tags(
+            title=thesis.title, abstract=thesis.abstract,
+            keywords=thesis.keywords, full_text=thesis.extracted_text,
+        )
         if save:
             thesis.save(update_fields=[
                 'embedding_vector',
                 'embedding_status',
                 'embedding_model',
                 'embedding_generated_at',
+                'technology_tags',
                 'updated_at',
             ])
         return vector
