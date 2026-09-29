@@ -13,7 +13,7 @@
  * Requirements: 12 (Landing page), 25 (folder structure).
  */
 
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Outlet, Link } from 'react-router-dom';
 import RouteScrollManager from './components/navigation/RouteScrollManager';
 import { TooltipProvider } from './components/shadcn/tooltip';
@@ -23,21 +23,25 @@ import AuthLayout from './components/layout/AuthLayout';
 import ThesysLogo from './components/brand/ThesysLogo';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
-import RequestAccessPage from './pages/RequestAccessPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import SetupAccountPage from './pages/SetupAccountPage';
-import RepositoryPage from './pages/RepositoryPage';
-import ThesisDetailPage from './pages/ThesisDetailPage';
-import PdfPreviewPage from './pages/PdfPreviewPage';
-import TitleSimilarityPage from './pages/TitleSimilarityPage';
-import TrendAnalysisPage from './pages/TrendAnalysisPage';
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
-import VerifyEmailPage from './pages/VerifyEmailPage';
 import { UploadModalProvider } from './context/UploadModalContext';
 import UploadThesisModal from './components/upload/UploadThesisModal';
+
+// Route-level code splitting: the landing and sign-in pages load with the
+// app shell; every other page is fetched when first visited, so a student on
+// a phone downloads only what the page they open needs.
+const RequestAccessPage = lazy(() => import('./pages/RequestAccessPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const SetupAccountPage = lazy(() => import('./pages/SetupAccountPage'));
+const RepositoryPage = lazy(() => import('./pages/RepositoryPage'));
+const ThesisDetailPage = lazy(() => import('./pages/ThesisDetailPage'));
+const PdfPreviewPage = lazy(() => import('./pages/PdfPreviewPage'));
+const TitleSimilarityPage = lazy(() => import('./pages/TitleSimilarityPage'));
+const TrendAnalysisPage = lazy(() => import('./pages/TrendAnalysisPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 
 // ---------------------------------------------------------------------------
 // NotFound — minimal 404 page for unmatched routes
@@ -91,12 +95,23 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
+
+// Shown while a lazily loaded page downloads — same surface as the auth gate.
+function RouteFallback() {
+  return (
+    <div className="min-h-screen bg-canvas flex items-center justify-center">
+      <Spinner />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <RouteScrollManager />
       <TooltipProvider delayDuration={300}>
         <UploadModalProvider>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             {/* Public landing */}
             <Route path="/" element={<LandingPage />} />
@@ -126,6 +141,7 @@ export default function App() {
             {/* Catch-all — redirect unknown paths to home */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
 
           {/* Global Upload Thesis overlay — triggered from any navbar button */}
           <UploadThesisModal />
