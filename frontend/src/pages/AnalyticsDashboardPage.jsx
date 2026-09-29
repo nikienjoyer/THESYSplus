@@ -12,7 +12,7 @@
  *                         (reuses results from existing analyze_topics call on the server)
  *
  * Intentional separation from /trend-analysis:
- *   Trend Analysis = AI interpretation (TF-IDF + K-Means clusters)
+ *   Trend Analysis = AI interpretation (meaning-based topic groups)
  *   Analytics      = Repository intelligence (counts, distributions, growth)
  *
  * Charts are inline SVG — no external chart library, consistent with TrendAnalysisPage.

@@ -78,7 +78,10 @@ export default function ThesisDetailPage() {
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
+  // Suggestions are kept with the thesis they belong to, so moving to another
+  // thesis never shows the previous thesis's chips while its request runs.
+  const [suggestionState, setSuggestionState] = useState({ thesisId: null, items: [] });
+  const suggestions = suggestionState.thesisId === id ? suggestionState.items : [];
   const [savingSubject, setSavingSubject] = useState(false);
   const [subjectError, setSubjectError] = useState('');
   const canReviewSubject = user?.role === 'faculty' || user?.role === 'administrator';
@@ -131,8 +134,8 @@ export default function ThesisDetailPage() {
     if (!isAuthenticated || !canReviewSubject || !awaitingSubjectReview) return;
     let cancelled = false;
     client.get(`/theses/${id}/subject-suggestions/`)
-      .then((res) => { if (!cancelled) setSuggestions(res.data?.suggestions || []); })
-      .catch(() => { if (!cancelled) setSuggestions([]); });
+      .then((res) => { if (!cancelled) setSuggestionState({ thesisId: id, items: res.data?.suggestions || [] }); })
+      .catch(() => { if (!cancelled) setSuggestionState({ thesisId: id, items: [] }); });
     return () => { cancelled = true; };
   }, [isAuthenticated, canReviewSubject, awaitingSubjectReview, id]);
 

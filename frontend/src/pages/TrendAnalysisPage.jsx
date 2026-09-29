@@ -426,26 +426,17 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
 // Cluster drill-down — one panel of thesis rows for a single cluster
 // ---------------------------------------------------------------------------
 
-/**
- * ClusterThesisRow — one row: title (line 1) + program · year (line 2).
- * Deliberately excludes status (every thesis here is APPROVED — see
- * get_topic_trends_queryset — so a badge would be redundant), authors,
- * keyword chips, and abstract. This is a purpose-built simpler layout,
- * not RepositoryPage's ThesisCard.
- */
 // Technology tags — the technologies a group's theses are actually about
 // (IoT, AI, NLP…). The backend only tags a thesis with evidence (a mention
 // in its title, keywords or abstract, or dense full-text mentions), so a
 // thesis that merely repeats "analysis" is never tagged IoT.
-function TechnologyTags({ tags, isDark, label = 'Technologies' }) {
+function TechnologyTags({ tags, isDark }) {
   if (!tags || tags.length === 0) return null;
   return (
     <div className="mb-3">
-      {label && (
-        <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-          {label}
-        </div>
-      )}
+      <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        Technologies
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {tags.map(({ tag, count }) => (
           <Badge
@@ -467,6 +458,14 @@ function TechnologyTags({ tags, isDark, label = 'Technologies' }) {
   );
 }
 
+/**
+ * ClusterThesisRow — one row: title (line 1) + program · year (line 2) +
+ * the thesis's technology tags, when it has any (line 3).
+ * Deliberately excludes status (every thesis here is APPROVED — see
+ * get_topic_trends_queryset — so a badge would be redundant), authors,
+ * keyword chips, and abstract. This is a purpose-built simpler layout,
+ * not RepositoryPage's ThesisCard.
+ */
 function ClusterThesisRow({ thesis, isDark, tags = [] }) {
   return (
     <Link
@@ -775,8 +774,9 @@ export default function TrendAnalysisPage() {
   );
 
   // ── Cluster drill-down resolution ───────────────────────────────────
-  // `cluster_id` is NOT stable across corpus changes (K-Means reruns per
-  // request; a URL carrying it is a session reference, not a bookmark —
+  // `cluster_id` is NOT stable across corpus changes (groups are recomputed
+  // whenever the approved corpus changes; a URL carrying it is a session
+  // reference, not a bookmark —
   // see topic_analysis.py notes). Resolve it against the currently-loaded
   // `data.clusters` on every render rather than trusting it blindly; a
   // stale/unknown value simply fails to resolve and the overview renders
