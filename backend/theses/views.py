@@ -526,6 +526,36 @@ class ThesisSubjectReviewView(APIView):
         return Response(ThesisDetailSerializer(thesis).data)
 
 
+class ThesisSubjectSuggestionsView(APIView):
+    """Two likely primary subjects for an approved thesis.
+
+    Suggestions only - a subject is assigned solely through
+    ThesisSubjectReviewView, by faculty or an administrator.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id, *args, **kwargs):
+        if getattr(request.user, 'role', None) not in (Role.FACULTY, Role.ADMINISTRATOR):
+            return make_error_response(
+                code='FORBIDDEN', message='Only faculty and administrators may review subjects.',
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            uid = uuid.UUID(str(id))
+        except (ValueError, TypeError):
+            raise NotFound(detail='Thesis not found.')
+        try:
+            thesis = Thesis.objects.only('id', 'status', 'embedding_vector').get(pk=uid)
+        except Thesis.DoesNotExist:
+            raise NotFound(detail='Thesis not found.')
+        if thesis.status != ThesisStatus.APPROVED:
+            return Response({'suggestions': []})
+
+        from .services.subject_suggestions import suggest_subjects
+        return Response({'suggestions': suggest_subjects(thesis)})
+
+
 # ---------------------------------------------------------------------------
 # GET /theses/{id}/download/ — protected watermarked PDF download
 # ---------------------------------------------------------------------------
