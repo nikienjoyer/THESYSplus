@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 from .email_verification import (
     EmailVerificationTokenInvalid,
     consume_email_verification_token,
-    issue_email_verification_token,
 )
 from password_reset.services import issue_reset_token
 
@@ -284,7 +283,6 @@ class RequestAccessView(APIView):
         from pathlib import Path
         from django.conf import settings
         from identity_verification.models import VerificationDocument
-        from identity_verification.services.orchestrator import VerificationOrchestrator
         from identity_verification.validators.file_validator import FileValidator
         
         email = validated_data['email']
@@ -333,12 +331,12 @@ class RequestAccessView(APIView):
             sha256_hash = hashlib.sha256(file_contents).hexdigest()
             
             # Task 5.4: Generate file path and save to private storage
-            # Path: MEDIA_ROOT/private/verification_docs/{uuid}/{sha256}.{ext}
+            # Keep identity documents outside the publicly served media tree.
             file_ext = Path(document.name).suffix.lstrip('.')
             if not file_ext:
                 file_ext = 'bin'
             
-            private_root = Path(settings.MEDIA_ROOT) / 'private' / 'verification_docs'
+            private_root = Path(settings.PRIVATE_STORAGE_ROOT) / settings.VERIFICATION_DOCS_PATH
             request_dir = private_root / str(req.id)
             request_dir.mkdir(parents=True, exist_ok=True)
             
@@ -347,6 +345,7 @@ class RequestAccessView(APIView):
             # Write file to disk
             with open(file_path, 'wb') as f:
                 f.write(file_contents)
+            os.chmod(file_path, 0o600)
             
             # Ensure directory permissions are secure (not publicly accessible)
             os.chmod(request_dir, 0o700)
@@ -360,70 +359,10 @@ class RequestAccessView(APIView):
                 size_bytes=len(file_contents),
             )
             
-            # Step 5.6: Run verification pipeline inline (synchronous)
-            orchestrator = VerificationOrchestrator()
-
-            try:
-                verification_result = orchestrator.verify_request(str(req.id))
-
-                # Step 5.9: Route based on decision
-                if verification_result.status == 'auto_approved':
-                    # CASE 1 — Clean valid request:
-                    # Send email verification; do NOT create the account yet.
-                    # The applicant must click the link to activate their account.
-                    try:
-                        issue_email_verification_token(req, request=request)
-                    except Exception as email_exc:
-                        logger.warning(
-                            'Email verification send failed for %s: %s',
-                            email, email_exc,
-                        )
-                        # Fall back to manual review if email sending fails
-                        req.status = 'pending'
-                        req.save(update_fields=['status'])
-
-                elif verification_result.status == 'pending_manual_review':
-                    # CASE 2 — Partial/unclear: already set to 'pending' by orchestrator
-                    pass
-
-                elif verification_result.status == 'rejected':
-                    # CASE 3 — Invalid: already set to 'denied' by orchestrator
-                    pass
-
-            except Exception as e:
-                # Pipeline error: write error result, fall back to manual review
-                from identity_verification.models import VerificationResult
-
-                verification_result, created = VerificationResult.objects.get_or_create(
-                    access_request=req,
-                    defaults={
-                        'status': 'error',
-                        'decision_reason': f'Pipeline error: {str(e)}',
-                        'processor_version': 'mvp-1.0',
-                    }
-                )
-
-                if not created:
-                    verification_result.status = 'error'
-                    verification_result.decision_reason = f'Pipeline error: {str(e)}'
-                    verification_result.save()
-
-                req.status = 'pending'
-                req.save(update_fields=['status'])
-
-                audit_write(
-                    'access_request.verification.error',
-                    actor=None,
-                    target=None,
-                    success=False,
-                    metadata={
-                        'access_request_id': str(req.id),
-                        'email': email,
-                        'error': str(e),
-                        'exception_class': type(e).__name__,
-                    },
-                    request=request,
-                )
+            # OCR and decision processing run in the durable worker. The claim
+            # response is immediate and remains usable while processing.
+            from processing_jobs.services import enqueue_identity
+            enqueue_identity(req.id)
             
             # Audit: Log submission
             audit_write(
@@ -446,12 +385,13 @@ class RequestAccessView(APIView):
 
             # Map internal status to a frontend-friendly decision key
             _STATUS_TO_DECISION = {
+                'processing': 'processing',
                 'pending_email_verification': 'pending_email_verification',
                 'pending': 'pending_manual_review',
                 'denied': 'rejected',
                 'approved': 'approved',
             }
-            decision = _STATUS_TO_DECISION.get(req.status, 'pending_manual_review')
+            decision = _STATUS_TO_DECISION.get(req.status, 'processing')
 
             return Response(
                 {
@@ -468,6 +408,11 @@ class RequestAccessView(APIView):
         except Exception as e:
             # Cleanup: delete the AccessRequest if something went wrong
             req.delete()
+            if 'file_path' in locals():
+                try:
+                    Path(file_path).unlink(missing_ok=True)
+                except OSError:
+                    logger.exception('Could not clean failed request upload %s', req.id)
             raise
 
 
@@ -618,6 +563,21 @@ class RequestAccessStatusView(APIView):
             # No token is minted on this branch — an expired claim must not be
             # able to produce password-setup credentials.
             return Response({'status': 'expired'}, status=status.HTTP_200_OK)
+
+        if req.status == 'processing':
+            return Response({'status': 'processing'}, status=status.HTTP_200_OK)
+        if req.status == 'pending_email_verification':
+            return Response(
+                {'status': 'pending_verification', 'decision': 'pending_email_verification'},
+                status=status.HTTP_200_OK,
+            )
+        if req.status == 'pending':
+            from identity_verification.models import VerificationDocument
+            if VerificationDocument.objects.filter(access_request=req).exists():
+                return Response({'status': 'pending_manual_review'}, status=status.HTTP_200_OK)
+            return Response({'status': 'pending_verification'}, status=status.HTTP_200_OK)
+        if req.status == 'denied':
+            return Response({'status': 'rejected'}, status=status.HTTP_200_OK)
 
         # 'approved' is the terminal state that email verification drives the
         # request to (via consume_email_verification_token -> approve_request).

@@ -301,7 +301,8 @@ class TestUploadPipelineStillUnlimited:
 
         from theses.views import ThesisUploadView
 
-        source = inspect.getsource(ThesisUploadView.post)
+        # post() enqueues a job; the worker runs this same parse path.
+        source = inspect.getsource(ThesisUploadView._process_synchronous)
 
         assert 'ThesisTextExtractor().extract(tmp_path)' in source, (
             'upload extract() call changed shape'

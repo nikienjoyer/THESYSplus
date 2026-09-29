@@ -85,6 +85,14 @@ function mapError(err) {
 }
 
 const DECISIONS = {
+  processing: {
+    Icon: Search,
+    iconColor: 'text-blue-600',
+    title: 'Checking your document',
+    body: 'Your file was received. We are checking it now; this page will update when the result is ready.',
+    note: 'You can keep this page open while the check runs.',
+    tone: 'neutral',
+  },
   pending_email_verification: {
     Icon: Mail,
     iconColor: 'text-emerald-600',
@@ -138,6 +146,7 @@ function toneClasses(tone, isDark) {
 // different label.
 const STEP_REJECTED       = -1;
 const STEP_FORM           = 0;
+const STEP_PROCESSING     = 5;
 const STEP_VERIFY_EMAIL   = 1;
 const STEP_MANUAL_REVIEW  = 2;
 const STEP_SET_PASSWORD   = 3;
@@ -146,6 +155,7 @@ const STEP_ACCOUNT_READY  = 4;
 // Which of the four rendered nodes each flow step highlights.
 const STEP_TO_NODE = {
   [STEP_FORM]:          0,
+  [STEP_PROCESSING]:    1,
   [STEP_VERIFY_EMAIL]:  1,
   [STEP_MANUAL_REVIEW]: 1,   // same node, relabelled below
   [STEP_SET_PASSWORD]:  2,
@@ -156,12 +166,15 @@ function ProgressStepper({ step, isDark }) {
   if (step === STEP_REJECTED) return null; // no stepper for rejected
 
   const isManualReview = step === STEP_MANUAL_REVIEW;
+  const isProcessing = step === STEP_PROCESSING;
 
   // Manual review replaces "Verify Email" — no email was sent, so waiting for
   // one would be a lie. Pre-existing behaviour, preserved.
   const displaySteps = isManualReview
     ? ['Submit Request', 'Manual Review', 'Set Password', 'Account Ready']
-    : ['Submit Request', 'Verify Email', 'Set Password', 'Account Ready'];
+    : isProcessing
+      ? ['Submit Request', 'Checking Document', 'Set Password', 'Account Ready']
+      : ['Submit Request', 'Verify Email', 'Set Password', 'Account Ready'];
 
   // NOTE — this replaces an off-by-one in the previous implementation, which
   // computed `activeIdx + (step > 0 ? 1 : 0)` and so highlighted "Set Password"
@@ -301,11 +314,11 @@ export default function RequestAccessPage() {
 
   // ── Claim polling ─────────────────────────────────────────────────────
   //
-  // Only 'pending_email_verification' is pollable. 'pending_manual_review' has
+  // Processing and email verification are pollable. Manual review has
   // no email in flight and 'rejected' is terminal, so polling either would be
   // pure noise against the server.
   const shouldPoll = (
-    decision === 'pending_email_verification'
+    (decision === 'processing' || decision === 'pending_email_verification')
     && claimState === 'polling'
     && !!claim
     && !!claimExpiresAt
@@ -357,6 +370,15 @@ export default function RequestAccessPage() {
         if (cancelled) return;
 
         const status = res.data?.status;
+        if (res.data?.decision === 'pending_email_verification' && decision !== 'pending_email_verification') {
+          setDecision('pending_email_verification');
+          writeStoredClaim({ decision: 'pending_email_verification', claim, claim_expires_at: claimExpiresAt });
+        }
+        if (status === 'pending_manual_review' || status === 'rejected') {
+          setDecision(status);
+          clearStoredClaim();
+          return;
+        }
         if (status === 'verified') {
           setSetupToken(res.data?.setup_token || '');
           setClaimState('verified');
@@ -419,7 +441,7 @@ export default function RequestAccessPage() {
       if (timerId) clearTimeout(timerId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [shouldPoll, claim, claimExpiresAt]);
+  }, [shouldPoll, claim, claimExpiresAt, decision]);
 
   const decisionInfo = decision ? (DECISIONS[decision] || {
     Icon: ClipboardList,
@@ -436,6 +458,8 @@ export default function RequestAccessPage() {
     stepperStep = STEP_ACCOUNT_READY;
   } else if (claimState === 'verified') {
     stepperStep = STEP_SET_PASSWORD;
+  } else if (decision === 'processing') {
+    stepperStep = STEP_PROCESSING;
   } else if (decision === 'pending_email_verification') {
     stepperStep = STEP_VERIFY_EMAIL;
   } else if (decision === 'pending_manual_review') {

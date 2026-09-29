@@ -13,6 +13,12 @@ import os
 import zipfile
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def keep_existing_extractor_contract(settings):
+    """Exercise the extraction logic separately from the async transport."""
+    settings.DOCUMENT_PROCESSING_ASYNC = False
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 

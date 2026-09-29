@@ -17,6 +17,11 @@ import os
 import zipfile
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def keep_existing_gate_contract(settings):
+    settings.DOCUMENT_PROCESSING_ASYNC = False
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from reportlab.pdfgen import canvas

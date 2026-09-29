@@ -87,6 +87,7 @@ class Thesis(models.Model):
     )
     file_type = models.CharField(max_length=8, choices=FileType.choices)
     sha256 = models.CharField(max_length=64, unique=True, db_index=True)
+    processing_job_id = models.UUIDField(null=True, blank=True, unique=True)
 
     # ── AI / search support ─────────────────────────────────────────────
     extracted_text = models.TextField(blank=True, default='')
@@ -118,6 +119,8 @@ class Thesis(models.Model):
     # guaranteed, so presence must be tested by reading the vector itself.
     title_embedding = models.JSONField(null=True, blank=True)
     title_embedding_generated_at = models.DateTimeField(null=True, blank=True)
+    # SHA-256 of model name and title at generation time; prevents stale scores.
+    title_embedding_source_hash = models.CharField(max_length=64, blank=True, default='')
 
     # ── Workflow ────────────────────────────────────────────────────────
     status = models.CharField(

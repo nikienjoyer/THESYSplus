@@ -23,6 +23,7 @@ the whole corpus.
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 
 from theses.models import Thesis
 from theses.services.semantic_search import (
@@ -56,11 +57,11 @@ class Command(BaseCommand):
 
         if titles_only:
             generator = generate_title_embedding
-            missing_filter = {'title_embedding__isnull': True}
+            missing_filter = Q(title_embedding__isnull=True) | Q(title_embedding_source_hash='')
             label = 'title embeddings'
         else:
             generator = generate_thesis_embedding
-            missing_filter = {'embedding_vector__isnull': True}
+            missing_filter = Q(embedding_vector__isnull=True)
             label = 'embeddings'
 
         if regenerate:
@@ -70,7 +71,7 @@ class Command(BaseCommand):
                 f'using {MODEL_NAME}...'
             ))
         else:
-            qs = Thesis.objects.filter(**missing_filter).order_by('created_at')
+            qs = Thesis.objects.filter(missing_filter).order_by('created_at')
             self.stdout.write(self.style.NOTICE(
                 f'Embedding {qs.count()} theses missing {label} using {MODEL_NAME}...'
             ))
@@ -81,11 +82,11 @@ class Command(BaseCommand):
             try:
                 generator(thesis)
                 ok += 1
-                self.stdout.write(f'  ✓ {thesis.title[:60]}')
+                self.stdout.write(f'  OK: {thesis.id}')
             except Exception as exc:
                 failed += 1
-                self.stderr.write(f'  ✗ {thesis.title[:60]} — {exc}')
+                self.stderr.write(f'  FAILED: {thesis.id}: {exc}')
 
         self.stdout.write(self.style.SUCCESS(
-            f'Done — {ok} embedded, {failed} failed.'
+            f'Done: {ok} embedded, {failed} failed.'
         ))

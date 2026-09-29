@@ -32,6 +32,8 @@ from difflib import SequenceMatcher
 from itertools import islice
 from pathlib import Path
 
+from common.performance import timed
+
 logger = logging.getLogger(__name__)
 
 # Heuristic threshold: if direct PDF text extraction yields fewer than
@@ -497,6 +499,7 @@ class ThesisTextExtractor:
         """
         return self._extract_pdf(path, max_pages=1, include_ocr_author_lines=False)
 
+    @timed('pdf_extract')
     def _extract_pdf(
         self,
         path: Path,
@@ -613,6 +616,7 @@ class ThesisTextExtractor:
                 error=f'PDF extraction failed: {exc}',
             )
 
+    @timed('pdf_ocr')
     def _ocr_pdf(self, path: Path, *, max_pages: int | None = None) -> str:
         """OCR the leading pages of a scanned PDF using Tesseract.
 
@@ -650,6 +654,7 @@ class ThesisTextExtractor:
                 logger.warning('Tesseract failed on PDF page: %s', exc)
         return '\n\n'.join(t.strip() for t in page_texts if t and t.strip())
 
+    @timed('author_ocr')
     def _ocr_first_page_author_lines(self, path: Path) -> tuple[str, ...]:
         """Return positioned OCR rows from only page one for author detection."""
         from pdf2image import convert_from_path

@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock, Info, Sparkles, X } from 'lucide-react';
 import client from '../../api/client';
+import { waitForJob } from '../../api/jobs';
 import { clearAllCaches } from '../../utils/appCaches';
 import { parseAuthorInput } from '../../utils/formatters';
 import { useAuth } from '../../hooks/useAuth';
@@ -42,22 +43,6 @@ const EMPTY_METADATA_FORM = Object.freeze({
   keywords: '',
   year: '',
 });
-
-// Simulated frontend progress stages (purely visual — no backend changes)
-//
-// KNOWN INCONSISTENCY (flagged, deliberately not changed here): "Reading
-// document…" and "Processing thesis content…" are timed animations that run
-// AFTER submit, but the document is now actually read much earlier — on file
-// attach, by the auto-fill extraction below. The labels therefore narrate work
-// that has already finished. Rewording them is a copy decision that belongs
-// with the progress indicator, not with this task's wiring.
-const UPLOAD_STAGES = [
-  { label: 'Preparing upload…',              duration: 800  },
-  { label: 'Reading document…',              duration: 1200 },
-  { label: 'Processing thesis content…',     duration: 1000 },
-  { label: 'Preparing semantic indexing…',   duration: 600  },
-  { label: 'Submission complete.',           duration: 0    },
-];
 
 // The preview can include bounded page-level OCR for image-backed abstracts.
 // Allow that work to finish while still bounding a stalled auto-fill request.
@@ -121,36 +106,17 @@ function suggestAuthorCapitalization(authorList) {
 // ---------------------------------------------------------------------------
 // Upload progress indicator
 // ---------------------------------------------------------------------------
-function UploadProgress({ stageIndex, progress, isDark }) {
-  const current = UPLOAD_STAGES[Math.min(stageIndex, UPLOAD_STAGES.length - 1)];
-  const pct = Math.max(0, Math.min(100, Math.round(progress)));
-  const done = pct === 100;
-
+function UploadProgress({ stage, canDismiss, isDark }) {
   return (
-    <div className="rounded-lg border border-[var(--color-border)] px-4 py-3">
-      <div className="mb-2 flex items-center justify-between gap-4">
-        <p
-          aria-live="polite"
-          className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
-        >
-          {current.label}
+    <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3">
+      <Spinner size="sm" />
+      <div className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+        <p className="font-medium">{stage}</p>
+        <p className="text-xs opacity-70">
+          {canDismiss
+            ? 'You can close this window. Processing continues; keep this page open to receive the result.'
+            : 'Please keep this window open while the file is being sent.'}
         </p>
-        <span className={`shrink-0 text-sm font-semibold tabular-nums ${done ? 'text-emerald-500' : 'text-blue-500'}`}>
-          {pct}%
-        </span>
-      </div>
-      <div
-        aria-label="Upload progress"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={pct}
-        role="progressbar"
-        className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/[0.08]' : 'bg-gray-100'}`}
-      >
-        <div
-          className={`h-full rounded-full transition-[width] duration-300 ease-out ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
       </div>
     </div>
   );
@@ -178,8 +144,8 @@ export default function UploadThesisModal() {
   const [file, setFile]         = useState(null);
 
   const [submitting, setSubmitting]         = useState(false);
-  const [stageIndex, setStageIndex]         = useState(-1); // -1 = not started
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState('Uploading document…');
+  const [uploadAcknowledged, setUploadAcknowledged] = useState(false);
   const [error, setError]                   = useState('');
   const [fieldErrors, setFieldErrors]       = useState({});
   const [success, setSuccess]               = useState(null);
@@ -208,8 +174,8 @@ export default function UploadThesisModal() {
   // was still running.
   const touchedRef = useRef(new Set());
 
-  const progressFrameRef = useRef(null);
   const extractAbortRef = useRef(null);
+  const activeSubmissionRef = useRef(null);
   const panelRef = useFocusTrap(isOpen);
   const backdropRef = useBodyScrollLock(isOpen);
 
@@ -232,7 +198,7 @@ export default function UploadThesisModal() {
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
     setProgram(''); setYear(''); setAdviser('');
     setFile(null); setError(''); setFieldErrors({});
-    setStageIndex(-1); setUploadProgress(0); setSuccess(null);
+    setProcessingStage('Uploading document…'); setUploadAcknowledged(false); setSuccess(null);
     setExtracting(false); setAutoFilled({}); setExtractionNote(null);
     setExtractionFoundMetadata(false);
     setAuthorSuggestion(null);
@@ -245,39 +211,16 @@ export default function UploadThesisModal() {
     if (!isOpen) resetForm();
   }, [isOpen]);
 
-  // Animate visual progress while the server receives and processes the upload.
-  // Keep the simulated value below 100% until the server confirms success.
-  useEffect(() => {
-    if (!submitting) return undefined;
-
-    const totalDuration = UPLOAD_STAGES.slice(0, -1)
-      .reduce((total, stage) => total + stage.duration, 0);
-    const startedAt = performance.now();
-
-    const updateProgress = (now) => {
-      const elapsed = Math.min(now - startedAt, totalDuration);
-      setUploadProgress((elapsed / totalDuration) * 90);
-
-      let accumulatedDuration = 0;
-      let nextStage = 0;
-      for (let index = 0; index < UPLOAD_STAGES.length - 1; index += 1) {
-        accumulatedDuration += UPLOAD_STAGES[index].duration;
-        if (elapsed < accumulatedDuration) break;
-        nextStage = Math.min(index + 1, UPLOAD_STAGES.length - 2);
-      }
-      setStageIndex(nextStage);
-
-      if (elapsed < totalDuration) {
-        progressFrameRef.current = requestAnimationFrame(updateProgress);
-      }
-    };
-
-    progressFrameRef.current = requestAnimationFrame(updateProgress);
-    return () => cancelAnimationFrame(progressFrameRef.current);
-  }, [submitting]);
-
   const requestClose = () => {
-    if (submitting) return; // don't allow closing mid-upload
+    if (submitting && !uploadAcknowledged) return;
+    if (submitting && uploadAcknowledged) {
+      if (activeSubmissionRef.current) activeSubmissionRef.current.dismissed = true;
+      activeSubmissionRef.current = null;
+      setSubmitting(false);
+      toast.info('Upload accepted. Processing continues in the background.');
+      close();
+      return;
+    }
     // While the confirmation is up it is the innermost layer, so a dismiss
     // gesture belongs to it — backing out of the prompt must not also discard
     // the filled-in form.
@@ -293,7 +236,7 @@ export default function UploadThesisModal() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, submitting, confirmOpen]);
+  }, [isOpen, submitting, uploadAcknowledged, confirmOpen]);
 
   // NOTE: client-side file type/size validation lives entirely in
   // FileDropzone, which rejects invalid files (with a toast) before they
@@ -444,14 +387,18 @@ export default function UploadThesisModal() {
       // cleared in the same event. Use that clean snapshot because React has
       // not rendered the state updates yet; touchedRef still protects any
       // fields the user edits while this request is in flight.
-      applyExtractedMetadata(res.data, EMPTY_METADATA_FORM);
+      const extraction = res.data?.job_id
+        ? await waitForJob(res.data.job_id, controller.signal)
+        : res.data;
+      if (extractAbortRef.current !== controller) return;
+      applyExtractedMetadata(extraction, EMPTY_METADATA_FORM);
       setExtractionFoundMetadata(
-        Array.isArray(res.data?.filled_fields) && res.data.filled_fields.length > 0,
+        Array.isArray(extraction?.filled_fields) && extraction.filled_fields.length > 0,
       );
     } catch (err) {
       if (extractAbortRef.current !== controller) return;
       setExtractionFoundMetadata(false);
-      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError' || err?.name === 'AbortError') return;
 
       const code = err?.response?.data?.error?.code;
 
@@ -566,8 +513,10 @@ export default function UploadThesisModal() {
     const authorsList  = parseAuthorInput(authors);
     const keywordsList = keywords.split(',').map((k) => k.trim()).filter(Boolean);
 
-    setStageIndex(0);
-    setUploadProgress(0);
+    const submission = { dismissed: false };
+    activeSubmissionRef.current = submission;
+    setProcessingStage('Uploading document…');
+    setUploadAcknowledged(false);
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -584,19 +533,27 @@ export default function UploadThesisModal() {
         headers: { 'Content-Type': undefined },
       });
 
-      cancelAnimationFrame(progressFrameRef.current);
-      setStageIndex(UPLOAD_STAGES.length - 1);
-      setUploadProgress(100);
+      if (res.data?.job_id) setUploadAcknowledged(true);
+
+      const completed = res.data?.job_id
+        ? await waitForJob(res.data.job_id, undefined, (state) => {
+          if (activeSubmissionRef.current === submission) {
+            setProcessingStage(state === 'queued' ? 'Waiting to process…' : 'Checking and saving thesis…');
+          }
+        })
+        : res.data;
+
       clearAllCaches();
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setSuccess(res.data);
+      if (submission.dismissed) toast.success('Your thesis finished processing. Check the repository for its status.');
+      else if (activeSubmissionRef.current === submission) setSuccess(completed);
     } catch (err) {
-      cancelAnimationFrame(progressFrameRef.current);
-      setStageIndex(-1);
-      setUploadProgress(0);
       const code = err?.response?.data?.error?.code;
       const msg  = err?.response?.data?.error?.message;
       const details = err?.response?.data?.error?.details;
+      if (submission.dismissed) {
+        toast.error(msg || 'Thesis processing failed. Please try again.');
+        return;
+      }
 
       if (code === 'NOT_A_THESIS_DOCUMENT') {
         // Hard block on the backend for every role. The document-section alert
@@ -637,7 +594,11 @@ export default function UploadThesisModal() {
         toast.error(msg || 'Upload failed. Please try again.');
       }
     } finally {
-      setSubmitting(false);
+      if (activeSubmissionRef.current === submission) {
+        activeSubmissionRef.current = null;
+        setSubmitting(false);
+        setUploadAcknowledged(false);
+      }
     }
   };
 
@@ -735,7 +696,7 @@ export default function UploadThesisModal() {
               <button
                 type="button"
                 onClick={requestClose}
-                disabled={submitting}
+                disabled={submitting && !uploadAcknowledged}
                 aria-label="Close"
                 className="flex-shrink-0 -mr-1 -mt-1 p-1.5 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-ink hover:bg-surface-elevated transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
@@ -749,9 +710,9 @@ export default function UploadThesisModal() {
             </p>
 
             {/* Upload progress — shown while submitting */}
-            {submitting && stageIndex >= 0 && (
+            {submitting && (
               <div className="mb-4">
-                <UploadProgress stageIndex={stageIndex} progress={uploadProgress} isDark={isDark} />
+                <UploadProgress stage={processingStage} canDismiss={uploadAcknowledged} isDark={isDark} />
               </div>
             )}
 
@@ -975,12 +936,12 @@ export default function UploadThesisModal() {
                 <button
                   type="button"
                   onClick={requestClose}
-                  disabled={submitting}
+                  disabled={submitting && !uploadAcknowledged}
                   className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 ${
                     isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  Cancel
+                  {uploadAcknowledged ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   type="submit"

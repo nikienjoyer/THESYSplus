@@ -13,13 +13,15 @@ verify end-to-end boot against a real PostgreSQL connection.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.http import Http404
 
-from thesys.health import health
+from thesys.health import health, ready
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/health', health, name='health'),
+    path('api/v1/ready', ready, name='ready'),
 
     # Cookie-bearing public auth surface.
     path('api/v1/auth/', include('auth_service.urls')),
@@ -28,6 +30,7 @@ urlpatterns = [
 
     # Authenticated thesis repository (Phase 1).
     path('api/v1/theses/', include('theses.urls')),
+    path('api/v1/jobs/', include('processing_jobs.urls')),
 
     # Administrator-only surface (JWT bearer + IsAdministrator).
     path('api/v1/admin/', include('access_requests.urls_admin')),
@@ -49,4 +52,9 @@ urlpatterns = [
 # the preview path. Thesis documents remain reachable only through the
 # authenticated endpoint in production, where this block is inert.
 if settings.DEBUG:
+    def deny_private_media(_request, **_kwargs):
+        raise Http404
+
+    # Legacy verification uploads must not be served by Django's debug media view.
+    urlpatterns.append(re_path(r'^media/private(?:/.*)?$', deny_private_media))
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

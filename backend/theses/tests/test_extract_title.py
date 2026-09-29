@@ -211,8 +211,20 @@ class TestDetectTitleHeuristic:
 # Endpoint tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestExtractTitleEndpoint:
+
+    @staticmethod
+    def _finish_job(response):
+        from processing_jobs.models import ProcessingJob
+        from processing_jobs.worker import run_one
+
+        assert response.status_code == 202
+        job = ProcessingJob.objects.get(id=response.json()['job_id'])
+        run_one(job)
+        job.refresh_from_db()
+        assert job.state == ProcessingJob.State.SUCCEEDED
+        return job.result
 
     def test_requires_authentication(self, client):
         url = reverse('thesis-extract-title')
@@ -262,8 +274,23 @@ class TestExtractTitleEndpoint:
             format='multipart',
             HTTP_AUTHORIZATION=f'Bearer {token}',
         )
-        assert response.status_code == 200
-        body = response.json()
+        job_id = response.json()['job_id']
+        other = User.objects.create_user(
+            email='other@pampangastateu.edu.ph', first_name='Other',
+            last_name='Reader', role=Role.FACULTY, password='Test12345!Test',
+        )
+        denied = client.get(
+            reverse('processing-job-status', args=[job_id]),
+            HTTP_AUTHORIZATION=f'Bearer {_bearer(other)}',
+        )
+        assert denied.status_code == 404
+        body = self._finish_job(response)
+        allowed = client.get(
+            reverse('processing-job-status', args=[job_id]),
+            HTTP_AUTHORIZATION=f'Bearer {token}',
+        )
+        assert allowed.status_code == 200
+        assert allowed.json()['result'] == body
         # Envelope shape
         for key in ('detected_title', 'confidence', 'method', 'message'):
             assert key in body
@@ -290,8 +317,7 @@ class TestExtractTitleEndpoint:
             format='multipart',
             HTTP_AUTHORIZATION=f'Bearer {token}',
         )
-        assert response.status_code == 200
-        body = response.json()
+        body = self._finish_job(response)
         for key in ('detected_title', 'confidence', 'method', 'message'):
             assert key in body
 
@@ -307,8 +333,7 @@ class TestExtractTitleEndpoint:
             format='multipart',
             HTTP_AUTHORIZATION=f'Bearer {token}',
         )
-        assert response.status_code == 200
-        body = response.json()
+        body = self._finish_job(response)
         # Either no title detected OR confidence is low
         if not body['detected_title']:
             assert body['confidence'] == 'low'

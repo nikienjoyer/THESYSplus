@@ -47,6 +47,9 @@ LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {'thesis_console': {'class': 'logging.StreamHandler'}},
     'loggers': {
+        'thesys.performance': {
+            'handlers': ['thesis_console'], 'level': 'INFO', 'propagate': False,
+        },
         'theses.views': {
             'handlers': ['thesis_console'], 'level': 'INFO', 'propagate': False,
         },

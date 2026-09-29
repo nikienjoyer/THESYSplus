@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div id="content-main">
+    <h1>{{ title }}</h1>
+    <p>
+      {% if decision == 'approve' %}
+        Approve the access request from <strong>{{ requester_name }}</strong>
+        ({{ original.email }}) for the {{ requested_role }} role? This creates
+        the account and starts its activation process.
+      {% else %}
+        Reject the access request from <strong>{{ requester_name }}</strong>
+        ({{ original.email }}) for the {{ requested_role }} role?
+      {% endif %}
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <div class="form-row">
+          {{ field.errors }}
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <div class="submit-row">
+        <input type="submit" value="{{ submit_label }}" class="default">
+        <a href="{{ cancel_url }}" class="closelink">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

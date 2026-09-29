@@ -231,7 +231,9 @@ def test_ocr_renders_exactly_one_selected_page(monkeypatch):
     assert render.call_count == 1
 
 
-def test_preview_post_returns_same_schema_without_saving(endpoint):
+def test_preview_post_returns_same_schema_without_saving(endpoint, settings):
+    # The inline path; the processing worker returns this same response body.
+    settings.DOCUMENT_PROCESSING_ASYNC = False
     from django.core.files.uploadedfile import SimpleUploadedFile
     from rest_framework.test import APIRequestFactory, force_authenticate
     request = APIRequestFactory().post('/theses/extract-metadata/',

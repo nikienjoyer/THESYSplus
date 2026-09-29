@@ -12,11 +12,12 @@
  * splitTerms() are untouched. This file only restructures presentation.
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Info, Lightbulb, ShieldCheck } from 'lucide-react';
 import client from '../api/client';
+import { waitForJob } from '../api/jobs';
 import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
@@ -189,6 +190,11 @@ export default function TitleSimilarityPage() {
     similarityAbortRef.current = null;
   };
 
+  useEffect(() => () => {
+    extractAbortRef.current?.abort();
+    similarityAbortRef.current?.abort();
+  }, []);
+
   // ── Keyboard nav for the segmented control (ARIA tablist pattern) ──────
   const handleTabKeyDown = (e) => {
     const order = ['manual', 'upload'];
@@ -280,7 +286,11 @@ export default function TitleSimilarityPage() {
       // A file replaced (or removed) mid-read must not write a stale title.
       if (extractAbortRef.current !== controller) return;
 
-      const { detected_title, confidence } = res.data;
+      const extraction = res.data?.job_id
+        ? await waitForJob(res.data.job_id, controller.signal)
+        : res.data;
+      if (extractAbortRef.current !== controller) return;
+      const { detected_title, confidence } = extraction;
       if (detected_title && !titleEditedRef.current) {
         setTitle(detected_title);
         setExtractConf(confidence || '');
@@ -289,7 +299,7 @@ export default function TitleSimilarityPage() {
       }
     } catch (err) {
       if (extractAbortRef.current !== controller) return;
-      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError' || err?.name === 'AbortError') return;
 
       const code = err?.response?.data?.error?.code;
       const msg = err?.response?.data?.error?.message;

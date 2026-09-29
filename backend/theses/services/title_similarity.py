@@ -16,11 +16,8 @@ Design notes
   composite (Phase 2A search) would inflate the candidate's score against
   any thesis whose abstract simply mentions related concepts, producing
   false-positive duplicate flags.
-* Title embeddings are computed on-the-fly per validation request (the
-  corpus is small at demo scale and SBERT title encoding is cheap).
-  When the corpus grows, the same surface — ``classify_title()`` — can
-  be backed by a precomputed title embedding column without changing
-  callers.
+* Stored title embeddings are reused when they match the current title and
+  model; only missing or stale vectors are encoded on the request path.
 * Public surface is intentionally minimal:
     - ``CLASS_HIGH``, ``CLASS_MODERATE``, ``CLASS_LOW`` — classification labels
     - ``THRESHOLD_HIGH``, ``THRESHOLD_MODERATE`` — score cut-offs
@@ -37,7 +34,8 @@ from typing import Iterable, List
 
 # Reuse SBERT primitives from the semantic search service — single source
 # of truth for the model load + embedding generation.
-from .semantic_search import ScoredThesis, embed_text
+from .semantic_search import EMBEDDING_DIM, ScoredThesis, embed_text, title_source_hash
+from common.performance import timed_stage
 
 
 # ---------------------------------------------------------------------------
@@ -131,18 +129,32 @@ def rank_titles(
     # Lazy NumPy import keeps boot fast.
     import numpy as np
 
-    candidate_vec = np.asarray(embed_text(candidate), dtype=np.float32)
+    with timed_stage('title_query_encode'):
+        candidate_vec = np.asarray(embed_text(candidate), dtype=np.float32)
 
     scored: List[ScoredThesis] = []
-    for thesis in queryset:
-        title = (getattr(thesis, 'title', '') or '').strip()
-        if not title:
-            continue
-        title_vec = np.asarray(embed_text(title), dtype=np.float32)
-        # Both vectors are L2-normalised → cosine == dot product.
-        score = float(np.dot(candidate_vec, title_vec))
-        score = max(-1.0, min(1.0, score))
-        scored.append(ScoredThesis(thesis=thesis, score=score))
+    with timed_stage('title_corpus_rank'):
+        for thesis in queryset:
+            title = (getattr(thesis, 'title', '') or '').strip()
+            if not title:
+                continue
+            raw = getattr(thesis, 'title_embedding', None)
+            stored_hash = getattr(thesis, 'title_embedding_source_hash', '')
+            if stored_hash == title_source_hash(getattr(thesis, 'title', '') or ''):
+                try:
+                    title_vec = np.asarray(raw, dtype=np.float32)
+                    if (title_vec.shape != (EMBEDDING_DIM,)
+                            or not np.isfinite(title_vec).all()
+                            or float(np.linalg.norm(title_vec)) < 1e-6):
+                        raise ValueError('unusable title vector')
+                except (TypeError, ValueError):
+                    title_vec = np.asarray(embed_text(title), dtype=np.float32)
+            else:
+                title_vec = np.asarray(embed_text(title), dtype=np.float32)
+            # Both vectors are L2-normalised → cosine == dot product.
+            score = float(np.dot(candidate_vec, title_vec))
+            score = max(-1.0, min(1.0, score))
+            scored.append(ScoredThesis(thesis=thesis, score=score))
 
     scored.sort(key=lambda s: s.score, reverse=True)
     if top_k is not None:

@@ -10,6 +10,11 @@ from __future__ import annotations
 import io
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def keep_existing_upload_contract(settings):
+    settings.DOCUMENT_PROCESSING_ASYNC = False
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
@@ -349,6 +354,7 @@ class TestBackfillCommand:
         missing = make_thesis('Missing Title Vector')
         already = make_thesis(
             'Already Has One', title_embedding=unit_vector(0.25),
+            title_embedding_source_hash=semantic_search.title_source_hash('Already Has One'),
         )
 
         call_command('embed_theses', '--titles-only')

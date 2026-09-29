@@ -8,8 +8,24 @@ auth-bearing endpoint.
 """
 
 from django.http import HttpRequest, JsonResponse
+from django.conf import settings
+from django.db import connection
 
 
 def health(_request: HttpRequest) -> JsonResponse:
     """Return a static 200 OK with a JSON ``{"status": "ok"}`` body."""
     return JsonResponse({"status": "ok"})
+
+
+def ready(_request: HttpRequest) -> JsonResponse:
+    """Only accept traffic when database and configured model are available."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+        if settings.SBERT_PRELOAD:
+            from theses.services.semantic_search import _model
+            if _model is None:
+                raise RuntimeError('model is not loaded')
+    except Exception:
+        return JsonResponse({'status': 'not_ready'}, status=503)
+    return JsonResponse({'status': 'ready'})

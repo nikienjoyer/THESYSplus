@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'identity_verification.apps.IdentityVerificationConfig',
     'password_reset',
     'theses.apps.ThesesConfig',
+    'processing_jobs',
 ]
 
 
@@ -93,6 +94,7 @@ INSTALLED_APPS = [
 # before Common applies its URL rewrites and response normalisation.
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'common.performance.RequestTimingMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -218,13 +220,9 @@ STATIC_URL = 'static/'
 # Media files (user-uploaded content)
 # ---------------------------------------------------------------------------
 #
-# MEDIA_ROOT must be an absolute path so uploaded verification documents are
-# always stored at a predictable location regardless of the working directory
-# the server process was started from.  The OCR pipeline reads files back by
-# the stored absolute path, so a wrong MEDIA_ROOT causes FileNotFoundError.
-#
-# MEDIA_URL is defined for completeness; verification documents are served
-# through an authenticated view, NOT via Django's static-file media serving.
+# MEDIA_ROOT holds thesis media. Verification documents use the separate
+# PRIVATE_STORAGE_ROOT below; Django's development media route denies the
+# legacy /media/private/ path.
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
@@ -235,11 +233,16 @@ MEDIA_URL = '/media/'
 # ---------------------------------------------------------------------------
 #
 # Per Requirement 15.1 / design §1.5: uploaded verification documents are
-# stored in private storage that is NOT publicly accessible. Files are served
-# through an authenticated Django view (dev) or signed URLs (prod).
+# stored in private storage that is NOT publicly accessible. Admin previews
+# use a staff-only Django view after file integrity checks.
 
 PRIVATE_STORAGE_ROOT = BASE_DIR / 'private_media'
 VERIFICATION_DOCS_PATH = 'verification_docs'
+
+# The WSGI server loads SBERT before accepting search requests in production.
+# Development commands stay lightweight unless explicitly opted in.
+SBERT_PRELOAD = env.bool('SBERT_PRELOAD', default=env('DJANGO_ENV', default='development') == 'production')
+DOCUMENT_PROCESSING_ASYNC = env.bool('DOCUMENT_PROCESSING_ASYNC', default=True)
 
 
 # ---------------------------------------------------------------------------

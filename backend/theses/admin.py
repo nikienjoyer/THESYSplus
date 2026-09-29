@@ -507,13 +507,17 @@ class ThesisAdmin(admin.ModelAdmin):
         transition that did not happen, or miss one that did.
         """
         previous_status = None
+        previous_title = None
         if change and obj.pk is not None:
-            previous_status = (
+            previous = (
                 Thesis.objects
                 .filter(pk=obj.pk)
-                .values_list('status', flat=True)
+                .values('status', 'title')
                 .first()
             )
+            if previous:
+                previous_status = previous['status']
+                previous_title = previous['title']
 
         new_status = obj.status
         is_transition = previous_status != new_status
@@ -529,6 +533,18 @@ class ThesisAdmin(admin.ModelAdmin):
                 obj.reviewed_at = None
 
         super().save_model(request, obj, form, change)
+
+        if previous_title is not None and previous_title != obj.title:
+            from .services.semantic_search import generate_thesis_embedding, generate_title_embedding
+            failures = []
+            for generate in (generate_thesis_embedding, generate_title_embedding):
+                try:
+                    generate(obj)
+                except Exception as exc:
+                    logger.warning('Title edit embedding refresh failed for thesis %s: %s', obj.id, exc)
+                    failures.append(exc)
+            if failures:
+                self.message_user(request, 'Title saved, but its search embeddings need regeneration.', level=messages.WARNING)
 
         if not is_transition:
             # Nothing was decided, so there is nothing to audit and no

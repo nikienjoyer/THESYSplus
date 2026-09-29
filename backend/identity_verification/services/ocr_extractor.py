@@ -17,6 +17,7 @@ from typing import BinaryIO
 import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
+from common.performance import timed
 
 
 def _configure_tesseract_path():
@@ -110,6 +111,7 @@ class OCRExtractor:
             _configure_tesseract_path()
             OCRExtractor._tesseract_configured = True
     
+    @timed('identity_ocr')
     def extract(self, file_path: str) -> OCRResult:
         """Extract text from image or PDF file.
         

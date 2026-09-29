@@ -69,7 +69,9 @@ def _get_model():
         if _model is None:
             from sentence_transformers import SentenceTransformer
             logger.info('Loading SBERT model: %s', MODEL_NAME)
-            _model = SentenceTransformer(MODEL_NAME)
+            from common.performance import timed_stage
+            with timed_stage('sbert_model_load'):
+                _model = SentenceTransformer(MODEL_NAME)
             logger.info('SBERT model ready (dim=%d)', EMBEDDING_DIM)
     return _model
 
@@ -91,7 +93,9 @@ def embed_text(text: str) -> List[float]:
     if not text or not text.strip():
         return [0.0] * EMBEDDING_DIM
     model = _get_model()
-    vec = model.encode(text, normalize_embeddings=True, show_progress_bar=False)
+    from common.performance import timed_stage
+    with timed_stage('sbert_encode'):
+        vec = model.encode(text, normalize_embeddings=True, show_progress_bar=False)
     # vec is a numpy.ndarray (float32). Convert to plain Python list for JSON.
     return [float(x) for x in vec.tolist()]
 
@@ -190,10 +194,12 @@ def generate_title_embedding(thesis, *, save: bool = True) -> List[float]:
     try:
         vector = embed_text(thesis.title or '')
         thesis.title_embedding = vector
+        thesis.title_embedding_source_hash = title_source_hash(thesis.title or '')
         thesis.title_embedding_generated_at = timezone.now()
         if save:
             thesis.save(update_fields=[
                 'title_embedding',
+                'title_embedding_source_hash',
                 'title_embedding_generated_at',
                 'updated_at',
             ])
@@ -201,6 +207,12 @@ def generate_title_embedding(thesis, *, save: bool = True) -> List[float]:
     except Exception as exc:
         logger.warning('Title embedding failed for thesis %s: %s', thesis.id, exc)
         raise
+
+
+def title_source_hash(title: str) -> str:
+    """Bind a stored title vector to both its text and model version."""
+    import hashlib
+    return hashlib.sha256((MODEL_NAME + '\0' + title).encode('utf-8')).hexdigest()
 
 
 # ---------------------------------------------------------------------------

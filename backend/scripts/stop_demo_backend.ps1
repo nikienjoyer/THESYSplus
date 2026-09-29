@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 $backend = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $pidFile = Join-Path $backend '.demo-run\backend.pid'
 $waitress = Join-Path $backend 'venv\Scripts\waitress-serve.exe'
+$python = Join-Path $backend 'venv\Scripts\python.exe'
+$workerPidFile = Join-Path $backend '.demo-run\worker.pid'
 
 if (-not (Test-Path -LiteralPath $pidFile)) { throw 'No demo backend PID file was found.' }
 $demoPid = [int](Get-Content -LiteralPath $pidFile -Raw).Trim()
@@ -25,7 +27,18 @@ for ($i = 0; $i -lt $chain.Count; $i++) {
 for ($i = $chain.Count - 1; $i -ge 0; $i--) {
     Stop-Process -Id $chain[$i].ProcessId -ErrorAction SilentlyContinue
 }
+if (Test-Path -LiteralPath $workerPidFile) {
+    $workerPid = [int](Get-Content -LiteralPath $workerPidFile -Raw).Trim()
+    $worker = $all | Where-Object { $_.ProcessId -eq $workerPid } | Select-Object -First 1
+    if ($worker) {
+        if ($worker.ExecutablePath -ne $python -or $worker.CommandLine -notmatch 'manage\.py\s+process_jobs') {
+            throw 'The recorded worker PID is not the THESYSplus processing worker; refusing to stop it.'
+        }
+        Stop-Process -Id $workerPid -ErrorAction SilentlyContinue
+    }
+    Remove-Item -LiteralPath $workerPidFile
+}
 Remove-Item -LiteralPath $pidFile
 $listenerFile = Join-Path $backend '.demo-run\backend.listener.pid'
 if (Test-Path -LiteralPath $listenerFile) { Remove-Item -LiteralPath $listenerFile }
-Write-Output "Stopped THESYSplus demo backend process chain rooted at PID $demoPid."
+Write-Output "Stopped THESYSplus demo backend and processing worker."

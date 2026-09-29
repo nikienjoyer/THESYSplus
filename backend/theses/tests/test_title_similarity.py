@@ -16,12 +16,16 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 from django.urls import reverse
 
 from accounts.models import Role, User
 from theses.models import FileType, Program, Thesis, ThesisStatus
 from theses.services.semantic_search import generate_thesis_embedding
+from theses.services.semantic_search import title_source_hash
 from theses.services.title_similarity import (
     CLASS_HIGH,
     CLASS_LOW,
@@ -91,6 +95,29 @@ def make_thesis(db, faculty_user):
 # ---------------------------------------------------------------------------
 # classify() — threshold cut-offs
 # ---------------------------------------------------------------------------
+
+
+def test_stored_title_vector_avoids_reencoding_corpus():
+    vector = [1.0] + [0.0] * 383
+    thesis = SimpleNamespace(
+        title='Existing Thesis', title_embedding=vector,
+        title_embedding_source_hash=title_source_hash('Existing Thesis'),
+    )
+    with patch('theses.services.title_similarity.embed_text', return_value=vector) as encode:
+        result = rank_titles('Proposed Thesis', [thesis])
+    assert len(result) == 1
+    assert encode.call_count == 1  # the proposed title only
+
+
+def test_changed_title_does_not_use_stale_vector():
+    vector = [1.0] + [0.0] * 383
+    thesis = SimpleNamespace(
+        title='Edited Thesis', title_embedding=vector,
+        title_embedding_source_hash=title_source_hash('Old Thesis'),
+    )
+    with patch('theses.services.title_similarity.embed_text', return_value=vector) as encode:
+        rank_titles('Proposed Thesis', [thesis])
+    assert encode.call_count == 2
 
 class TestClassify:
     def test_high_threshold_inclusive(self):

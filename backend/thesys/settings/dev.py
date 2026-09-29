@@ -52,6 +52,11 @@ LOGGING = {
         },
     },
     'loggers': {
+        'thesys.performance': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'emails': {
             'handlers': ['console'],
             'level': 'INFO',

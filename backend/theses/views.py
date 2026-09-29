@@ -302,7 +302,15 @@ class ThesisListView(APIView):
         # manually so similarity_score is preserved on each result.
         from .services.semantic_search import rank_theses
 
-        candidates = list(qs)
+        from common.performance import timed_stage
+        semantic_qs = qs.only(
+            'id', 'title', 'authors', 'keywords', 'program', 'year', 'adviser',
+            'status', 'file_type', 'created_at', 'embedding_vector',
+            'uploaded_by_id', 'uploaded_by__first_name', 'uploaded_by__last_name',
+            'uploaded_by__email',
+        )
+        with timed_stage('search_db_load'):
+            candidates = list(semantic_qs)
         try:
             scored = rank_theses(q, candidates)
         except Exception as exc:
@@ -391,7 +399,8 @@ class ThesisListView(APIView):
             s.thesis.similarity_score = round(s.score, 4)
             results.append(s.thesis)
 
-        data = ThesisListItemSerializer(results, many=True).data
+        with timed_stage('search_response_prepare'):
+            data = ThesisListItemSerializer(results, many=True).data
 
         # Build a paginated response shape consistent with PageNumberPagination
         from django.utils.http import urlencode
@@ -862,6 +871,43 @@ class ThesisUploadView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request, *args, **kwargs):
+        if not settings.DOCUMENT_PROCESSING_ASYNC:
+            return self._process_synchronous(request)
+        from processing_jobs.models import ProcessingJob
+        from processing_jobs.services import enqueue_file
+
+        uploaded = request.FILES.get('file')
+        file_check = validate_thesis_file(uploaded)
+        if not file_check.is_valid:
+            return make_error_response(
+                code=file_check.error_code or 'FILE_VALIDATION_FAILED',
+                message=file_check.error_message or 'File validation failed.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = ThesisUploadSerializer(data=self._coerce_list_fields(request.data))
+        if not serializer.is_valid():
+            return make_error_response(
+                code='VALIDATION_ERROR', message='Thesis metadata is invalid.',
+                status=status.HTTP_400_BAD_REQUEST, details=dict(serializer.errors),
+            )
+        uploaded.seek(0)
+        sha256 = hashlib.sha256(uploaded.read()).hexdigest()
+        uploaded.seek(0)
+        if Thesis.objects.filter(sha256=sha256).exists():
+            return make_error_response(
+                code='DUPLICATE_FILE', message='This file has already been uploaded.',
+                status=status.HTTP_409_CONFLICT,
+            )
+        job = enqueue_file(
+            ProcessingJob.Kind.THESIS, uploaded, owner=request.user,
+            payload={**serializer.validated_data,
+                     'file_name': uploaded.name,
+                     'storage_year': timezone.now().year,
+                     'sha256': sha256},
+        )
+        return Response({'job_id': str(job.id), 'state': job.state}, status=status.HTTP_202_ACCEPTED)
+
+    def _process_synchronous(self, request):
         # Step 1: validate the uploaded file (size, ext, magic bytes)
         uploaded_file = request.FILES.get('file')
         file_check = validate_thesis_file(uploaded_file)
@@ -892,7 +938,10 @@ class ThesisUploadView(APIView):
         sha256 = hashlib.sha256(contents).hexdigest()
         uploaded_file.seek(0)
 
-        if Thesis.objects.filter(sha256=sha256).exists():
+        existing = Thesis.objects.filter(sha256=sha256).first()
+        if existing is not None and getattr(request, 'processing_job_id', None) == existing.processing_job_id:
+            return Response(ThesisDetailSerializer(existing).data, status=status.HTTP_201_CREATED)
+        if existing is not None:
             return make_error_response(
                 code='DUPLICATE_FILE',
                 message='This file has already been uploaded.',
@@ -952,6 +1001,25 @@ class ThesisUploadView(APIView):
             reviewed_at = None
 
         # Step 6: persist in a transaction
+        job_id = getattr(request, 'processing_job_id', None)
+        stored_name = None
+        file_value = uploaded_file
+        if job_id is not None:
+            # A deterministic name makes worker retries safe after a crash
+            # between storage write and database commit.
+            year_dir = getattr(request, 'storage_year', timezone.now().year)
+            stored_name = f'theses/{year_dir}/{job_id}.{file_check.detected_type}'
+            if default_storage.exists(stored_name):
+                with default_storage.open(stored_name, 'rb') as existing_file:
+                    if hashlib.sha256(existing_file.read()).hexdigest() != sha256:
+                        raise ValueError('Stored upload does not match job file')
+            else:
+                uploaded_file.seek(0)
+                actual_name = default_storage.save(stored_name, uploaded_file)
+                if actual_name != stored_name:
+                    default_storage.delete(actual_name)
+                    raise ValueError('Job upload path collision')
+            file_value = stored_name
         try:
             with transaction.atomic():
                 thesis = Thesis.objects.create(
@@ -962,9 +1030,10 @@ class ThesisUploadView(APIView):
                     program=payload['program'],
                     year=payload['year'],
                     adviser=payload.get('adviser', '').strip(),
-                    uploaded_file=uploaded_file,
+                    uploaded_file=file_value,
                     file_type=file_check.detected_type or FileType.PDF,
                     sha256=sha256,
+                    processing_job_id=getattr(request, 'processing_job_id', None),
                     status=initial_status,
                     uploaded_by=request.user,
                     reviewed_by=reviewed_by,
@@ -975,11 +1044,17 @@ class ThesisUploadView(APIView):
                     extracted_text=extracted_text,
                 )
         except IntegrityError:
+            if stored_name and not Thesis.objects.filter(processing_job_id=job_id).exists():
+                default_storage.delete(stored_name)
             return make_error_response(
                 code='DUPLICATE_FILE',
                 message='This file has already been uploaded.',
                 status=status.HTTP_409_CONFLICT,
             )
+        except Exception:
+            if stored_name and not Thesis.objects.filter(processing_job_id=job_id).exists():
+                default_storage.delete(stored_name)
+            raise
 
         # NOTE: text extraction no longer happens here. It moved to Step 4,
         # ahead of persistence, because the document-type gate needs the text
@@ -1140,7 +1215,15 @@ class ThesisSearchView(APIView):
 
         from .services.semantic_search import rank_theses
 
-        candidates = list(qs)
+        from common.performance import timed_stage
+        semantic_qs = qs.only(
+            'id', 'title', 'authors', 'keywords', 'program', 'year', 'adviser',
+            'status', 'file_type', 'created_at', 'embedding_vector',
+            'uploaded_by_id', 'uploaded_by__first_name', 'uploaded_by__last_name',
+            'uploaded_by__email',
+        )
+        with timed_stage('search_db_load'):
+            candidates = list(semantic_qs)
         scored = rank_theses(q, candidates)
 
         # Apply similarity threshold filter (user-controlled or default noise floor)
@@ -1169,7 +1252,8 @@ class ThesisSearchView(APIView):
             s.thesis.similarity_score = round(s.score, 4)
             results.append(s.thesis)
 
-        data = ThesisListItemSerializer(results, many=True).data
+        with timed_stage('search_response_prepare'):
+            data = ThesisListItemSerializer(results, many=True).data
 
         from django.utils.http import urlencode
         base_url = request.build_absolute_uri(request.path)
@@ -1231,30 +1315,36 @@ class ThesisValidateTitleView(APIView):
         approved = (
             Thesis.objects
             .filter(status=ThesisStatus.APPROVED)
-            .only('id', 'title', 'program', 'year', 'authors', 'status')
+            .only('id', 'title', 'program', 'year', 'authors', 'status',
+                  'title_embedding', 'title_embedding_source_hash')
         )
 
         from .services.title_similarity import classify_title
+        from common.performance import timed_stage
 
+        with timed_stage('title_db_load'):
+            approved = list(approved)
         result = classify_title(title, approved, top_k=5)
 
-        return Response({
-            'query': result.query,
-            'classification': result.classification,
-            'similarity_score': round(result.similarity_score, 4),
-            'recommendation': result.recommendation,
-            'matches': [
-                {
-                    'id': str(s.thesis.id),
-                    'title': s.thesis.title,
-                    'authors': s.thesis.authors,
-                    'program': s.thesis.program,
-                    'year': s.thesis.year,
-                    'similarity': round(s.score, 4),
-                }
-                for s in result.matches
-            ],
-        })
+        with timed_stage('title_response_prepare'):
+            body = {
+                'query': result.query,
+                'classification': result.classification,
+                'similarity_score': round(result.similarity_score, 4),
+                'recommendation': result.recommendation,
+                'matches': [
+                    {
+                        'id': str(s.thesis.id),
+                        'title': s.thesis.title,
+                        'authors': s.thesis.authors,
+                        'program': s.thesis.program,
+                        'year': s.thesis.year,
+                        'similarity': round(s.score, 4),
+                    }
+                    for s in result.matches
+                ],
+            }
+        return Response(body)
 
 
 # ---------------------------------------------------------------------------
@@ -1332,8 +1422,8 @@ class ThesisExtractTitleView(APIView):
     title so the user can validate it with the existing
     ``/theses/validate-title/`` endpoint.
 
-    This endpoint does NOT persist anything to the database. It is a
-    stateless text-extraction-and-title-detection helper.
+    This endpoint persists a short-lived processing job, but no thesis record.
+    The worker returns the same title-detection result through job status.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1366,26 +1456,22 @@ class ThesisExtractTitleView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Write to a temporary file so ThesisTextExtractor can read it
-        import tempfile, os as _os
-        suffix = f'.{ext}'
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            for chunk in uploaded.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-
-        # The temp file must outlive the gate: a marker-poor front matter
-        # triggers a full-document re-read before anything is refused, and that
-        # needs the file still on disk. A single try/finally around the whole
-        # body guarantees cleanup on every exit path — there are now several
-        # returns below, and per-return unlink calls would eventually miss one.
-        try:
-            return self._extract_and_respond(tmp_path)
-        finally:
+        if not settings.DOCUMENT_PROCESSING_ASYNC:
+            import tempfile
+            import os as _os
+            with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
+                for chunk in uploaded.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
             try:
+                return self._extract_and_respond(tmp_path)
+            finally:
                 _os.unlink(tmp_path)
-            except OSError:
-                pass
+
+        from processing_jobs.models import ProcessingJob
+        from processing_jobs.services import enqueue_file
+        job = enqueue_file(ProcessingJob.Kind.TITLE, uploaded, owner=request.user)
+        return Response({'job_id': str(job.id), 'state': job.state}, status=status.HTTP_202_ACCEPTED)
 
     def _extract_and_respond(self, tmp_path: str):
         """Extract, gate, then detect. Caller owns ``tmp_path``'s lifetime."""
@@ -1495,8 +1581,8 @@ class ThesisExtractMetadataView(APIView):
     other. Collapsing them would either make the upload trust unvalidated
     client input or force the user to wait for a full-document parse twice.
 
-    Nothing is persisted. Same auth, same 25 MB cap and same accepted
-    extensions as ``/theses/extract-title/``.
+    Only a short-lived processing job is persisted. No thesis record is
+    created. Same auth, size cap, and extensions as ``/theses/extract-title/``.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1529,24 +1615,22 @@ class ThesisExtractMetadataView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        import os as _os
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
-            for chunk in uploaded.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-
-        # Single try/finally around the whole body so the temp file is removed
-        # on every exit path. It has to outlive the gate: a marker-poor window
-        # triggers a full-document re-read before anything is refused.
-        try:
-            return self._extract_and_respond(tmp_path)
-        finally:
+        if not settings.DOCUMENT_PROCESSING_ASYNC:
+            import tempfile
+            import os as _os
+            with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
+                for chunk in uploaded.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
             try:
+                return self._extract_and_respond(tmp_path)
+            finally:
                 _os.unlink(tmp_path)
-            except OSError:
-                pass
+
+        from processing_jobs.models import ProcessingJob
+        from processing_jobs.services import enqueue_file
+        job = enqueue_file(ProcessingJob.Kind.METADATA, uploaded, owner=request.user)
+        return Response({'job_id': str(job.id), 'state': job.state}, status=status.HTTP_202_ACCEPTED)
 
     def _extract_and_respond(self, tmp_path: str):
         """Extract, gate, then read all six fields. Caller owns ``tmp_path``."""
