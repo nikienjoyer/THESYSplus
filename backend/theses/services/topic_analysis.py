@@ -225,6 +225,31 @@ def _label_cluster(
     return LABEL_OTHER
 
 
+def _subject_label(member_subjects: Sequence[str | None]) -> str | None:
+    """Name a group after its members' confirmed primary subjects.
+
+    Reviewed subjects are the group's own verdict on what each thesis is
+    about, so they beat any keyword rule. Members awaiting review (``None``)
+    do not vote.
+
+    * The most common subject names the group when it covers at least half
+      of the reviewed members and is not tied.
+    * Otherwise the two most common subjects are joined with " · ", ordered
+      by count and then name so the label is stable across runs.
+    * ``None`` when no member is reviewed; the caller falls back to
+      ``_label_cluster``.
+    """
+    reviewed = [subject for subject in member_subjects if subject]
+    if not reviewed:
+        return None
+    ranked = sorted(Counter(reviewed).items(), key=lambda item: (-item[1], item[0]))
+    top_name, top_count = ranked[0]
+    runner_up = ranked[1][1] if len(ranked) > 1 else 0
+    if top_count * 2 >= len(reviewed) and top_count > runner_up:
+        return top_name
+    return f'{ranked[0][0]} · {ranked[1][0]}'
+
+
 def _classify_trend(thesis_count: int, average_size: float, total_theses: int) -> str:
     """Map a cluster size to a trend classification.
 

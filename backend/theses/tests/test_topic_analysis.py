@@ -1106,3 +1106,38 @@ class TestAnalyticsTrendConsistency:
         assert trends_body['underexplored_count'] == topic_summary['underexplored_count']
         assert trends_body['total_theses'] == 3
         assert analytics_body['approved_theses'] == 3
+
+
+class TestSubjectLabel:
+    ACA = 'Academic services and research'
+    AGR = 'Agriculture and growing systems'
+    COM = 'Commerce and marketplaces'
+    EDU = 'Education and learning'
+    HEA = 'Health and medicine'
+    PUB = 'Public and community services'
+
+    def test_clear_majority_names_the_group(self):
+        from theses.services.topic_analysis import _subject_label
+        assert _subject_label([self.EDU] * 8 + [self.HEA] * 2) == self.EDU
+
+    def test_exactly_half_with_a_smaller_runner_up_still_names_it(self):
+        from theses.services.topic_analysis import _subject_label
+        assert _subject_label([self.EDU, self.EDU, self.HEA, self.PUB]) == self.EDU
+
+    def test_tie_names_both_subjects_alphabetically(self):
+        from theses.services.topic_analysis import _subject_label
+        assert _subject_label([self.COM] * 3 + [self.AGR] * 3) == f'{self.AGR} · {self.COM}'
+
+    def test_no_majority_names_the_two_most_common(self):
+        from theses.services.topic_analysis import _subject_label
+        members = [self.ACA] * 5 + [self.PUB] * 3 + [self.EDU] * 2 + [self.HEA] * 2 + [self.AGR, self.COM]
+        assert _subject_label(members) == f'{self.ACA} · {self.PUB}'
+
+    def test_members_awaiting_review_are_ignored(self):
+        from theses.services.topic_analysis import _subject_label
+        assert _subject_label([None, None, self.AGR]) == self.AGR
+
+    def test_no_reviewed_member_returns_none(self):
+        from theses.services.topic_analysis import _subject_label
+        assert _subject_label([None, None]) is None
+        assert _subject_label([]) is None
