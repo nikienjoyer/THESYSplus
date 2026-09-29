@@ -68,7 +68,10 @@ client.interceptors.request.use(
   (config) => {
     // The temporary free ngrok tunnel shows a browser warning unless API
     // requests carry this header. Vercel forwards it through the API rewrite.
-    if (typeof window !== 'undefined' && window.location.hostname === 'thesysplus.vercel.app') {
+    if (
+      typeof window !== 'undefined' &&
+      ['thesysplus.vercel.app', 'thesys.plus', 'www.thesys.plus'].includes(window.location.hostname)
+    ) {
       config.headers['ngrok-skip-browser-warning'] = 'true';
     }
     const token = getAccessToken();
