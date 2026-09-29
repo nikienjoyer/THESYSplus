@@ -342,9 +342,9 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
     // "open in new tab" for free. Nothing inside the card is interactive
     // (badges are plain spans/divs), so nesting them inside the <a> is
     // safe — no interactive-in-interactive violation.
-    <Link to={reviewed ? `?subject=${cluster.subject_code}` : `?view=clusters&cluster=${cluster.cluster_id}`} className="block">
-      <article className="thesys-panel thesys-card-lift">
-        <div>
+    <Link to={reviewed ? `?subject=${cluster.subject_code}` : `?view=clusters&cluster=${cluster.cluster_id}`} className="block h-full">
+      <article className="thesys-panel thesys-card-lift h-full flex flex-col">
+        <div className="flex flex-col flex-1">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -398,7 +398,7 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
         <TechnologyTags tags={cluster.technology_tags} isDark={isDark} />
 
         {cluster.sample_titles && cluster.sample_titles.length > 0 && (
-          <div>
+          <div className="mt-auto">
             <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Sample studies
             </div>
@@ -438,7 +438,7 @@ function TechnologyTags({ tags, isDark }) {
         Technologies
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {tags.map(({ tag, count }) => (
+        {tags.map(({ tag }) => (
           <Badge
             key={tag}
             variant="outline"
@@ -449,8 +449,6 @@ function TechnologyTags({ tags, isDark }) {
             }`}
           >
             {tag}
-            <span aria-hidden="true">{` ×${count}`}</span>
-            <span className="sr-only">{`, ${count} thes${count === 1 ? 'is' : 'es'}`}</span>
           </Badge>
         ))}
       </div>

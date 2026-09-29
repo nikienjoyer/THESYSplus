@@ -389,7 +389,7 @@ export default function LandingPage() {
 
           {/* Text container */}
           <m.div
-            className="relative z-10 max-w-2xl px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
+            className="relative z-10 max-w-2xl lg:max-w-none px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
@@ -404,8 +404,10 @@ export default function LandingPage() {
             {/* Headline — "undergraduate research" emphasized in the blue accent */}
             <m.h1 variants={fadeUp} className={`font-bold tracking-tight mb-4 leading-tight ${heroHeadingCls}`}
               style={{ fontSize: 'clamp(1.75rem, 2.8vw, 3rem)' }}>
-              Explore, validate, and discover{' '}
-              <span className={`font-extrabold ${heroAccentCls}`}>undergraduate research</span>{' '}
+              {/* Forced desktop breaks keep the same 3-line shape on every monitor
+                  (the font scales with the viewport; a fixed box width didn't). */}
+              Explore, validate, and discover<br className="hidden lg:inline" />{' '}
+              <span className={`font-extrabold ${heroAccentCls}`}>undergraduate research</span><br className="hidden lg:inline" />{' '}
               within PampangaStateU CCS.
             </m.h1>
 
