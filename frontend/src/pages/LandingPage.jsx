@@ -567,7 +567,7 @@ export default function LandingPage() {
             <p className={`text-xs mb-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               {reviewedSubjectsEnabled
                 ? 'Confirmed primary subjects among approved theses. Labels compare relative counts, not growth over time.'
-                : 'TF-IDF/K-Means text clusters. Labels compare relative counts, not growth over time.'}
+                : 'Groups of theses with similar meaning. Labels compare relative counts, not growth over time.'}
             </p>
 
             <m.div
