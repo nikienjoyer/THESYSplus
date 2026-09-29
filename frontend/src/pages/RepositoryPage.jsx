@@ -93,6 +93,34 @@ const PAGE_SIZE = 20;
 const DEBOUNCE_MS = 500;   // threshold debounce window
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2-minute memory cache
 
+// Slider bounds — mirror SimilaritySlider's MIN/MAX.
+const MIN_THRESHOLD = 30;
+const MAX_THRESHOLD = 95;
+
+// ---------------------------------------------------------------------------
+// URL parameter parsing — a mistyped or stale link falls back to the default
+// instead of sending a nonsense filter to the API.
+// ---------------------------------------------------------------------------
+function parseYearParam(value) {
+  return YEARS.some((y) => String(y) === value) ? value : '';
+}
+
+function parseProgramParam(value) {
+  return PROGRAMS.includes(value) ? value : '';
+}
+
+function parsePageParam(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+function parseThresholdParam(value) {
+  const n = Number(value);
+  return value && Number.isInteger(n) && n >= MIN_THRESHOLD && n <= MAX_THRESHOLD
+    ? n
+    : DEFAULT_THRESHOLD;
+}
+
 // Seeded example queries — known to return matches in the CCS corpus.
 // Used as cold-start guidance and zero-result recovery.
 const EXAMPLE_QUERIES = [
@@ -303,12 +331,14 @@ export default function RepositoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isDark = theme === 'dark';
 
-  const initialQ = searchParams.get('q') || '';
-
-  // Derived from the URL rather than held in state, so the back button, a
-  // pasted link, and an in-page keyword click all go through one source of
-  // truth. `q`/`year`/`program`/`page` remain local state — this change does
-  // not migrate them, only adds `keyword` alongside.
+  // Every search setting lives in the URL, not in component state, so Back
+  // from a thesis (which unmounts this page), a refresh, or a pasted link
+  // restores the same results. Invalid values fall back to the defaults.
+  const search = (searchParams.get('q') || '').trim();
+  const year = parseYearParam(searchParams.get('year'));
+  const program = parseProgramParam(searchParams.get('program'));
+  const page = parsePageParam(searchParams.get('page'));
+  const committedThreshold = parseThresholdParam(searchParams.get('min'));
   const activeKeyword = searchParams.get('keyword') || '';
   const canReviewSubjects = user?.role === 'faculty' || user?.role === 'administrator';
   const awaitingSubjectReview = canReviewSubjects && searchParams.get('subject_review') === 'pending';
@@ -320,15 +350,30 @@ export default function RepositoryPage() {
   const [softLoading, setSoftLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Committed search term (triggers fetch)
-  const [search, setSearch] = useState(initialQ);
-  // Controlled input value (not committed until form submit)
-  const [searchInput, setSearchInput] = useState(initialQ);
+  // Controlled input value (not committed until form submit). Re-synced
+  // during render whenever the committed `q` changes from outside — a navbar
+  // click to /repository, or Back/Forward between queries.
+  const [searchInput, setSearchInput] = useState(search);
+  const [syncedSearch, setSyncedSearch] = useState(search);
+  if (syncedSearch !== search) {
+    setSyncedSearch(search);
+    setSearchInput(search);
+  }
 
-  const [year, setYear] = useState('');
-  const [program, setProgram] = useState('');
-  const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Replace (not push) the current history entry, so Back from a thesis
+  // returns to exactly these results rather than stepping through every
+  // filter or page change. Reads the live URL instead of `searchParams` so the
+  // debounced slider callback never writes back a stale query.
+  const updateSearchParams = useCallback((changes) => {
+    const next = new URLSearchParams(window.location.search);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === '' || value === null || value === undefined) next.delete(key);
+      else next.set(key, String(value));
+    }
+    setSearchParams(next, { replace: true });
+  }, [setSearchParams]);
 
   // A keyword filter and a free-text query are two different questions, and the
   // keyword header only describes the first. Deriving this — rather than
@@ -337,21 +382,24 @@ export default function RepositoryPage() {
   // still hold an older query, and avoids a setState-in-effect render cascade.
   const effectiveSearch = activeKeyword ? '' : search;
 
-  // sliderThreshold: live value shown in the slider UI (updates on every drag tick)
-  const [sliderThreshold, setSliderThreshold] = useState(DEFAULT_THRESHOLD);
-  // committedThreshold: debounced value actually used in API calls
-  const [committedThreshold, setCommittedThreshold] = useState(DEFAULT_THRESHOLD);
+  // sliderThreshold: live value shown in the slider UI (updates on every drag tick).
+  // committedThreshold (from the URL `min`) is the debounced value used in API calls.
+  const [sliderThreshold, setSliderThreshold] = useState(committedThreshold);
+  const [syncedThreshold, setSyncedThreshold] = useState(committedThreshold);
+  if (syncedThreshold !== committedThreshold) {
+    setSyncedThreshold(committedThreshold);
+    setSliderThreshold(committedThreshold);
+  }
 
-  // Debounce threshold changes: update committedThreshold 500ms after dragging stops
+  // Debounce threshold changes: commit to the URL 500ms after dragging stops
   const debounceRef = useRef(null);
   const handleThresholdChange = useCallback((v) => {
     setSliderThreshold(v);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setCommittedThreshold(v);
-      setPage(1);
+      updateSearchParams({ min: v === DEFAULT_THRESHOLD ? '' : v, page: '' });
     }, DEBOUNCE_MS);
-  }, []);
+  }, [updateSearchParams]);
 
   // Clean up debounce timer on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
@@ -435,20 +483,17 @@ export default function RepositoryPage() {
    *
    * Writes the URL so this is linkable and back-button friendly — the reason
    * the destination is a query param on the existing list rather than a modal.
-   * `year` and `program` are preserved (they are local state and untouched);
-   * `q` is dropped because a keyword is a different way of asking.
+   * `year` and `program` are preserved; `q` and `page` are dropped because a
+   * keyword is a different way of asking. Unlike the other filters this
+   * pushes a history entry, so Back returns to the list the keyword came from.
+   * Dropping `q` also clears the visible input via the render-time re-sync.
    */
   const applyKeyword = useCallback((kw) => {
     const next = new URLSearchParams(searchParams);
     next.set('keyword', kw);
     next.delete('q');
+    next.delete('page');
     setSearchParams(next);
-    // `effectiveSearch` already ignores `search` while a keyword is active, so
-    // these only keep the visible input honest — the box should not still show
-    // a query that is no longer being applied.
-    setSearch('');
-    setSearchInput('');
-    setPage(1);
   }, [searchParams, setSearchParams]);
 
   const clearKeyword = useCallback(() => {
@@ -459,26 +504,22 @@ export default function RepositoryPage() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setPage(1);
-    setSearch(searchInput.trim());
     // Submitting a text search replaces a keyword view; leaving both active
     // would show results the header does not describe.
-    if (activeKeyword) clearKeyword();
+    updateSearchParams({ q: searchInput.trim(), keyword: '', page: '' });
   };
 
   // Run a seeded example query — populates the input and commits the search.
   const runExampleQuery = (q) => {
     setSearchInput(q);
-    setSearch(q);
-    setPage(1);
+    updateSearchParams({ q, page: '' });
   };
 
   // Lower the similarity threshold in one click (zero-result recovery).
   // Sets both slider + committed value so the fetch re-runs immediately.
   const applyThreshold = (pct) => {
     setSliderThreshold(pct);
-    setCommittedThreshold(pct);
-    setPage(1);
+    updateSearchParams({ min: pct === DEFAULT_THRESHOLD ? '' : pct, page: '' });
   };
 
   // Reusable example-query chip row
@@ -595,7 +636,7 @@ export default function RepositoryPage() {
                   not chased, only Chromium/Firefox is guaranteed. */}
               <select
                 value={year}
-                onChange={(e) => { setPage(1); setYear(e.target.value); }}
+                onChange={(e) => updateSearchParams({ year: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
@@ -611,7 +652,7 @@ export default function RepositoryPage() {
 
               <select
                 value={program}
-                onChange={(e) => { setPage(1); setProgram(e.target.value); }}
+                onChange={(e) => updateSearchParams({ program: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
@@ -870,7 +911,7 @@ export default function RepositoryPage() {
                 <button
                   type="button"
                   disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => updateSearchParams({ page: page - 1 > 1 ? page - 1 : '' })}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
@@ -883,7 +924,7 @@ export default function RepositoryPage() {
                 <button
                   type="button"
                   disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => updateSearchParams({ page: Math.min(totalPages, page + 1) })}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}

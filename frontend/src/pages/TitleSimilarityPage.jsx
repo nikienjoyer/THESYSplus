@@ -13,7 +13,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Info, Lightbulb, ShieldCheck } from 'lucide-react';
 import client from '../api/client';
@@ -67,6 +67,20 @@ function ConfidenceHint({ confidence }) {
       {ui.label}
     </span>
   );
+}
+
+// History state is written only by this page, but a stale shape from an
+// older build must not crash the render — anything unexpected is ignored.
+function readSavedCheck(state) {
+  const saved = state?.titleCheck;
+  if (!saved || typeof saved.title !== 'string' || !saved.result || typeof saved.result !== 'object') {
+    return null;
+  }
+  return {
+    mode: saved.mode === 'upload' ? 'upload' : 'manual',
+    title: saved.title,
+    result: saved.result,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,18 +172,25 @@ export default function TitleSimilarityPage() {
   const isDark = theme === 'dark';
   const { reduceMotion, fadeUp } = useMotionVariants();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The last completed check, saved on this page's history entry (see
+  // handleSubmit). Back from a matched thesis — which unmounts this page —
+  // and a refresh restore it; a fresh navbar visit has no saved state.
+  const saved = readSavedCheck(location.state);
+
   // Segmented control — 'manual' | 'upload'. Both panels write to the SAME
   // `title` state below, which is what lets the submit gate work from
   // either panel and lets a detected title survive a tab switch.
-  const [mode, setMode] = useState('manual');
+  const [mode, setMode] = useState(saved?.mode ?? 'manual');
   const manualTabRef = useRef(null);
   const uploadTabRef = useRef(null);
 
   // Shared validation state
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(saved?.title ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(saved?.result ?? null);
 
   // Upload / extraction state
   const [uploadFile, setUploadFile] = useState(null);
@@ -243,6 +264,13 @@ export default function TitleSimilarityPage() {
       });
       if (similarityAbortRef.current !== controller) return;
       setResult(res.data);
+      // Replace, not push: this entry now carries the result, so Back from a
+      // matched thesis lands here with it instead of an empty form. The
+      // uploaded file itself is not kept — only the title that was checked.
+      navigate(location.pathname, {
+        replace: true,
+        state: { titleCheck: { mode, title: trimmed, result: res.data } },
+      });
     } catch (err) {
       if (similarityAbortRef.current !== controller) return;
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
