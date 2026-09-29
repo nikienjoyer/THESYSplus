@@ -78,6 +78,7 @@ export default function ThesisDetailPage() {
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
   const [savingSubject, setSavingSubject] = useState(false);
   const [subjectError, setSubjectError] = useState('');
   const canReviewSubject = user?.role === 'faculty' || user?.role === 'administrator';
@@ -122,6 +123,18 @@ export default function ThesisDetailPage() {
       .catch(() => { if (!cancelled) setSubjectError('Subject choices could not be loaded. Reload this page to try again.'); });
     return () => { cancelled = true; };
   }, [isAuthenticated, canReviewSubject]);
+
+  // Top-2 suggestions for a thesis awaiting subject review. They only
+  // pre-select the dropdown; the reviewer still confirms.
+  const awaitingSubjectReview = thesis?.status === 'approved' && !thesis?.primary_subject;
+  useEffect(() => {
+    if (!isAuthenticated || !canReviewSubject || !awaitingSubjectReview) return;
+    let cancelled = false;
+    client.get(`/theses/${id}/subject-suggestions/`)
+      .then((res) => { if (!cancelled) setSuggestions(res.data?.suggestions || []); })
+      .catch(() => { if (!cancelled) setSuggestions([]); });
+    return () => { cancelled = true; };
+  }, [isAuthenticated, canReviewSubject, awaitingSubjectReview, id]);
 
   const saveSubject = async () => {
     if (!selectedSubject || savingSubject) return;
@@ -417,6 +430,32 @@ export default function ThesisDetailPage() {
                         {savingSubject ? 'Saving…' : thesis.primary_subject ? 'Save change' : 'Confirm subject'}
                       </button>
                     </div>
+                    {awaitingSubjectReview && suggestions.length > 0 && (
+                      <div className="mt-2">
+                        <p className={`text-xs mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Suggested from similar reviewed theses. Check the thesis before confirming.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {suggestions.map((s) => (
+                            <button
+                              key={s.code}
+                              type="button"
+                              onClick={() => setSelectedSubject(s.code)}
+                              aria-pressed={selectedSubject === s.code}
+                              className={`rounded-full border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                                selectedSubject === s.code
+                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  : isDark
+                                    ? 'border-white/15 text-gray-200 hover:bg-white/[0.06]'
+                                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {thesis.subject_reviewed_at && (
                       <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                         Reviewed by {thesis.subject_reviewed_by_name || 'a former staff member'} on {new Date(thesis.subject_reviewed_at).toLocaleDateString()}.

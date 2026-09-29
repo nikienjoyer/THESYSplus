@@ -395,6 +395,8 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
           </div>
         )}
 
+        <TechnologyTags tags={cluster.technology_tags} isDark={isDark} />
+
         {cluster.sample_titles && cluster.sample_titles.length > 0 && (
           <div>
             <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -431,7 +433,41 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
  * keyword chips, and abstract. This is a purpose-built simpler layout,
  * not RepositoryPage's ThesisCard.
  */
-function ClusterThesisRow({ thesis, isDark }) {
+// Technology tags — the technologies a group's theses are actually about
+// (IoT, AI, NLP…). The backend only tags a thesis with evidence (a mention
+// in its title, keywords or abstract, or dense full-text mentions), so a
+// thesis that merely repeats "analysis" is never tagged IoT.
+function TechnologyTags({ tags, isDark, label = 'Technologies' }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <div className="mb-3">
+      {label && (
+        <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          {label}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map(({ tag, count }) => (
+          <Badge
+            key={tag}
+            variant="outline"
+            className={`text-xs px-2 py-0.5 h-auto ${
+              isDark
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/10'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50'
+            }`}
+          >
+            {tag}
+            <span aria-hidden="true">{` ×${count}`}</span>
+            <span className="sr-only">{`, ${count} thes${count === 1 ? 'is' : 'es'}`}</span>
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClusterThesisRow({ thesis, isDark, tags = [] }) {
   return (
     <Link
       to={`/repository/${thesis.id}`}
@@ -449,6 +485,18 @@ function ClusterThesisRow({ thesis, isDark }) {
       <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
         {thesis.program} · {thesis.year}
       </p>
+      {tags.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-1">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className={`text-[11px] px-1.5 py-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}
+            >
+              {tag}
+            </span>
+          ))}
+        </p>
+      )}
     </Link>
   );
 }
@@ -581,6 +629,11 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             ))}
           </div>
         )}
+        {cluster.technology_tags?.length > 0 && (
+          <div className="mt-3">
+            <TechnologyTags tags={cluster.technology_tags} isDark={isDark} />
+          </div>
+        )}
       </div>
 
       {overflowCount > 0 && (
@@ -612,7 +665,12 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
       ) : rows ? (
         <div className="thesys-panel divide-y divide-[var(--color-border-subtle)] overflow-hidden">
           {rows.map((thesis) => (
-            <ClusterThesisRow key={thesis.id} thesis={thesis} isDark={isDark} />
+            <ClusterThesisRow
+              key={thesis.id}
+              thesis={thesis}
+              isDark={isDark}
+              tags={cluster.member_tags?.[thesis.id] || []}
+            />
           ))}
         </div>
       ) : null}
@@ -743,7 +801,7 @@ export default function TrendAnalysisPage() {
         <PageHeader title="Topic Trend Analysis">
           {showOverviewChrome && (
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {reviewed ? 'Group-reviewed research subjects across approved theses.' : 'Explore text clusters generated with TF-IDF and K-Means.'}
+              {reviewed ? 'Group-reviewed research subjects across approved theses.' : 'Explore groups of theses with similar meaning. Group names come from reviewed subjects; tags show the technologies each thesis uses.'}
             </p>
           )}
         </PageHeader>
