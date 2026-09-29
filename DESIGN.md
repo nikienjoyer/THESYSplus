@@ -32,33 +32,33 @@ colors:
   chart-lime: "#84cc16"
 typography:
   display:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "clamp(3.5rem, 12vw, 7.5rem)"
     fontWeight: 800
     lineHeight: 1
     letterSpacing: "-0.04em"
   page-title:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 700
     lineHeight: 1.2
   card-title:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.4
   body:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.6
   section-label:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     letterSpacing: "0.05em"
   meta:
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    fontFamily: "'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.5
@@ -118,7 +118,7 @@ What this system explicitly rejects (carried from PRODUCT.md anti-references): g
 - Card-and-panel surfaces are the dominant layout primitive on every page
 - A four-channel status color language (emerald / amber / rose / blue) reused consistently for thesis status, similarity scores, and trend saturation
 - Inline SVG charts only — no chart library
-- System font stack throughout — zero typographic identity
+- One self-hosted typeface, Inter Variable (Latin subset, `font-display: swap`), with the system stack as fallback
 - Tokens are placeholders; the real palette lives as hardcoded Tailwind hex values in JSX
 
 ## 2. Colors
@@ -143,7 +143,7 @@ The palette is a Tailwind default spectrum: blue-600 as primary, a violet second
 - **Body** (`#475569`/gray-600 light / `#9ca3af`/gray-400 dark): Paragraph and description text.
 - **Muted** (`#6b7280`/gray-500 both modes): Section labels, sublabels, meta text. **This is the contrast risk** — see Do's and Don'ts.
 - **Surface** (`#ffffff` light / `rgba(255,255,255,0.03)` dark): Card and panel fills.
-- **Page Background** (`#f8fafc` slate-50 light / `#080d24` navy dark; `#0f1a3a` for elevated dark surfaces like dropdowns, drawers, modals).
+- **Page Background** (`#f8fafc` slate-50 light / `#080d24` navy dark; `#0f1a3a` for elevated dark surfaces like dropdowns, drawers, modals). Use the `bg-canvas` and `bg-surface-elevated` tokens rather than these hex values; authenticated pages already do.
 - **Border** (`#e2e8f0` slate-200 light / `rgba(255,255,255,0.09)` dark).
 
 ### Named Rules
@@ -155,11 +155,11 @@ The palette is a Tailwind default spectrum: blue-600 as primary, a violet second
 
 ## 3. Typography
 
-**Display Font:** System UI stack (`system-ui, -apple-system, 'Segoe UI', Roboto`)
-**Body Font:** Same system stack
+**Display Font:** Inter Variable (self-hosted, Latin subset, weights 100–900, `font-display: swap`), falling back to `ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto`
+**Body Font:** Same Inter Variable stack; headings inside `.font-reading` containers also use it
 **Label/Mono Font:** System mono only for the `⌘K` keyboard hint
 
-**Character:** There is no typographic identity. The product renders in whatever UI font the operating system provides — Segoe UI on Windows, San Francisco on macOS, Roboto on Android. Hierarchy is built entirely from size, weight, color, and letter-case rather than typeface character. This is the single largest gap between the current state and an "institutional reading room" identity.
+**Character:** One neutral, highly legible typeface across the product, so the interface reads the same on every operating system. Hierarchy is built from size, weight, color, and letter-case. Tabular numerals are off by default and switched on with `tabular-nums` where figures align. The smallest text anywhere is 11px (`text-[11px]`); nothing functional goes below it.
 
 ### Hierarchy
 - **Display** (800, `clamp(3.5rem, 12vw, 7.5rem)`, line-height 1, `-0.04em`): The landing-page "THESYS+" wordmark only. Two-color split: "THE" in ink, "SYS+" in blue. The only moment of typographic drama in the system; reaches ~7.5rem at wide viewports.
@@ -246,7 +246,7 @@ A custom range input with a live percentage readout and a relevance pill that sh
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** keep the `focus-visible:ring-2 focus-visible:ring-blue-400` pattern on every interactive element. It is consistent and correct.
+- **Do** keep the `focus-visible:ring-2 focus-visible:ring-blue-400` pattern on every interactive element, including native `<select>` controls and dark-mode inputs. It is consistent and correct.
 - **Do** preserve the status-quartet color language (emerald/amber/rose/blue) and its consistent meaning across status, scoring, and trends.
 - **Do** keep the dark-mode tonal-layering approach (navy base → glass panel → `#0f1a3a` elevated). It is the strongest part of the current visual identity.
 - **Do** keep the SimilaritySlider, the shimmer skeletons, the soft-loading indicator, and the `.thesys-empty` pattern. These are well-built.
@@ -255,7 +255,9 @@ A custom range input with a live percentage readout and a relevance pill that sh
 
 ### Don't:
 - **Don't** ship `text-gray-500` body or label text on the `#080d24` dark background — it measures ~3.4:1 and fails WCAG AA for sub-18px text. Bump to at least `text-gray-400`.
-- **Don't** rely on the system font stack as the final identity. Load one typeface; the abstract reading experience and brand character both depend on it.
+- **Don't** add a second typeface or fall back to the bare system stack; Inter Variable is the single UI face.
+- **Don't** use overshooting (spring or bounce) easing. All motion eases out without overshoot (`--ease-out`, `--ease-smooth`); the academic register stays calm.
+- **Don't** put gray secondary text on tinted status surfaces. Tint it from the surface's own hue (e.g. `text-emerald-800` on `bg-emerald-50`, `text-emerald-300` on the dark tint).
 - **Don't** reach for the `text-xs uppercase tracking-wider` section label on every panel. It is saturated; reserve it for 2–3 real structural breaks per page.
 - **Don't** reproduce the generic AI-SaaS landing pattern: pulsing badge + giant name + grid-glow background + hero-metric stat row + 2×2 identical feature cards. (PRODUCT.md anti-reference.)
 - **Don't** let the 🎓 emoji carry institutional identity. PampangaStateU CCS deserves real visual presence, not a footnote string.
