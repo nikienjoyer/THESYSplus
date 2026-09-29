@@ -2,16 +2,25 @@
 
 Implements the approved THESYS+ Chapter 1–3 architecture:
 
-* **TF-IDF** (``sklearn.feature_extraction.text.TfidfVectorizer``)
-  Vectorises each thesis's combined text (title + abstract +
-  keywords) and surfaces meaningful, frequently occurring research
-  keywords across the corpus. The full ``extracted_text`` is NOT part
-  of the corpus — see ``_compose_thesis_text`` for why.
+* **Grouping by meaning.** Each thesis's stored Sentence-BERT document vector
+  (title, author keywords, abstract and opening text; see
+  ``semantic_search.compose_thesis_text``) is grouped with agglomerative
+  clustering on cosine distance (average linkage). Unlike K-Means this is
+  deterministic: the same corpus always yields the same groups, whatever the
+  row order. ``k`` targets ~``6`` theses per group, clamped to ``5–8``;
+  corpora smaller than ``5`` use one group per thesis. See ``_choose_k``.
 
-* **K-Means clustering** (``sklearn.cluster.KMeans``)
-  Groups TF-IDF vectors into ``k`` topic clusters. ``k`` targets
-  ~``6`` theses per cluster, clamped to ``5–8``; corpora smaller than
-  ``5`` use one cluster per thesis. See ``_choose_k``.
+* **TF-IDF keywords** (``sklearn.feature_extraction.text.TfidfVectorizer``)
+  still describe each group: the group's highest mean TF-IDF terms over
+  title + abstract + keywords (``extracted_text`` excluded; see
+  ``_compose_thesis_text``).
+
+* **Group names** come from members' confirmed primary subjects
+  (``_subject_label``); groups with no reviewed member fall back to the
+  keyword naming table (``_label_cluster``).
+
+* **Technology tags** (``Thesis.technology_tags``) are counted per group and
+  listed per member. A technology is not a subject, so it never names a group.
 
 * **Trend classification** based on cluster size:
     - SATURATED      ≥ 5 theses
@@ -337,6 +346,8 @@ class _DocMeta:
     id: str
     title: str
     keywords: List[str] = field(default_factory=list)
+    subject: str | None = None
+    tags: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -348,6 +359,8 @@ class TopicCluster:
     keywords: List[str] = field(default_factory=list)
     sample_titles: List[str] = field(default_factory=list)
     thesis_ids: List[str] = field(default_factory=list)
+    technology_tags: List[dict] = field(default_factory=list)   # [{'tag': 'IoT', 'count': 4}]
+    member_tags: dict = field(default_factory=dict)             # thesis id -> ['IoT', 'AI']
 
 
 @dataclass
@@ -465,6 +478,55 @@ def _choose_k(n_documents: int) -> int:
     return max(K_MIN, min(K_MAX, n_documents // TARGET_DOCS_PER_CLUSTER))
 
 
+def _reviewed_subject_name(thesis) -> str | None:
+    """The thesis's confirmed primary subject name; ``None`` while awaiting review."""
+    if not getattr(thesis, 'subject_reviewed_at', None):
+        return None
+    subject = getattr(thesis, 'primary_subject', None)
+    return getattr(subject, 'name', None) or None
+
+
+def _document_vector(thesis, text: str):
+    """Unit-length SBERT vector: the stored one, else computed now from ``text``.
+
+    A thesis whose embedding failed or predates Phase 2A still gets grouped,
+    from the same title/abstract/keywords text TF-IDF sees.
+    """
+    import numpy as np
+    from .semantic_search import EMBEDDING_DIM, embed_text
+
+    raw = getattr(thesis, 'embedding_vector', None)
+    if raw:
+        try:
+            vector = np.asarray(raw, dtype=np.float32)
+            norm = float(np.linalg.norm(vector))
+            if vector.shape == (EMBEDDING_DIM,) and np.isfinite(vector).all() and norm > 1e-6:
+                return vector / norm
+        except (TypeError, ValueError):
+            pass
+    vector = np.asarray(embed_text(text), dtype=np.float32)
+    return vector / max(float(np.linalg.norm(vector)), 1e-12)
+
+
+def _group_by_meaning(vectors, k: int):
+    """Deterministic grouping of unit vectors by cosine distance."""
+    import numpy as np
+    from sklearn.cluster import AgglomerativeClustering
+
+    if k <= 1:
+        return np.zeros(len(vectors), dtype=int)
+    return AgglomerativeClustering(n_clusters=k, metric='cosine', linkage='average').fit_predict(vectors)
+
+
+def _tag_summary(member_tag_lists) -> List[dict]:
+    """Tag counts across a group, most common first, then alphabetical."""
+    counts = Counter(tag for tags in member_tag_lists for tag in tags)
+    return [
+        {'tag': tag, 'count': count}
+        for tag, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+
+
 def analyze_topics(
     queryset: Iterable,
     *,
@@ -472,31 +534,38 @@ def analyze_topics(
     keywords_per_cluster: int = KEYWORDS_PER_CLUSTER,
     random_state: int = 42,
 ) -> TopicTrendsResult:
-    """Run TF-IDF + K-Means topic analysis over ``queryset``.
+    """Group approved theses by meaning and describe each group.
 
     Args:
         queryset: Iterable of Thesis rows. Caller is responsible for
             filtering to APPROVED only.
         k: Override the auto-chosen cluster count.
         keywords_per_cluster: TF-IDF terms surfaced per cluster.
-        random_state: Seed for K-Means (reproducible cluster IDs).
+        random_state: Unused since grouping became deterministic; kept so
+            existing callers keep working.
 
     Returns:
         ``TopicTrendsResult`` with overview stats + per-cluster details.
     """
+    del random_state  # grouping is deterministic; see _group_by_meaning
+
     # ── Materialise corpus and per-doc metadata ────────────────────────
     theses = list(queryset)
+    kept: List = []
     documents: List[str] = []
     metadata: List[_DocMeta] = []
     for t in theses:
         text = _compose_thesis_text(t)
         if not text.strip():
             continue
+        kept.append(t)
         documents.append(text)
         metadata.append(_DocMeta(
             id=str(t.id),
             title=t.title,
             keywords=[str(k) for k in (t.keywords or []) if str(k).strip()],
+            subject=_reviewed_subject_name(t),
+            tags=[str(tag) for tag in (getattr(t, 'technology_tags', None) or [])],
         ))
 
     n_docs = len(documents)
@@ -513,7 +582,10 @@ def analyze_topics(
     if n_docs == 1:
         # Still useful UI: surface its top TF-IDF keywords.
         keywords = _single_doc_keywords(documents[0], keywords_per_cluster)
-        topic = _label_cluster(keywords, member_keywords=[metadata[0].keywords])
+        topic = _subject_label([metadata[0].subject]) or _label_cluster(
+            keywords, member_keywords=[metadata[0].keywords],
+        )
+        member_tags = {metadata[0].id: metadata[0].tags}
         cluster = TopicCluster(
             cluster_id=0,
             topic=topic,
@@ -522,6 +594,8 @@ def analyze_topics(
             keywords=keywords,
             sample_titles=[metadata[0].title],
             thesis_ids=[metadata[0].id],
+            technology_tags=_tag_summary(member_tags.values()),
+            member_tags=member_tags,
         )
         return TopicTrendsResult(
             total_theses=1,
@@ -535,8 +609,8 @@ def analyze_topics(
 
     # ── TF-IDF vectorisation ───────────────────────────────────────────
     # Lazy imports keep startup fast when the endpoint is never hit.
+    import numpy as np
     from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.cluster import KMeans
 
     # min_df must be ≤ n_docs. For tiny corpora (e.g. 2 docs) min_df=1.
     min_df = 1 if n_docs < 5 else 2
@@ -567,13 +641,14 @@ def analyze_topics(
         )
     feature_names = vectorizer.get_feature_names_out()
 
-    # ── K-Means clustering ─────────────────────────────────────────────
+    # ── Grouping by meaning ────────────────────────────────────────────
     chosen_k = k if k is not None else _choose_k(n_docs)
     chosen_k = max(1, min(chosen_k, n_docs))
-
-    kmeans = KMeans(n_clusters=chosen_k, random_state=random_state, n_init=10)
-    labels = kmeans.fit_predict(tfidf_matrix)
-    centroids = kmeans.cluster_centers_
+    if chosen_k == 1:
+        labels = np.zeros(n_docs, dtype=int)
+    else:
+        vectors = np.vstack([_document_vector(t, doc) for t, doc in zip(kept, documents)])
+        labels = _group_by_meaning(vectors, chosen_k)
 
     # ── Build per-cluster summaries ────────────────────────────────────
     clusters: List[TopicCluster] = []
@@ -604,7 +679,8 @@ def analyze_topics(
         thesis_count = len(member_indices)
 
         # Top-K TF-IDF features by centroid weight
-        centroid = centroids[cluster_id]
+        # The group's mean TF-IDF weights: its most distinctive terms.
+        centroid = np.asarray(tfidf_matrix[member_indices].mean(axis=0)).ravel()
         top_feature_indices = centroid.argsort()[::-1][: keywords_per_cluster * 3]
         keywords: List[str] = []
         seen_stems: set[str] = set()
@@ -618,7 +694,7 @@ def analyze_topics(
             if len(keywords) >= keywords_per_cluster:
                 break
 
-        topic = _label_cluster(
+        topic = _subject_label([metadata[i].subject for i in member_indices]) or _label_cluster(
             keywords,
             member_keywords=[metadata[i].keywords for i in member_indices],
         )
@@ -636,6 +712,7 @@ def analyze_topics(
 
         sample_titles = [metadata[i].title for i in member_indices[:5]]
         thesis_ids = [metadata[i].id for i in member_indices]
+        member_tags = {metadata[i].id: metadata[i].tags for i in member_indices}
 
         clusters.append(TopicCluster(
             cluster_id=int(cluster_id),
@@ -645,9 +722,11 @@ def analyze_topics(
             keywords=keywords,
             sample_titles=sample_titles,
             thesis_ids=thesis_ids,
+            technology_tags=_tag_summary(member_tags.values()),
+            member_tags=member_tags,
         ))
 
-    # K-Means can produce distinct groups with the same heuristic name. Keep
+    # Distinct groups can share a name (two groups of the same subject). Keep
     # every group and make collisions distinguishable in every API consumer.
     topic_counts = Counter(cluster.topic for cluster in clusters)
     for cluster in clusters:

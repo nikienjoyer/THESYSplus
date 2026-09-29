@@ -12,6 +12,11 @@ Covers:
 
 from __future__ import annotations
 
+import uuid as _uuid
+from datetime import datetime as _datetime
+from datetime import timezone as _tz
+from types import SimpleNamespace
+
 import pytest
 from django.urls import reverse
 
@@ -942,7 +947,8 @@ class TestTopicTrendsEndpoint:
         # Each cluster has the expected shape
         for c in body['clusters']:
             for k in ('cluster_id', 'topic', 'trend', 'thesis_count',
-                      'keywords', 'sample_titles', 'thesis_ids'):
+                      'keywords', 'sample_titles', 'thesis_ids',
+                      'technology_tags', 'member_tags'):
                 assert k in c
             assert c['trend'] in (CLASS_SATURATED, CLASS_EMERGING, CLASS_UNDEREXPLORED)
             assert isinstance(c['keywords'], list)
@@ -1159,3 +1165,133 @@ class TestSubjectLabel:
         from theses.services.topic_analysis import _subject_label
         assert _subject_label([None, None]) is None
         assert _subject_label([]) is None
+
+
+def _unit(*values):
+    vector = [0.0] * 384
+    for index, value in enumerate(values):
+        vector[index] = value
+    return vector
+
+
+def _doc(title, vector, *, subject=None, tags=None, abstract=None, keywords=None):
+    """An in-memory thesis row with a controlled SBERT vector."""
+    return SimpleNamespace(
+        id=_uuid.uuid4(), title=title,
+        abstract=abstract if abstract is not None else f'{title} study abstract.',
+        keywords=keywords or [], embedding_vector=vector,
+        primary_subject=SimpleNamespace(name=subject) if subject else None,
+        subject_reviewed_at=_datetime(2026, 9, 30, tzinfo=_tz.utc) if subject else None,
+        technology_tags=tags,
+    )
+
+
+def _group_of(result):
+    return {thesis_id: c.cluster_id for c in result.clusters for thesis_id in c.thesis_ids}
+
+
+class TestMeaningBasedGrouping:
+    SHARED = 'Topic trend analysis and data analysis with analysis dashboards and trend charts.'
+
+    def test_groups_follow_meaning_not_shared_words(self):
+        # repo_a and iot_a share an identical abstract (TF-IDF would pair them)
+        # but their vectors say they are about different things.
+        repo_a = _doc('Thesis Repository Portal', _unit(1.0), abstract=self.SHARED)
+        repo_b = _doc('Capstone Archive Search', _unit(0.9, 0.1))
+        iot_a = _doc('Irrigation Sensor Network', _unit(0.0, 1.0), abstract=self.SHARED)
+        iot_b = _doc('Greenhouse Moisture Gateway', _unit(0.1, 0.9))
+        group_of = _group_of(analyze_topics([repo_a, iot_a, repo_b, iot_b], k=2))
+        assert group_of[str(repo_a.id)] == group_of[str(repo_b.id)]
+        assert group_of[str(iot_a.id)] == group_of[str(iot_b.id)]
+        assert group_of[str(repo_a.id)] != group_of[str(iot_a.id)]
+
+    def test_group_is_named_after_its_members_reviewed_subject(self):
+        docs = [
+            _doc('Repository Portal', _unit(1.0), subject='Academic services and research'),
+            _doc('Archive Search', _unit(0.95, 0.05), subject='Academic services and research'),
+            _doc('Farm Sensor Grid', _unit(0.0, 1.0), subject='Agriculture and growing systems',
+                 keywords=['IoT', 'sensors']),
+            _doc('Soil Moisture Probe', _unit(0.05, 0.95), subject='Agriculture and growing systems',
+                 keywords=['IoT', 'sensors']),
+        ]
+        topics = {c.topic for c in analyze_topics(docs, k=2).clusters}
+        assert topics == {'Academic services and research', 'Agriculture and growing systems'}
+
+    def test_repository_thesis_is_not_labelled_iot(self):
+        # The reported bug: THESYS+ (a thesis repository that repeats
+        # "analysis") was shown under "Internet of Things".
+        thesys = _doc('THESYS+ Semantic Thesis Retrieval', _unit(1.0), abstract=self.SHARED,
+                      subject='Academic services and research', tags=['AI', 'NLP'])
+        thesix = _doc('Thesix Capstone Repository', _unit(0.95, 0.05),
+                      subject='Academic services and research')
+        farms = [
+            _doc(f'Smart Irrigation Unit {n}', _unit(0.05 * n, 1.0), abstract=self.SHARED,
+                 subject='Agriculture and growing systems', tags=['IoT'], keywords=['IoT', 'sensors'])
+            for n in range(3)
+        ]
+        result = analyze_topics([thesys, thesix, *farms], k=2)
+        group = next(c for c in result.clusters if str(thesys.id) in c.thesis_ids)
+        assert 'Internet of Things' not in group.topic
+        assert {t['tag'] for t in group.technology_tags} == {'AI', 'NLP'}
+
+    def test_unreviewed_group_falls_back_to_the_keyword_label(self):
+        # Characterization: passes before and after - pins the fallback.
+        docs = [
+            _doc('Greenhouse Sensor Network', _unit(1.0), keywords=['IoT', 'sensors', 'esp32']),
+            _doc('Soil Sensor Network', _unit(0.9, 0.1), keywords=['IoT', 'sensors', 'esp32']),
+        ]
+        assert analyze_topics(docs, k=1).clusters[0].topic == 'Internet of Things'
+
+    def test_technology_tags_are_counted_per_group_and_listed_per_member(self):
+        a = _doc('Farm Sensor Grid', _unit(1.0), tags=['IoT', 'AI'])
+        b = _doc('Soil Moisture Probe', _unit(0.9, 0.1), tags=['IoT'])
+        c = _doc('Thesis Repository Portal', _unit(0.0, 1.0), tags=None)  # saved before the backfill
+        result = analyze_topics([a, b, c], k=2)
+        farm = next(cl for cl in result.clusters if str(a.id) in cl.thesis_ids)
+        assert farm.technology_tags == [{'tag': 'IoT', 'count': 2}, {'tag': 'AI', 'count': 1}]
+        assert farm.member_tags == {str(a.id): ['IoT', 'AI'], str(b.id): ['IoT']}
+        repo = next(cl for cl in result.clusters if str(c.id) in cl.thesis_ids)
+        assert repo.technology_tags == []
+        assert repo.member_tags == {str(c.id): []}
+
+    def test_same_groups_when_rows_are_reordered(self):
+        topics = ['Irrigation sensors', 'Repository search', 'Tutoring games']
+        docs = []
+        for axis, words in enumerate(topics):
+            for jitter, variant in ((0.0, 'alpha'), (0.1, 'omega')):
+                values = [0.0, 0.0, 0.0]
+                values[axis] = 1.0
+                values[(axis + 1) % 3] = jitter
+                docs.append(_doc(f'{words} {variant}', _unit(*values)))
+
+        def partition(rows):
+            return sorted(sorted(c.thesis_ids) for c in analyze_topics(rows, k=3).clusters)
+
+        assert partition(docs) == partition(list(reversed(docs)))
+
+    def test_missing_vector_is_embedded_from_the_topic_text(self):
+        from unittest.mock import patch
+        stored = _doc('Irrigation Sensor Network', _unit(1.0))
+        missing = _doc('Irrigation Sensor Gateway', None)
+        other = _doc('Thesis Repository Search', _unit(0.0, 1.0))
+        with patch('theses.services.semantic_search.embed_text', return_value=_unit(0.95, 0.05)) as embed:
+            result = analyze_topics([stored, missing, other], k=2)
+        embed.assert_called_once()
+        assert 'Irrigation Sensor Gateway' in embed.call_args.args[0]
+        group_of = _group_of(result)
+        assert group_of[str(missing.id)] == group_of[str(stored.id)]
+
+    def test_k_larger_than_the_corpus_is_clamped(self):
+        docs = [_doc('Irrigation Sensors', _unit(1.0)), _doc('Thesis Repository', _unit(0.0, 1.0))]
+        assert analyze_topics(docs, k=10).total_topics == 2
+
+    def test_two_groups_with_the_same_subject_name_get_qualifiers(self):
+        docs = [
+            _doc('Repository Search Portal', _unit(1.0), subject='Academic services and research'),
+            _doc('Repository Archive Index', _unit(0.95, 0.05), subject='Academic services and research'),
+            _doc('Grading Portal Records', _unit(0.0, 1.0), subject='Academic services and research'),
+            _doc('Grading Sheet Encoder', _unit(0.05, 0.95), subject='Academic services and research'),
+        ]
+        topics = sorted(c.topic for c in analyze_topics(docs, k=2).clusters)
+        assert len(set(topics)) == 2
+        assert all(t.startswith('Academic services and research (Cluster ') for t in topics)
