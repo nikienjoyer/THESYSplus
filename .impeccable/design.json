@@ -1,91 +1,230 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-06-05T00:00:00Z",
+  "generatedAt": "2026-09-29T21:08:14Z",
   "title": "Design System: THESYS+",
   "extensions": {
     "colorMeta": {
       "primary": {
         "role": "primary",
-        "displayName": "Signature Blue",
-        "canonical": "#2563eb",
-        "note": "Tailwind blue-600. Lightens to #60a5fa in dark mode. Carries all primary actions, links, active nav, focus rings, AI markers.",
-        "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#dbeafe"]
+        "displayName": "Institutional Ink-Blue",
+        "canonical": "#1e40af",
+        "note": "Brand ink-blue from --color-primary. Lightens to #60a5fa in dark mode for text, links and rings. Filled buttons use --color-primary-solid (#1e40af light, #2563eb dark) so the white label passes AA.",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1c3a99",
+          "#1e40af",
+          "#2563eb",
+          "#60a5fa",
+          "#93c5fd",
+          "#dbeafe"
+        ]
       },
       "accent-violet": {
         "role": "secondary",
         "displayName": "Accent Violet",
         "canonical": "#7c3aed",
         "note": "Secondary accent. Title Similarity icon, chart slot 2. Underused as brand element.",
-        "tonalRamp": ["#2e1065", "#4c1d95", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ede9fe"]
+        "tonalRamp": [
+          "#2e1065",
+          "#4c1d95",
+          "#6d28d9",
+          "#7c3aed",
+          "#8b5cf6",
+          "#a78bfa",
+          "#c4b5fd",
+          "#ede9fe"
+        ]
       },
       "status-approved": {
         "role": "tertiary",
         "displayName": "Approved / Safe Green",
         "canonical": "#10b981",
-        "note": "Approved status, low-similarity (safe) result, underexplored clusters, strict threshold zone.",
-        "tonalRamp": ["#022c22", "#064e3b", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#d1fae5"]
+        "note": "Approved status, low-similarity (safe) result, underexplored clusters, strict threshold zone. Token: success.",
+        "tonalRamp": [
+          "#022c22",
+          "#064e3b",
+          "#047857",
+          "#059669",
+          "#10b981",
+          "#34d399",
+          "#6ee7b7",
+          "#d1fae5"
+        ]
       },
       "status-pending": {
         "role": "tertiary",
         "displayName": "Pending / Caution Amber",
         "canonical": "#f59e0b",
-        "note": "Pending review, moderately-similar result, emerging clusters, balanced threshold zone.",
-        "tonalRamp": ["#451a03", "#78350f", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fef3c7"]
+        "note": "Pending review, moderately-similar result, emerging clusters, balanced threshold zone. Token: warning.",
+        "tonalRamp": [
+          "#451a03",
+          "#78350f",
+          "#b45309",
+          "#d97706",
+          "#f59e0b",
+          "#fbbf24",
+          "#fcd34d",
+          "#fef3c7"
+        ]
       },
       "status-rejected": {
         "role": "tertiary",
         "displayName": "Rejected / Risk Rose",
         "canonical": "#e11d48",
-        "note": "Rejected status, highly-similar (risk) result, saturated clusters, all error states.",
-        "tonalRamp": ["#4c0519", "#881337", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#ffe4e6"]
+        "note": "Rejected status, highly-similar (risk) result, saturated clusters, all error states. Token: danger.",
+        "tonalRamp": [
+          "#4c0519",
+          "#881337",
+          "#be123c",
+          "#e11d48",
+          "#f43f5e",
+          "#fb7185",
+          "#fda4af",
+          "#ffe4e6"
+        ]
       },
       "bg-dark": {
         "role": "neutral",
         "displayName": "Deep Navy Base",
         "canonical": "#080d24",
         "note": "Dark-mode page background. Elevated dark surfaces use #0f1a3a.",
-        "tonalRamp": ["#080d24", "#0f1a3a", "#16224a", "#1e2a5a", "#27346b", "#33407d", "#4a5894", "#6b78b5"]
+        "tonalRamp": [
+          "#080d24",
+          "#0f1a3a",
+          "#16224a",
+          "#1e2a5a",
+          "#27346b",
+          "#33407d",
+          "#4a5894",
+          "#6b78b5"
+        ]
       },
       "bg-light": {
         "role": "neutral",
         "displayName": "Slate Mist",
         "canonical": "#f8fafc",
         "note": "Light-mode page background (slate-50). Cards sit white on top.",
-        "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f8fafc"]
+        "tonalRamp": [
+          "#0f172a",
+          "#1e293b",
+          "#334155",
+          "#475569",
+          "#64748b",
+          "#94a3b8",
+          "#cbd5e1",
+          "#f8fafc"
+        ]
       },
       "muted-light": {
         "role": "neutral",
         "displayName": "Muted Gray",
         "canonical": "#6b7280",
         "note": "gray-500. Section labels and meta. CONTRAST RISK on #080d24 dark bg (~3.4:1, fails AA sub-18px). Bump to gray-400 in dark mode.",
-        "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#d1d5db", "#f3f4f6"]
+        "tonalRamp": [
+          "#111827",
+          "#1f2937",
+          "#374151",
+          "#4b5563",
+          "#6b7280",
+          "#9ca3af",
+          "#d1d5db",
+          "#f3f4f6"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Landing-page THESYS+ wordmark only. Two-color split (ink + blue). The only typographic drama in the system." },
-      "page-title": { "displayName": "Page Title", "purpose": "Authenticated page headings. Currently all identical text-2xl; provides no per-page wayfinding." },
-      "card-title": { "displayName": "Card / Result Title", "purpose": "Thesis cards, feature cards, cluster names." },
-      "body": { "displayName": "Body", "purpose": "All descriptions and abstracts. Undersized (text-sm) for the abstract reading experience." },
-      "section-label": { "displayName": "Section Label", "purpose": "Uppercase tracked muted label. OVERSATURATED: appears on nearly every panel. Reserve for 2-3 structural breaks per page." },
-      "meta": { "displayName": "Meta", "purpose": "Program/year lines, authors, timestamps, sublabels." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing-page THESYS+ wordmark only. Two-color split (ink + blue). The only typographic drama in the system."
+      },
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Authenticated page headings, rendered by PageHeader at one size, color and position on every route."
+      },
+      "card-title": {
+        "displayName": "Card / Result Title",
+        "purpose": "Thesis cards, feature cards, cluster names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions and paragraph copy. The thesis abstract uses the reading style instead."
+      },
+      "section-label": {
+        "displayName": "Section Label",
+        "purpose": "Uppercase tracked muted label. OVERSATURATED: appears on nearly every panel. Reserve for 2-3 structural breaks per page."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Program/year lines, authors, timestamps, sublabels."
+      },
+      "reading": {
+        "displayName": "Reading",
+        "purpose": "Source Serif 4 at 1.0625rem / 1.65 for the thesis abstract and legal prose only."
+      }
     },
     "shadows": [
-      { "name": "card", "value": "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)", "purpose": "Resting card elevation, light mode only. Dark mode is flat at rest." },
-      { "name": "card-lift", "value": "0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06)", "purpose": "Hover on interactive cards (.thesys-card-lift), paired with translateY(-2px)." },
-      { "name": "blue-glow", "value": "0 0 0 1px rgb(59 130 246 / 0.15), 0 4px 16px -4px rgb(59 130 246 / 0.25)", "purpose": "Primary button hover/focus emphasis." },
-      { "name": "dropdown-light", "value": "0 8px 30px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.08)", "purpose": "Floating surfaces, light mode." },
-      { "name": "dropdown-dark", "value": "0 8px 30px -4px rgb(0 0 0 / 0.6)", "purpose": "Floating surfaces, dark mode." }
+      {
+        "name": "card",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04)",
+        "purpose": "Resting card elevation, light mode only. Dark mode is flat at rest."
+      },
+      {
+        "name": "card-lift",
+        "value": "0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06)",
+        "purpose": "Hover on interactive cards (.thesys-card-lift), paired with translateY(-2px)."
+      },
+      {
+        "name": "blue-glow",
+        "value": "0 0 0 1px rgb(59 130 246 / 0.15), 0 4px 16px -4px rgb(59 130 246 / 0.25)",
+        "purpose": "Primary button hover/focus emphasis."
+      },
+      {
+        "name": "dropdown-light",
+        "value": "0 8px 30px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.08)",
+        "purpose": "Floating surfaces, light mode."
+      },
+      {
+        "name": "dropdown-dark",
+        "value": "0 8px 30px -4px rgb(0 0 0 / 0.6)",
+        "purpose": "Floating surfaces, dark mode."
+      }
     ],
     "motion": [
-      { "name": "ease-smooth", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for color/transform/shadow transitions (150-180ms)." },
-      { "name": "ease-spring", "value": "cubic-bezier(0.34, 1.56, 0.64, 1)", "purpose": "Nav underline indicator scale-in (.thesys-nav-link::after)." },
-      { "name": "shimmer", "value": "shimmer 1.6s ease-in-out infinite", "purpose": "Skeleton loading sweep." },
-      { "name": "fade-in", "value": "fade-in 0.15-0.2s ease-out forwards", "purpose": "Dropdown menu entrance (opacity + 4px translateY)." }
+      {
+        "name": "ease-smooth",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for color/transform/shadow transitions (150-180ms)."
+      },
+      {
+        "name": "ease-spring",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "purpose": "Nav underline indicator scale-in (.thesys-nav-link::after)."
+      },
+      {
+        "name": "shimmer",
+        "value": "shimmer 1.6s ease-in-out infinite",
+        "purpose": "Skeleton loading sweep."
+      },
+      {
+        "name": "fade-in",
+        "value": "fade-in 0.15-0.2s ease-out forwards",
+        "purpose": "Dropdown menu entrance (opacity + 4px translateY)."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -95,7 +234,7 @@
       "refersTo": "button-primary",
       "description": "Main action button. Solid blue, white text, blue glow on hover, scale-down on active.",
       "html": "<button class=\"ds-btn-primary\">Upload Thesis</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #fff; background: #2563eb; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms, transform 150ms; } .ds-btn-primary:hover { background: #1d4ed8; box-shadow: 0 4px 12px -2px rgb(37 99 235 / 0.4); } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(59 130 246 / 0.4); }"
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #fff; background: #1e40af; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms, transform 150ms; } .ds-btn-primary:hover { background: #1c3a99; box-shadow: 0 4px 12px -2px rgb(37 99 235 / 0.4); } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(59 130 246 / 0.4); }"
     },
     {
       "name": "Secondary Button",
@@ -156,44 +295,84 @@
   ],
   "narrative": {
     "northStar": "The Institutional Reading Room",
-    "overview": "THESYS+ is the digital memory of PampangaStateU's College of Computing Studies. Its visual system should read like a well-run institutional library with a research-grade AI engine underneath: disciplined, legible, quietly authoritative. The current implementation is a competent dual-mode React + Tailwind interface with a consistent card vocabulary and a single signature blue, but it borrows its grammar from generic SaaS dashboards rather than academic systems. Dark mode is the stronger personality: deep navy base with faint-white-glass panels, communicating depth through tonal layering rather than shadow. Light mode is flatter and safer. Both themes are hand-tuned and gated on an isDark boolean rather than adaptive tokens.",
+    "overview": "THESYS+ is the digital memory of PampangaStateU's College of Computing Studies. Its visual system should read like a well-run institutional library that happens to have a research-grade AI engine underneath: disciplined, legible, and quietly authoritative. The current implementation is a dual-mode (light/dark) React + Tailwind interface with a consistent card vocabulary and a single institutional ink-blue. It is clean and functional, and its grammar still leans on generic SaaS dashboards in places. This document captures what exists today so future work keeps the parts that serve the product and replaces the parts that signal \"template.\"\n\nThe system has two visual personalities depending on theme. Dark mode is the more considered of the two: a deep navy base (`#080d24`) with elevated panels rendered as faint white glass (`rgba(255,255,255,0.03)`), giving a focused, low-glare reading environment. Light mode is safer and flatter: a `slate-50` page with white cards and subtle shadows. Both now come from one semantic token layer in `tokens.css`: a `.dark` class on `<html>` redefines every variable, and the authenticated pages (Repository, Title Similarity, Trend Analysis, Analytics, Profile, Settings, Thesis Detail) read text, border, surface and status colors from token classes instead of per-page `isDark` palettes. The Landing page, the auth pages, the chart internals and some input recipes still use `isDark` ternaries and have not been migrated.\n\nWhat this system explicitly rejects (carried from PRODUCT.md anti-references): generic AI-SaaS landing pages (pulsing badge, giant clamp-scaled name, grid-glow background, hero-metric counters, identical feature-card grids); the Tailwind-starter look (blue-600 + slate-50 + white card + gray-500 muted text as the entire identity); consumer-app gamification; dark-mode-with-purple-gradients developer-tool aesthetics; and dashboard-as-default treatment of every page.",
     "keyCharacteristics": [
-      "Dual hand-tuned themes gated on an isDark boolean, not adaptive CSS variables",
-      "A single signature blue carries nearly all brand weight; violet is a secondary accent",
+      "One semantic token layer (`tokens.css` → `tokens.js` → Tailwind) drives both themes; token classes (`text-ink`, `bg-surface`, `border-border-default`) replace `isDark` ternaries on the app pages",
+      "A single institutional ink-blue carries nearly all brand weight; violet appears as a secondary accent",
+      "Filled primary surfaces use a dedicated solid token, so the white label passes AA in both themes",
       "Card-and-panel surfaces are the dominant layout primitive on every page",
-      "A four-channel status color language (emerald/amber/rose/blue) reused consistently for status, similarity scores, and trend saturation",
-      "Inline SVG charts only, no chart library",
-      "System font stack throughout, zero typographic identity",
-      "Design tokens are placeholders; the real palette is hardcoded Tailwind hex in JSX"
+      "A four-channel status color language (emerald / amber / rose / blue) reused consistently for thesis status, similarity scores, and trend saturation, exposed as `success` / `warning` / `danger` / `info` tokens",
+      "Inline SVG charts only — no chart library",
+      "Two self-hosted typefaces: Inter Variable for the interface, Source Serif 4 Variable for the thesis abstract and legal prose only",
+      "Every authenticated page shares one shell (`PageShell`) and one heading (`PageHeader`)"
     ],
     "rules": [
-      { "name": "The One Blue Rule", "body": "A single blue carries primary actions, links, active states, and AI-feature markers. Do not introduce a second primary color; violet stays secondary.", "section": "colors" },
-      { "name": "The Status Quartet Rule", "body": "Emerald = good/safe/done, Amber = caution/pending/middle, Rose = risk/rejected/error, Blue = informational. Consistent across status, scoring, and trends. Never reassign these meanings.", "section": "colors" },
-      { "name": "The Placeholder Token Rule", "body": "tokens.css and tokens.js are marked PLACEHOLDER pending Figma palette. The live palette is hardcoded Tailwind hex in JSX. Treat the documented values as canonical.", "section": "colors" },
-      { "name": "The Uppercase-Label Saturation Problem", "body": "The text-xs uppercase tracking-wider section label is applied to nearly every container. When every section is labeled identically, labels stop marking hierarchy. Reserve for 2-3 structural breaks per page.", "section": "typography" },
-      { "name": "The Dark-Mode-Is-Flat Rule", "body": "In dark mode, surfaces carry no shadow at rest. Elevation comes from background lightness (glass over navy) and border opacity. Only floating layers get a dark shadow.", "section": "elevation" },
-      { "name": "The Hover-Lift Rule", "body": "Interactive cards rise 2px and gain shadow (light) or brighter glass + border (dark) on hover via .thesys-card-lift. Static informational cards do not lift.", "section": "elevation" }
+      {
+        "name": "The One Blue Rule",
+        "body": "A single blue carries primary actions, links, active states, and AI-feature markers. Do not introduce a second \"primary\" color; the violet is a secondary accent, not a co-equal brand color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Solid-Fill Rule",
+        "body": "A filled primary surface uses `bg-primary-solid` with `hover:bg-primary-solid-hover`. `bg-primary` is the text/ring blue and is too light behind a white label in dark mode (about 2.5:1).",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Quartet Rule",
+        "body": "Emerald = good/safe/done, Amber = caution/pending/middle, Rose = risk/rejected/error, Blue = informational. This mapping is consistent across thesis status, similarity scoring, and trend saturation. Never reassign these meanings. Express them with the `success` / `warning` / `danger` / `info` token classes (`-bg`, `-border`, `-text`), not raw palette shades.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Source Rule",
+        "body": "`tokens.css` is the canonical palette. `tokens.js` exposes it to Tailwind, and the `--th-prim-*` ramp is the single place to change the brand blue. Do not add an `isDark ? 'text-gray-…' : 'text-gray-…'` pair for text, border, surface or status colors; use the token class. `isDark` remains acceptable for chart geometry and the un-migrated Landing and auth pages.",
+        "section": "colors"
+      },
+      {
+        "name": "The Uppercase-Label Saturation Problem",
+        "body": "The `text-xs font-semibold uppercase tracking-wider` section label is applied to a large share of containers. When every section is labeled identically, the labels stop marking hierarchy and become visual wallpaper. Reserve this treatment for 2–3 genuine structural breaks per page.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shared-Header Rule",
+        "body": "A new authenticated page wraps its content in `PageShell` and opens with `PageHeader`. Do not hand-write an `<h1>`; the title should land in the identical spot on every route so navigation produces no layout shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The Dark-Mode-Is-Flat Rule",
+        "body": "In dark mode, surfaces carry no shadow at rest. Elevation is communicated by background lightness (glass over navy) and border opacity, not by shadow. Only floating layers (dropdown, drawer, modal) get a dark shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Hover-Lift Rule",
+        "body": "Interactive cards rise 2px and gain shadow (light) or a brighter glass fill + border (dark) on hover via `.thesys-card-lift`. Static informational cards do not lift.",
+        "section": "elevation"
+      }
     ],
     "dos": [
-      "Do keep the focus-visible:ring-2 focus-visible:ring-blue-400 pattern on every interactive element.",
-      "Do preserve the status-quartet color language and its consistent meaning across status, scoring, and trends.",
-      "Do keep the dark-mode tonal-layering approach (navy base, glass panel, #0f1a3a elevated). It is the strongest part of the current identity.",
-      "Do keep the SimilaritySlider, shimmer skeletons, soft-loading indicator, and .thesys-empty pattern.",
-      "Do keep the three-column navbar grid and portal-rendered drawers/modals.",
-      "Do use shadcn Badge as the single canonical chip and migrate raw span chips to it."
+      "**Do** keep `focus-visible:ring-2 focus-visible:ring-primary` on every interactive element, including native `<select>` controls and dark-mode inputs.",
+      "**Do** use the semantic token classes for neutral and status color: `text-ink`, `text-body`, `text-muted`, `text-subtle`, `bg-surface`, `border-border-default`, and `bg-success-bg` / `text-danger-text` style pairs.",
+      "**Do** fill primary buttons with `bg-primary-solid` and `hover:bg-primary-solid-hover`.",
+      "**Do** preserve the status-quartet color language (emerald/amber/rose/blue) and its consistent meaning across status, scoring, and trends.",
+      "**Do** keep the dark-mode tonal-layering approach (navy base → glass panel → `#0f1a3a` elevated). It is the strongest part of the current visual identity.",
+      "**Do** keep the SimilaritySlider, the shimmer skeletons, the soft-loading indicator, and the `.thesys-empty` pattern. These are well-built.",
+      "**Do** keep the three-column navbar grid and the portal-rendered drawers/modals.",
+      "**Do** open every authenticated page with `PageShell` + `PageHeader`.",
+      "**Do** use `<Badge>` (shadcn) as the single canonical chip and migrate raw `<span>` chips to it."
     ],
     "donts": [
-      "Don't ship text-gray-500 body or label text on the #080d24 dark background; it measures ~3.4:1 and fails WCAG AA for sub-18px text. Bump to at least gray-400.",
-      "Don't rely on the system font stack as the final identity. Load one typeface.",
-      "Don't reach for the text-xs uppercase tracking-wider section label on every panel; reserve it for 2-3 real structural breaks per page.",
-      "Don't reproduce the generic AI-SaaS landing pattern: pulsing badge, giant name, grid-glow background, hero-metric stat row, 2x2 identical feature cards.",
-      "Don't let the graduation-cap emoji carry institutional identity. PampangaStateU CCS deserves real visual presence.",
-      "Don't add a second primary color. One blue. Violet stays secondary.",
-      "Don't keep SignInCard on its divergent bg-gray-800 / text-red-600 vocabulary. Bring it onto the navy + thesys system.",
-      "Don't maintain two near-identical surface classes (.thesys-card vs .thesys-panel) without a clear semantic distinction. Consolidate.",
-      "Don't use a doughnut chart for 8+ topic clusters; it is illegible at that count.",
-      "Don't ship the mobile drawer without focus trapping, or charts without role=img + aria-label.",
-      "Don't use Tailwind's default blue-600 as the brand color long-term; it is the AI-SaaS template tell. Commit to a deliberate institutional color."
+      "**Don't** put `bg-primary` behind white text. It is the light text/ring blue in dark mode; use `bg-primary-solid`.",
+      "**Don't** ship `text-gray-500` body or label text on the `#080d24` dark background — it measures ~3.4:1 and fails WCAG AA for sub-18px text. Use `text-muted`, whose dark value is `#9ca3af`.",
+      "**Don't** add new `isDark ? 'text-gray-…' : 'text-gray-…'` pairs for neutral text, borders or surfaces; use the token classes.",
+      "**Don't** add a second typeface. Inter Variable is the UI face and Source Serif 4 is reserved for the thesis abstract and legal prose.",
+      "**Don't** use overshooting (spring or bounce) easing. All motion eases out without overshoot (`--ease-out`, `--ease-smooth`); the academic register stays calm.",
+      "**Don't** put gray secondary text on tinted status surfaces. Tint it from the surface's own hue (e.g. `text-success-text` on `bg-success-bg`).",
+      "**Don't** reach for the `text-xs uppercase tracking-wider` section label on every panel. It is saturated; reserve it for 2–3 real structural breaks per page.",
+      "**Don't** reproduce the generic AI-SaaS landing pattern: pulsing badge + giant name + grid-glow background + hero-metric stat row + 2×2 identical feature cards. (PRODUCT.md anti-reference.)",
+      "**Don't** let the institution shrink to a footnote. PampangaStateU CCS deserves real visual presence beside the mark.",
+      "**Don't** add a second \"primary\" color. One blue. Violet stays secondary. (The One Blue Rule.)",
+      "**Don't** maintain two near-identical surface classes (`.thesys-card` vs `.thesys-panel`) without a clear semantic distinction. Consolidate.",
+      "**Don't** use a doughnut chart for 8+ topic clusters. It is illegible at that count.",
+      "**Don't** hand-write a page `<h1>`; use `PageHeader`."
     ]
   }
 }
