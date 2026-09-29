@@ -420,6 +420,17 @@ This file is the machine that **makes and cancels** keys.
   - `me/` → MeView
   - `sso/initiate/` and `sso/callback/` → the school-login views
 
+### backend/auth_service/sso.py — "A door painted on the wall, for now" 🚪
+
+Two tiny views, `InitiateSsoView` (GET) and `SsoCallbackView` (POST), behind the
+`sso/initiate/` and `sso/callback/` signs. Both are open to anyone (no login, no
+authentication classes) and both answer the same thing: **`501
+SSO_NOT_CONFIGURED`** — "Institutional SSO is not yet configured." — in the
+project's usual error envelope, with `provider: null`. They exist so that a real
+school login provider (SAML or OAuth) can be dropped into this one file later
+without touching sign-in or token issuing. Nothing in the frontend calls them
+today.
+
 ---
 
 ## Part 5 — Frontend public pages (before you sign in)
@@ -1908,6 +1919,28 @@ logged as `status='error'`, and the request falls back to `pending` rather
 than crashing the whole submission — a broken OCR install or a corrupt PDF
 should never silently swallow someone's access request.
 
+### services/audit.py — "The checker signs the guest book at every step" ✍️
+
+Every stage of ID checking leaves a trace in the shared audit log (Part 15), by
+calling `common.audit_logger.write` with a fixed event name and the request's
+id: `access_request.verification.started` (with the document's SHA-256),
+`.completed` (the decision and the processor version), `.auto_approved`,
+`.pending_review`, `.rejected` and `.error`. The functions are
+`log_verification_started`, `log_verification_completed`,
+`log_verification_auto_approved`, `log_verification_pending_review`,
+`log_verification_rejected` and `log_verification_error`. The actor is always
+"the system", and the optional HTTP request adds the caller's IP and browser.
+
+### management/commands/migrate_verification_documents.py — "Move the old ID photos into the vault" 🗄️
+
+Older versions kept uploaded ID images inside the ordinary media folder. This
+command moves them into `PRIVATE_STORAGE_ROOT`. Run with no flags it only
+**audits**; with `--apply` it copies, checks and then removes the legacy copy.
+Its `checked_file` refuses anything whose path is outside that document's own
+folder, that is a symlink, whose extension does not match its MIME type, or
+whose size and SHA-256 do not match the database record — so a file is never
+"migrated" wrongly. Back up the database and the files before using `--apply`.
+
 ### models.py — `VerificationDocument` / `VerificationResult`
 
 Two tables recording, respectively, *what was uploaded* (file path in
@@ -2783,6 +2816,20 @@ the console backend with a loud warning rather than crashing every email-
 sending code path — "development never breaks" is the explicit design goal
 in the docstring.
 
+### backend/common/performance.py — "A stopwatch that never reads the mail" ⏲️
+
+Logs how long expensive steps take without ever recording what they were about.
+- **`timed_stage(name)`** (a context manager) and **`@timed(name)`** (a
+  decorator) log `stage=<name> request_id=<id> elapsed_ms=<n>` to the
+  `thesys.performance` logger.
+- **`trace_id(value)`** sets the id used in those lines; background jobs use the
+  job's id, everything else shows `background`.
+- **`RequestTimingMiddleware`** wraps every web request: it invents a short
+  random id, logs `stage=http route=<view name> status=<code> elapsed_ms=<n>`,
+  and returns the id to the browser in an `X-Request-ID` header. It records the
+  *view name*, never the URL, query string, body or user — so timing logs are
+  safe to share while still showing where a slow request spent its time.
+
 ---
 
 ## Part 17 — Backend: `thesys/` (the building's blueprint and utility panel) 🏗️
@@ -2914,6 +2961,97 @@ mentioned in Part 14. Its only real logic is defaulting
 quietly resolves to `dev` or `prod`) and giving a friendly error message if
 Django itself isn't installed/importable — the classic "did you forget to
 activate your virtual environment?" hint.
+
+---
+
+## Part 18 — Backend: the `processing_jobs` app (the back-of-house order queue) 🧾
+
+Reading a whole thesis, checking an ID, running OCR — these take seconds, and a
+web request that waits that long can time out or block other diners. So slow
+work now goes through a **queue**: the counter takes the order, writes it on a
+slip, hands you a **job number**, and a separate cook (the *worker*) prepares it
+in the back. The page keeps asking "is my number ready?" (`waitForJob` in the
+frontend, Part 1).
+
+### The life of one job
+
+1. **A request arrives** at a counter such as `POST /theses/upload/`,
+   `/theses/extract-title/`, `/theses/extract-metadata/`, or the identity check
+   that follows a request for access. The view validates the file, then calls
+   `enqueue_file` (or `enqueue_identity`), which writes the job and answers
+   right away: `202 Accepted` with a `job_id`.
+2. **The worker claims it.** A separate process runs `manage.py process_jobs`,
+   which repeatedly calls `claim_next`. The claim is atomic (row locks with
+   `skip_locked`), so two workers never take the same slip.
+3. **The worker cooks it** with `execute`, which calls the *same view code* the
+   counter would have used in the old synchronous days (`_extract_and_respond`
+   for titles and metadata, `_process_synchronous` for an upload,
+   `VerificationOrchestrator` for identity).
+4. **The result is stored** on the job as `succeeded` (with the response body)
+   or `failed` (with the error body and its HTTP status), and the private
+   working file is deleted.
+5. **The page picks it up** through `GET /api/v1/jobs/<uuid>/`.
+
+### backend/processing_jobs/models.py — "The order slip"
+
+`ProcessingJob` has an `id` (UUID), a `kind` (`title`, `metadata`, `thesis`,
+`identity`), a `state` (`queued`, `running`, `succeeded`, `failed`), an `owner`,
+an optional `access_request_id`, the `private_file_path`, a `payload` (JSON
+details of the order), a `result`, an `error`, a count of `attempts`, a
+`lease_until` time, timestamps and an `expires_at`. An index on
+`(state, lease_until, created_at)` keeps "what should I cook next?" fast.
+
+### backend/processing_jobs/services.py — "The queue rules"
+
+- **`enqueue_file(kind, uploaded, ...)`:** copies the already-validated upload
+  into private storage (`<PRIVATE_STORAGE_ROOT>/processing_jobs/<job id>/upload.pdf`
+  or `.docx`, folder mode 0700, file mode 0600), then saves the job. If anything
+  fails the half-written file is removed. Only `.pdf` and `.docx` are accepted,
+  and `_job_file` checks that the path stays inside the private folder.
+- **`enqueue_identity(access_request_id)`:** an order with no file — the ID
+  photos already live with the access request.
+- **Retries and leases:** `MAX_ATTEMPTS` is 3 and a `LEASE` lasts 2 minutes.
+  `claim_next` takes the oldest `queued` job, or a `running` one whose lease
+  has expired (its cook must have died). A job that has run out of attempts is
+  marked `failed` with a generic `PROCESSING_FAILED` error, and a stuck identity
+  check puts its access request back to `pending` for a human.
+- **Cleanup:** `remove_job_file`, `remove_uncommitted_thesis_file` (deletes a
+  half-saved upload only when no thesis owns it) and `cleanup_terminal`. Jobs are
+  kept for `RETENTION` (2 days).
+
+### backend/processing_jobs/views.py and urls.py — "The pick-up window"
+
+`JobStatusView` (`GET /api/v1/jobs/<uuid>/`) requires a login and looks the job
+up **by id and owner together**, so someone else's job number is answered with
+the same 404 as a job that does not exist: a job id alone is never a key. It
+returns `id`, `state`, `kind`, plus `result` when done or `error` when failed.
+
+### backend/processing_jobs/worker.py — "The cook"
+
+- **`execute(job)`** picks the right recipe by `kind` and returns `(body, http
+  status)`. It first checks that the job's file really is the expected private
+  path.
+- **`run_one(job)`** runs one job. A background **heartbeat** thread extends the
+  lease every 20 seconds so a slow job is not mistaken for a dead one. A
+  response with a 2xx status becomes `succeeded`; any other status (for example
+  the "not a thesis" refusal) becomes `failed` immediately — that is a real
+  answer, not a crash. An unexpected exception puts the job back in the queue
+  until attempts run out. Timing lines carry the job id.
+- **Identity jobs are restart-safe:** if the worker restarts after the
+  orchestrator finished, the result is reused instead of re-running OCR or
+  sending another email.
+
+### backend/processing_jobs/management/commands/process_jobs.py — "Open the kitchen"
+
+`python manage.py process_jobs` runs one worker forever (one per deployment;
+`--once` handles a single job and exits, handy for tests). Every hour it prunes
+finished jobs past `expires_at` (100 at a time), deleting their files and rows,
+and when the queue is empty it sleeps two seconds and looks again.
+
+### backend/processing_jobs/apps.py
+
+A minimal `AppConfig`, `ProcessingJobsConfig`; the app is registered in
+`INSTALLED_APPS` and mounted at `/api/v1/jobs/`.
 
 ---
 
