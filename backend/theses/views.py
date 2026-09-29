@@ -331,48 +331,34 @@ class ThesisListView(APIView):
         # min_score defaults to 0.10 (noise floor for all-MiniLM-L6-v2);
         # the frontend exposes a 30–95 % slider that overrides this.
         #
-        # Title-match boost (narrow):
-        # When a query is a *specific identifier* — an acronym, a brand name
-        # with punctuation, or a multi-word phrase — and that query appears
-        # verbatim in a thesis title, we clamp the score to at least min_score
-        # so it survives the threshold filter.
+        # Title-match rescue (narrow):
+        # When the query is a specific title/name - an acronym or brand name,
+        # a punctuated name, a multi-word phrase, the whole title or its name
+        # segment, or a single word that is rare across titles - and it
+        # appears in a thesis title as whole words, the score is clamped to at
+        # least min_score so the thesis survives the slider. This handles
+        # "thesix", "THESYS+", "RFID" or "Face Recognition", where SBERT gives
+        # a low cosine score because the query has no sentence-level semantics.
         #
-        # This handles cases like "THESYS+", "RFID", "IPv4", or
-        # "Face Recognition" where SBERT produces a low cosine score because
-        # the query is a proper noun / acronym with no sentence-level semantics.
-        #
-        # Generic single words such as "computer", "system", or "web" are
-        # intentionally excluded: they appear in almost every thesis title and
-        # should not bypass the threshold.
-        #
-        # A query qualifies for the boost when ANY of:
-        #   1. It contains non-alphanumeric punctuation ("+", "-", ".", "#", …)
-        #   2. It is a single word that is fully UPPERCASE and ≥ 3 characters
-        #      (all-caps acronym: "RFID", "NLP", "BERT", "BSIT")
-        #   3. It has ≥ 2 space-separated tokens (multi-word exact phrase)
+        # Matching is case-insensitive and shared with Title Similarity (see
+        # services/title_match.py). Common single words such as "system" or
+        # "web" appear in many titles and never qualify. Rarity is counted
+        # over every title visible to the user *before* the year/program
+        # filters, so applying a filter cannot change whether a query
+        # qualifies.
+        from .services.title_match import build_title_matcher
 
-        import re as _re
-
-        def _is_specific_identifier(query: str) -> bool:
-            stripped = query.strip()
-            # Rule 1: contains any non-alphanumeric, non-space character
-            if _re.search(r'[^a-zA-Z0-9\s]', stripped):
-                return True
-            tokens = stripped.split()
-            # Rule 2: single all-uppercase token of ≥ 3 characters
-            if len(tokens) == 1 and stripped == stripped.upper() and len(stripped) >= 3:
-                return True
-            # Rule 3: multi-word phrase
-            if len(tokens) >= 2:
-                return True
-            return False
-
-        apply_boost = _is_specific_identifier(q)
-        q_lower = q.lower()
+        matcher = build_title_matcher(
+            q,
+            lambda: list(
+                _visible_queryset(request.user).order_by().values_list('title', flat=True)
+            ),
+        )
         boosted = []
         for s in scored:
+            s.thesis.title_match = matcher.matches(s.thesis.title)
             effective_score = s.score
-            if apply_boost and q_lower in s.thesis.title.lower():
+            if s.thesis.title_match:
                 effective_score = max(effective_score, min_score)
             if effective_score >= min_score:
                 boosted.append(s)

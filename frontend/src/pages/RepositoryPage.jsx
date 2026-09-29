@@ -822,8 +822,12 @@ export default function RepositoryPage() {
             {/* Result count summary — distinguishes semantic matches from title-rescued results */}
             {effectiveSearch && (() => {
               const threshold = committedThreshold / 100;
-              const aboveThreshold = theses.filter(t => (t.similarity_score ?? 0) >= threshold).length;
-              const belowThreshold = theses.filter(t => (t.similarity_score ?? 0) < threshold).length;
+              // An exact title match is only reported as one when it survived
+              // the slider by being title-matched; a title match that also
+              // clears the threshold is an ordinary semantic result.
+              const isRescued = (t) => t.title_match === true && (t.similarity_score ?? 0) < threshold;
+              const aboveThreshold = theses.filter(t => !isRescued(t)).length;
+              const belowThreshold = theses.filter(isRescued).length;
               // Use totalCount for the above-threshold count only when all current-page results pass,
               // otherwise use page-level counts which are what the user actually sees.
               const totalAbove = belowThreshold === 0 ? totalCount : aboveThreshold;

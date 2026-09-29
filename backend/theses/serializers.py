@@ -57,6 +57,9 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
 
     uploaded_by_name = serializers.SerializerMethodField()
     similarity_score = serializers.FloatField(read_only=True, required=False)
+    # True when the search query is an exact title/name match for this thesis
+    # (set by the search view alongside similarity_score; False in plain listings).
+    title_match = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = Thesis
@@ -73,6 +76,7 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
             'uploaded_by_name',
             'created_at',
             'similarity_score',
+            'title_match',
         )
         read_only_fields = fields
 

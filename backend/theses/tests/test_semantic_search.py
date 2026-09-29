@@ -432,6 +432,12 @@ class TestSearchEndpoint:
             'using IoT sensors to automate irrigation in small farms.',
             keywords=['computer', 'monitoring', 'IoT', 'agriculture'],
         )
+        # "computer" only counts as generic when it is common across titles.
+        for n in range(3):
+            make_thesis(
+                f'Computer Lab Reservation Tool {n}',
+                'Scheduling tool for the school computer laboratory.',
+            )
 
         from auth_service.services import issue_token_pair
         pair = issue_token_pair(faculty_user, request=None, remember_me=False)
@@ -485,6 +491,94 @@ class TestSearchEndpoint:
             'All-caps acronym RFID should trigger the title-match boost'
         )
         assert str(unrelated.id) not in ids
+
+
+# ---------------------------------------------------------------------------
+# Case-insensitive exact title / name matching
+# ---------------------------------------------------------------------------
+
+THESIX_TITLE = 'Thesix: Centralized Web-Based Capstone And Thesis Repository'
+
+
+@pytest.mark.django_db
+class TestCaseInsensitiveTitleMatch:
+    @pytest.fixture
+    def auth(self, faculty_user):
+        from auth_service.services import issue_token_pair
+        pair = issue_token_pair(faculty_user, request=None, remember_me=False)
+        return {'HTTP_AUTHORIZATION': f'Bearer {pair.access_token}'}
+
+    @pytest.fixture
+    def corpus(self, make_thesis):
+        thesix = make_thesis(
+            THESIX_TITLE,
+            'A centralized platform for managing capstone and thesis records.',
+            keywords=['repository', 'capstone'],
+        )
+        for n in range(4):
+            make_thesis(
+                f'Inventory System Number {n}',
+                'A system for tracking stock levels in a small shop.',
+            )
+        return thesix
+
+    def _search(self, client, auth, query, **params):
+        params.setdefault('min_score', '0.60')
+        response = client.get(reverse('thesis-list'), {'q': query, **params}, **auth)
+        assert response.status_code == 200, response.content
+        return response.json()
+
+    def test_lower_and_upper_case_return_same_results(self, client, auth, corpus):
+        lower = self._search(client, auth, 'thesix')
+        upper = self._search(client, auth, 'THESIX')
+        mixed = self._search(client, auth, 'Thesix')
+        ids = lambda body: [r['id'] for r in body['results']]  # noqa: E731
+        assert str(corpus.id) in ids(lower)
+        assert ids(lower) == ids(upper) == ids(mixed)
+
+    def test_title_match_flag_is_true_and_score_stays_semantic(self, client, auth, corpus):
+        for query in ('thesix', 'THESIX'):
+            hit = next(
+                r for r in self._search(client, auth, query)['results']
+                if r['id'] == str(corpus.id)
+            )
+            assert hit['title_match'] is True
+            # Rescued past the slider: the raw semantic score is untouched.
+            assert hit['similarity_score'] < 0.60
+
+    def test_partial_word_query_is_not_rescued(self, client, auth, corpus):
+        body = self._search(client, auth, 'thesi')
+        assert str(corpus.id) not in [r['id'] for r in body['results']]
+
+    def test_common_word_does_not_rescue_below_threshold(self, client, auth, corpus):
+        for query in ('system', 'SYSTEM', 'System'):
+            body = self._search(client, auth, query)
+            for result in body['results']:
+                assert result['title_match'] is False
+                assert result['similarity_score'] >= 0.60
+
+    def test_filters_do_not_change_qualification(self, client, auth, corpus, make_thesis):
+        # Rare word: still qualifies when a filter narrows the visible set.
+        plain = self._search(client, auth, 'thesix')
+        filtered = self._search(
+            client, auth, 'thesix', year='2024', program=Program.BSIT.value,
+        )
+        assert [r['id'] for r in plain['results']] == [r['id'] for r in filtered['results']]
+        assert filtered['results'][0]['title_match'] is True
+
+        # Common word: four titles overall, but a year filter leaves only two.
+        # Rarity is counted before filters, so it must still not qualify.
+        for n in range(4):
+            t = make_thesis(f'Zebra Tracking Study {n}', 'Wildlife tracking with GPS collars.')
+            if n < 2:
+                Thesis.objects.filter(pk=t.pk).update(year=2023)
+        narrowed = self._search(client, auth, 'zebra', year='2023', min_score='0.90')
+        assert narrowed['count'] == 0
+
+    def test_listing_without_query_reports_no_title_match(self, client, auth, corpus):
+        response = client.get(reverse('thesis-list'), **auth)
+        assert response.status_code == 200
+        assert all(r['title_match'] is False for r in response.json()['results'])
 
 
 # ---------------------------------------------------------------------------
