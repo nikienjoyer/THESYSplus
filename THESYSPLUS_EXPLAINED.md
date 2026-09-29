@@ -3055,6 +3055,123 @@ A minimal `AppConfig`, `ProcessingJobsConfig`; the app is registered in
 
 ---
 
+## Part 19 — Running THESYS+ for real (the demo setup) 🚀
+
+Everything so far described the restaurant's rooms. This Part is about **how the
+doors open in real life**: the dining room is hosted on the internet, the
+kitchen runs on a Windows computer, and a tunnel connects the two. It is a
+*demonstration* setup — no automatic startup service, and a free tunnel — not a
+permanent production deployment.
+
+### How a request travels from thesys.plus to the kitchen
+
+1. A visitor opens **https://thesys.plus** (the site also answers on
+   `www.thesys.plus`; the older `thesysplus.vercel.app` address is redirected to
+   it). The domain was bought at Namecheap, and its DNS records point at
+   **Vercel**, which serves the built React app (the "front window").
+2. The page asks for data with ordinary paths such as `/api/v1/theses/`. Because
+   the frontend calls **its own origin**, the browser never needs special
+   permission (CORS) for these calls.
+3. `frontend/vercel.json` holds **rewrites**: any `/api/v1/...` path is forwarded
+   to the ngrok address of the backend, and the page routes (`/sign-in`,
+   `/repository`, `/title-similarity`, `/trend-analysis`, `/analytics`,
+   `/profile`, `/settings`, and a few more) are answered with `index.html` so a
+   refreshed page still loads.
+4. **ngrok** (a tunnel program, `ngrok http 8000`) carries the request from the
+   internet to the kitchen computer's loopback port 8000 — the only thing
+   published. The database, the uploaded files and ngrok's own inspection page
+   are not.
+5. **Waitress** (a production-grade Python web server, not the development
+   `runserver`) receives it on `127.0.0.1:8000` and hands it to Django through
+   `demo_wsgi.py`.
+6. Django answers, and the reply travels back the same way.
+
+Because the tunnel's free plan shows a warning page to browsers, the frontend
+adds a header that skips it (see `api/client.js`, Part 1), and the backend must
+trust the tunnel's hostname and the website origins — which is what the start
+script sets up.
+
+### backend/scripts/start_demo_backend.ps1 / stop_demo_backend.ps1 — "Open the kitchen / lock up" 🔑
+
+`start_demo_backend.ps1` (optionally `-NgrokHost <hostname>`, given without
+`https://`) does, in order:
+- Refuses to run unless the virtual environment has Waitress, the ignored
+  `backend/.env.demo` file exists, and port 8000 and the worker are free.
+- Loads **only** `DJANGO_SECRET_KEY` and `JWT_SECRET` from `.env.demo` and checks
+  that each is at least 50 characters. (Their values are never written down
+  here — or anywhere in the repo.)
+- Sets the environment for the process: `DJANGO_ENV=production`,
+  `FRONTEND_ORIGIN` (the origins allowed to call the API: `https://thesys.plus`,
+  `https://www.thesys.plus` and the old Vercel address), `FRONTEND_BASE_URL`
+  (`https://thesys.plus`, used to build the links inside emails),
+  `DJANGO_ALLOWED_HOSTS` (`127.0.0.1`, `localhost` and the ngrok hostname) and
+  `DJANGO_CSRF_TRUSTED_ORIGINS` (the website origins and the ngrok hostname).
+- Runs `collectstatic`, then starts **Waitress** on `127.0.0.1:8000` (4 threads,
+  `thesys.demo_wsgi:application`) and the **`process_jobs` worker** (Part 18) as
+  hidden background processes, recording their process ids and logs under
+  `backend/.demo-run/`.
+- Waits up to 3 minutes for `GET /api/v1/health` to answer `{"status":"ok"}` —
+  the meaning-model is loaded before the server accepts searches, so the first
+  start is slow — and confirms the listener is bound to loopback only.
+
+`stop_demo_backend.ps1` is careful: it reads the recorded process id, checks
+that it is really the expected Waitress executable and that its children belong
+to that launch, and **refuses to stop anything else**. It then stops the worker
+(after checking its command line is `manage.py process_jobs`) and removes the
+process-id files. Both scripts must run from PowerShell with their full path, for
+example `powershell -ExecutionPolicy Bypass -File <path>\start_demo_backend.ps1`.
+
+### backend/scripts/start_demo_ngrok.ps1 / stop_demo_ngrok.ps1 — "Open the delivery door" 🚪
+
+`start_demo_ngrok.ps1` will not open the tunnel until the kitchen passes its own
+safety checks: something is listening on loopback port 8000 and it really is
+Waitress; the health endpoint answers; a nonexistent route shows no Django debug
+page; and a stored thesis file is **not** reachable directly under `/media/`
+(the 404 check, so the watermark cannot be bypassed). Then it starts
+`ngrok http 8000`, waits (up to 20 s) for ngrok's local API to report an HTTPS
+address, and saves that address in `backend/.demo-run/ngrok-url.txt`.
+`stop_demo_ngrok.ps1` likewise verifies the process is the expected ngrok before
+stopping it and clearing the files. The free tunnel address can change if the
+tunnel is recreated, in which case `vercel.json` and the backend's
+`-NgrokHost` must be updated to the new one.
+
+### backend/thesys/demo_wsgi.py — "The doorman who reads the visitor's badge" 🛂
+
+Vercel and ngrok each add an `X-Forwarded-Proto` header, so the value can arrive
+as `https, https`, which Waitress rejects. This small wrapper keeps the header
+**only** if the request came from `127.0.0.1` (the tunnel agent) and *every* hop
+in the chain is `https`; otherwise it deletes it. It then strips the other
+forwarding headers (`Forwarded`, `X-Forwarded-For/Host/Port/By`) before Django
+sees the request, so a visitor cannot pretend to be someone else's address or
+host. Django then calls the request secure, which the prod settings (Part 17)
+depend on.
+
+### How email leaves the building ✉️
+
+Verification links, password-reset links and decision notices go through
+`common/email_backend.py` (Part 16), controlled by `.env` names only:
+- `EMAIL_BACKEND` — `smtp` sends real mail; anything else prints to the
+  terminal (the settings call it `EMAIL_BACKEND_CHOICE`). If it is `smtp` but the
+  credentials look incomplete, the code logs a warning and quietly falls back to
+  console mode, so development never breaks.
+- `EMAIL_FROM` — the visible sender, currently `THESYS+ <noreply@thesys.plus>`.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS` — the
+  mail server. The demo now uses **Resend** over SMTP (`smtp.resend.com`, port
+  587, with an API key as the password — the key lives only in `.env`, never in
+  the repo).
+- **Domain proof.** For the mail to be accepted and trusted, `thesys.plus` carries
+  a few extra DNS records that Resend asked for (a DKIM key, and two CNAME
+  records under `send` / `rsend` for the sender check), plus a monitoring-only
+  DMARC record. Mail *to* `hello@thesys.plus` is forwarded to a normal inbox by
+  the registrar; `noreply@` is send-only, which is why every email template now
+  ends with "This is an automated message. Please do not reply to this email."
+- `FRONTEND_BASE_URL` — the address used to build the links inside those emails,
+  so a link in an inbox lands on the same site the person used
+  (`https://thesys.plus`). Old links that still say `thesysplus.vercel.app`
+  keep working because that address redirects.
+
+---
+
 ## Closing note — scope of this document
 
 This document now walks through every actively-used file across both
