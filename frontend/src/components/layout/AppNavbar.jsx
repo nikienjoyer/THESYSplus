@@ -192,6 +192,14 @@ export function AvatarDropdown({ user, onSignOut }) {
 }
 
 
+// Single source for the bar itself, so the landing page and every app page put
+// the logo, links and actions at the same coordinates.
+export const NAV_BAR_CLASS = 'px-5 sm:px-8 lg:px-14 py-3 border-b border-[var(--color-border-subtle)] bg-canvas/75 backdrop-blur-md sticky top-0 z-30';
+export const NAV_LINK_BASE = 'relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+export const NAV_LINK_IDLE = 'text-body hover:text-ink hover:bg-nav-hover-bg';
+export const NAV_LINK_ACTIVE = 'bg-nav-active-bg text-nav-active-text';
+export const NAV_LINK_SOON = 'text-subtle pointer-events-none cursor-default';
+
 export default function AppNavbar({ activePage = '' }) {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
@@ -216,7 +224,7 @@ export default function AppNavbar({ activePage = '' }) {
 
   return (
     <>
-      <nav className="px-5 sm:px-10 py-3 border-b border-[var(--color-border-subtle)] bg-canvas/75 backdrop-blur-md sticky top-0 z-30">
+      <nav className={NAV_BAR_CLASS}>
 
         {/* ── MOBILE row (< lg) ─────────────────────────────────────── */}
         <div className="flex items-center justify-between lg:hidden">
@@ -268,15 +276,7 @@ export default function AppNavbar({ activePage = '' }) {
                     onClick={soon ? (e) => e.preventDefault() : undefined}
                     aria-disabled={soon}
                     aria-current={isActive ? 'page' : undefined}
-                    className={[
-                      'relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                      soon
-                        ? 'text-gray-400 dark:text-gray-600 pointer-events-none cursor-default'
-                        : isActive
-                        ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10',
-                    ].join(' ')}
+                    className={[NAV_LINK_BASE, soon ? NAV_LINK_SOON : isActive ? NAV_LINK_ACTIVE : NAV_LINK_IDLE].join(' ')}
                   >
                     {label}
                     {soon && (

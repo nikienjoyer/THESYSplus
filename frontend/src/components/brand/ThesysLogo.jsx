@@ -29,7 +29,7 @@
  *   variant   — 'symbol' | 'wordmark' | 'full'  (default: 'wordmark')
  *   size      — side length of the symbol tile in px (default: 28)
  *   className — extra wrapper classes
- *   isDark    — controls wordmark text colour
+ *   onDark    — true on always-dark surfaces (landing footer): white wordmark
  */
 
 import symbolSvg from '../../assets/branding/thesys-symbol.svg';
@@ -78,7 +78,10 @@ export default function ThesysLogo({
   variant   = 'wordmark',
   size      = 28,
   className = '',
+  onDark    = false,
 }) {
+  const wordCls = onDark ? 'text-white' : 'text-ink';
+  const subCls  = onDark ? 'text-gray-400' : 'text-muted';
   const textSize = Math.round(size * 0.5) + 'px';
 
   if (variant === 'symbol') {
@@ -94,7 +97,7 @@ export default function ThesysLogo({
       <span className={`inline-flex items-center gap-2 select-none ${className}`}>
         <SymbolTile size={size} />
         <span className="font-bold tracking-wide leading-none" style={{ fontSize: textSize }}>
-          <span className="text-ink">THE</span>
+          <span className={wordCls}>THE</span>
           <span className="text-primary">SYS+</span>
         </span>
       </span>
@@ -107,12 +110,12 @@ export default function ThesysLogo({
       <span className="inline-flex items-center gap-2">
         <SymbolTile size={size} />
         <span className="font-bold tracking-wide leading-none" style={{ fontSize: textSize }}>
-          <span className="text-ink">THE</span>
+          <span className={wordCls}>THE</span>
           <span className="text-primary">SYS+</span>
         </span>
       </span>
       <span
-        className="text-muted"
+        className={subCls}
         style={{ fontSize: Math.round(size * 0.28) + 'px', lineHeight: 1.3 }}
       >
         Pampanga State University · College of Computing Studies

@@ -31,7 +31,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
-import { AvatarDropdown } from '../components/layout/AppNavbar';
+import { AvatarDropdown, NAV_BAR_CLASS, NAV_LINK_BASE, NAV_LINK_IDLE, NAV_LINK_SOON } from '../components/layout/AppNavbar';
 import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
@@ -72,8 +72,7 @@ const HERO_SCRIM_DESKTOP_LIGHT =
 const FEATURES = [
   {
     icon: Search,
-    iconBg:   { light: 'bg-blue-50',    dark: 'bg-blue-500/15'    },
-    iconColor:{ light: 'text-primary',  dark: 'text-blue-300'     },
+    iconBg: 'bg-info-bg', iconColor: 'text-info-text',
     title: 'Semantic Search',
     desc:  'Find relevant theses by meaning, not just keywords using SBERT embeddings.',
     to:    '/repository',
@@ -81,8 +80,7 @@ const FEATURES = [
   },
   {
     icon: ShieldCheck,
-    iconBg:   { light: 'bg-blue-50',    dark: 'bg-blue-500/15'    },
-    iconColor:{ light: 'text-primary',  dark: 'text-blue-300'     },
+    iconBg: 'bg-info-bg', iconColor: 'text-info-text',
     title: 'Title Similarity Validation',
     desc:  'Check the originality of your proposed title using SBERT and cosine similarity.',
     to:    '/title-similarity',
@@ -90,8 +88,7 @@ const FEATURES = [
   },
   {
     icon: TrendingUp,
-    iconBg:   { light: 'bg-emerald-50', dark: 'bg-emerald-500/15' },
-    iconColor:{ light: 'text-emerald-600', dark: 'text-emerald-300' },
+    iconBg: 'bg-success-bg', iconColor: 'text-success-text',
     title: 'Trend Analysis',
     desc:  'Compare research areas by thesis count, with reviewed subjects and exploratory text clusters clearly identified.',
     to:    '/trend-analysis',
@@ -99,8 +96,7 @@ const FEATURES = [
   },
   {
     icon: BarChart3,
-    iconBg:   { light: 'bg-amber-50',   dark: 'bg-amber-500/15'   },
-    iconColor:{ light: 'text-amber-600', dark: 'text-amber-300'   },
+    iconBg: 'bg-warning-bg', iconColor: 'text-warning-text',
     title: 'Analytics Dashboard',
     desc:  'Visualize repository insights, search behavior, and research trends over time.',
     to:    '/analytics',
@@ -127,20 +123,20 @@ export default function LandingPage() {
   // ── Hero text + chrome classes ─────────────────────────────────────────
   // Mobile (< lg) keeps light-on-dark in BOTH themes because the mobile scrim
   // stays dark. Only desktop light mode inverts, hence the lg: scoping.
-  const heroEyebrowCls   = isDark ? 'text-slate-300' : 'text-slate-300 lg:text-ink';
-  const heroDotCls       = isDark ? 'text-slate-500' : 'text-slate-500 lg:text-body';
-  const heroHeadingCls   = isDark ? 'text-white'     : 'text-white lg:text-ink';
-  const heroAccentCls    = isDark ? 'text-primary'   : 'text-blue-400 lg:text-primary';
-  const heroParagraphCls = isDark ? 'text-slate-200' : 'text-slate-200 lg:text-ink';
+  // Dark mode matches the mobile scrim (light text). Light mode inverts to ink
+  // on the white desktop wash, so those overrides are `lg:` scoped.
+  const heroEyebrowCls   = 'text-slate-300 lg:text-ink dark:lg:text-slate-300';
+  const heroDotCls       = 'text-slate-500 lg:text-body dark:lg:text-slate-500';
+  const heroHeadingCls   = 'text-white lg:text-ink dark:lg:text-white';
+  const heroAccentCls    = 'text-blue-400 lg:text-primary dark:text-primary';
+  const heroParagraphCls = 'text-slate-200 lg:text-ink dark:lg:text-slate-200';
 
-  const heroInputWrapCls = isDark
-    ? ''
-    : 'lg:bg-white lg:border-gray-300 lg:hover:border-gray-400 lg:focus-within:border-blue-400 lg:focus-within:ring-2 lg:focus-within:ring-blue-100';
-  const heroInputIconCls = isDark ? '' : 'lg:text-muted';
-  const heroInputTextCls = isDark ? '' : 'lg:text-gray-700 lg:placeholder-gray-500';
-  const heroOutlineBtnCls = isDark
-    ? ''
-    : 'lg:border-gray-300 lg:text-ink lg:hover:bg-gray-50 lg:hover:border-gray-400';
+  // Light-only desktop overrides sit on top of dark base classes, so these four
+  // stay theme-conditional: dark mode adds nothing.
+  const heroInputWrapCls  = isDark ? '' : 'lg:bg-white lg:border-gray-300 lg:hover:border-gray-400 lg:focus-within:border-blue-400 lg:focus-within:ring-2 lg:focus-within:ring-blue-100';
+  const heroInputIconCls  = isDark ? '' : 'lg:text-muted';
+  const heroInputTextCls  = isDark ? '' : 'lg:text-gray-700 lg:placeholder-gray-500';
+  const heroOutlineBtnCls = isDark ? '' : 'lg:border-gray-300 lg:text-ink lg:hover:bg-gray-50 lg:hover:border-gray-400';
 
   // Escape closes mobile menu
   useEffect(() => {
@@ -200,16 +196,12 @@ export default function LandingPage() {
   const trendList = topics?.slice(0, 4) || [];
 
   return (
-    <div className={`min-h-screen flex flex-col ${isDark ? 'bg-[#080d24]' : 'bg-white'} transition-colors duration-300`}>
+    <div className="min-h-screen flex flex-col bg-canvas transition-colors duration-300">
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           NAVBAR — sticky, auth-aware, matches app branding
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <nav className={`sticky top-0 z-30 px-5 sm:px-8 lg:px-14 py-3 border-b ${
-        isDark
-          ? 'border-white/[0.06] bg-[#080d24]/90 backdrop-blur-md'
-          : 'border-gray-200 bg-white/95 backdrop-blur-md'
-      }`}>
+      <nav className={NAV_BAR_CLASS}>
         {/* Mobile row */}
         <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2">
@@ -249,11 +241,7 @@ export default function LandingPage() {
               <li key={label}>
                 <Link to={to} onClick={implemented ? undefined : (e) => e.preventDefault()}
                   aria-disabled={!implemented}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                    implemented
-                      ? isDark ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
-                      : 'text-subtle cursor-default pointer-events-none'
-                  }`}>
+                  className={`${NAV_LINK_BASE} ${implemented ? NAV_LINK_IDLE : NAV_LINK_SOON}`}>
                   {label}
                 </Link>
               </li>
@@ -285,7 +273,7 @@ export default function LandingPage() {
       {mobileMenuOpen && createPortal(
         <div className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm thesys-overlay-enter" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
-          <div ref={drawerRef} className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl thesys-drawer-enter ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
+          <div ref={drawerRef} className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl thesys-drawer-enter bg-surface-elevated border-r border-border-default">
             <div className={`flex items-center justify-between px-5 py-4 border-b border-border-default`}>
               <ThesysLogo variant="wordmark" size={28} />
               <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"
@@ -447,7 +435,7 @@ export default function LandingPage() {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             REPOSITORY SNAPSHOT — enough bottom padding to seal the fold
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section className={isDark ? 'bg-[#0c1228]' : 'bg-white'}>
+        <section className="bg-surface-elevated">
           <div className="max-w-7xl mx-auto px-8 sm:px-12 lg:px-16 py-10 pb-16">
             <h2 className={`text-center text-base font-semibold tracking-wide mb-6 text-body`}>
               Repository Snapshot
@@ -518,7 +506,7 @@ export default function LandingPage() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           FEATURE SHOWCASE — begins below first fold (scroll-reveal point)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <section className={`px-5 sm:px-8 lg:px-14 pt-12 pb-12 border-t ${isDark ? 'bg-[#080d24] border-white/[0.06]' : 'bg-white border-gray-200'}`}>
+      <section className={`px-5 sm:px-8 lg:px-14 pt-12 pb-12 border-t bg-canvas border-border-default`}>
         <div className="max-w-6xl mx-auto">
           <h2 className={`text-center text-base font-semibold tracking-wide mb-8 text-body`}>
             Research tools built for CCS
@@ -532,8 +520,8 @@ export default function LandingPage() {
           >
             {FEATURES.map(({ icon: Icon, iconBg, iconColor, title, desc, to, linkLabel }) => (
               <m.div key={title} variants={fadeUp} className="flex flex-col gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? iconBg.dark : iconBg.light}`}>
-                  <Icon className={`w-5 h-5 ${isDark ? iconColor.dark : iconColor.light}`} aria-hidden="true" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                  <Icon className={`w-5 h-5 ${iconColor}`} aria-hidden="true" />
                 </div>
                 <div>
                   <h3 className={`text-sm font-semibold mb-1 text-ink`}>{title}</h3>
@@ -552,7 +540,7 @@ export default function LandingPage() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           TRENDING TOPICS PREVIEW + WHY THESYS+ — side by side
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <section className={`px-5 sm:px-8 lg:px-14 py-10 border-t ${isDark ? 'border-white/[0.06] bg-[#080d24]' : 'border-gray-100 bg-gray-50'}`}>
+      <section className={`px-5 sm:px-8 lg:px-14 py-10 border-t border-border-subtle bg-canvas`}>
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
 
           {/* LEFT — Trending Topics Preview */}
@@ -567,7 +555,7 @@ export default function LandingPage() {
             </p>
 
             <m.div
-              className={`divide-y border-y ${isDark ? 'divide-white/[0.07] border-white/[0.07]' : 'divide-gray-200 border-gray-200'}`}
+              className="divide-y border-y divide-border-default border-border-default"
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
@@ -673,7 +661,7 @@ export default function LandingPage() {
 
             {/* Col 1 — logo + institution */}
             <div className="flex flex-col gap-1 min-w-0">
-              <ThesysLogo variant="wordmark" size={26} isDark={true} />
+              <ThesysLogo variant="wordmark" size={26} onDark />
               <p className="text-xs text-gray-300 mt-1">Pampanga State University</p>
               <p className="text-xs text-gray-300">College of Computing Studies</p>
               <p className="text-xs text-gray-400 mt-1">© 2026 THESYS+. All rights reserved.</p>
