@@ -179,8 +179,16 @@ function UploadProgress({ phase, percent, canDismiss, isDark }) {
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
+// The shell mounts the modal only while it is open. Every open therefore gets
+// a fresh UploadThesisModalContent with empty form state, and a close unmounts
+// it — no effect has to reset state after the fact.
 export default function UploadThesisModal() {
-  const { isOpen, close } = useUploadModal();
+  const { isOpen } = useUploadModal();
+  return isOpen ? <UploadThesisModalContent /> : null;
+}
+
+function UploadThesisModalContent() {
+  const { close } = useUploadModal();
   const { theme } = useTheme();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -231,8 +239,9 @@ export default function UploadThesisModal() {
   const extractAbortRef = useRef(null);
   const activeSubmissionRef = useRef(null);
   const statusSlotRef = useRef(null);
-  const panelRef = useFocusTrap(isOpen);
-  const backdropRef = useBodyScrollLock(isOpen);
+  // Mounted only while open (see the shell above), so both are always active.
+  const panelRef = useFocusTrap(true);
+  const backdropRef = useBodyScrollLock(true);
 
   const markTouched = (field) => { touchedRef.current.add(field); };
 
@@ -241,14 +250,10 @@ export default function UploadThesisModal() {
     extractAbortRef.current = null;
   };
 
+  // "Upload another" on the success screen. Closing the modal needs no reset:
+  // it unmounts this component.
   const resetForm = () => {
-    // Aborted inline rather than via cancelExtraction(). resetForm is called
-    // from an effect, and react-hooks/exhaustive-deps can only stay quiet
-    // about it while its body touches nothing but refs and state setters —
-    // calling another component-scope function makes the rule treat resetForm
-    // as reactive and demand it in the dependency array.
-    extractAbortRef.current?.abort();
-    extractAbortRef.current = null;
+    cancelExtraction();
     touchedRef.current = new Set();
     setTitle(''); setAbstract(''); setAuthors(''); setKeywords('');
     setProgram(''); setYear(''); setAdviser('');
@@ -261,10 +266,10 @@ export default function UploadThesisModal() {
     setConfirmOpen(false);
   };
 
-  // Reset everything whenever the modal is dismissed so it reopens fresh
-  useEffect(() => {
-    if (!isOpen) resetForm();
-  }, [isOpen]);
+  // Closing unmounts the form; an auto-fill request still in flight must not
+  // keep running for a form that no longer exists. An accepted upload is not
+  // cancelled here — it carries its own `dismissed` flag and reports by toast.
+  useEffect(() => () => extractAbortRef.current?.abort(), []);
 
   const requestClose = () => {
     if (submitting && !uploadAcknowledged) return;
@@ -286,12 +291,11 @@ export default function UploadThesisModal() {
   // Escape dismisses the innermost layer: the confirmation if it is open,
   // otherwise the modal itself.
   useEffect(() => {
-    if (!isOpen) return;
     const onKey = (e) => { if (e.key === 'Escape') requestClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, submitting, uploadAcknowledged, confirmOpen]);
+  }, [submitting, uploadAcknowledged, confirmOpen]);
 
   // NOTE: client-side file type/size validation lives entirely in
   // FileDropzone, which rejects invalid files (with a toast) before they
@@ -682,8 +686,6 @@ export default function UploadThesisModal() {
 
   const goAndClose = (path) => { close(); navigate(path); };
 
-  if (!isOpen) return null;
-
   const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
     isDark
       ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40'
@@ -1045,7 +1047,7 @@ export default function UploadThesisModal() {
 
         {/*
           Confirmation step. Rendered INSIDE panelRef so the existing
-          useFocusTrap(isOpen) already covers it — a separate portal would put
+          focus trap (useFocusTrap) already covers it — a separate portal would put
           these buttons outside the trap and let Tab escape to the page behind.
           Positioned absolutely over the panel rather than replacing it, so the
           form is never unmounted and nothing typed can be lost.

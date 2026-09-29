@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, X } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
@@ -135,11 +135,13 @@ const EXAMPLE_QUERIES = [
 // ---------------------------------------------------------------------------
 const repoCache = new Map();
 
-function getCached(key) {
+// Pure read (safe during render): an expired entry is still returned, marked
+// stale, so the page can keep showing it while a refresh runs. setCache
+// overwrites it; logout clears the whole map.
+function readCache(key) {
   const entry = repoCache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL_MS) { repoCache.delete(key); return null; }
-  return entry.data;
+  return { data: entry.data, fresh: Date.now() - entry.ts <= CACHE_TTL_MS };
 }
 
 function setCache(key, data) {
@@ -320,6 +322,32 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
   );
 }
 
+// Reusable example-query chip row. Module scope (not inside the page) so
+// React keeps the same component between renders instead of rebuilding it.
+function ExampleChips({ onSelect, isDark }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {EXAMPLE_QUERIES.map((q) => (
+        <button
+          key={q}
+          type="button"
+          onClick={() => onSelect(q)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+            isDark
+              ? 'border-white/15 text-gray-300 hover:bg-white/[0.07] hover:text-white'
+              : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <svg className="w-3 h-3 flex-shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          {q}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -327,7 +355,6 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
 export default function RepositoryPage() {
   const { theme } = useTheme();
   const { isAuthenticated, isInitializing, user } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isDark = theme === 'dark';
 
@@ -343,13 +370,6 @@ export default function RepositoryPage() {
   const canReviewSubjects = user?.role === 'faculty' || user?.role === 'administrator';
   const awaitingSubjectReview = canReviewSubjects && searchParams.get('subject_review') === 'pending';
 
-  const [theses, setTheses] = useState([]);
-  // loading: true only when no results are currently displayed (first load / hard filter change)
-  const [loading, setLoading] = useState(true);
-  // softLoading: true when results are visible but a background refresh is happening
-  const [softLoading, setSoftLoading] = useState(false);
-  const [error, setError] = useState('');
-
   // Controlled input value (not committed until form submit). Re-synced
   // during render whenever the committed `q` changes from outside — a navbar
   // click to /repository, or Back/Forward between queries.
@@ -359,8 +379,6 @@ export default function RepositoryPage() {
     setSyncedSearch(search);
     setSearchInput(search);
   }
-
-  const [totalCount, setTotalCount] = useState(0);
 
   // Replace (not push) the current history entry, so Back from a thesis
   // returns to exactly these results rather than stepping through every
@@ -399,77 +417,82 @@ export default function RepositoryPage() {
     debounceRef.current = setTimeout(() => {
       updateSearchParams({ min: v === DEFAULT_THRESHOLD ? '' : v, page: '' });
     }, DEBOUNCE_MS);
-  }, [updateSearchParams]);
+  }, [updateSearchParams, setSliderThreshold]);
 
   // Clean up debounce timer on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   const keywordHeaderRef = useRef(null);
 
-  const loadTheses = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (effectiveSearch) {
-      params.set('q', effectiveSearch);
-      params.set('min_score', (committedThreshold / 100).toFixed(2));
-    }
-    if (year) params.set('year', year);
-    if (program) params.set('program', program);
-    if (activeKeyword) params.set('keyword', activeKeyword);
-    if (awaitingSubjectReview) params.set('subject_review', 'pending');
-    params.set('page', String(page));
-    params.set('page_size', String(PAGE_SIZE));
+  // ── Results ──────────────────────────────────────────────────────────
+  // State holds only server responses, each tagged with the query it answers.
+  // Everything shown is derived from those and the cache during render, so the
+  // fetch effect never sets state synchronously, and a slow reply to an older
+  // query can never replace the results for the current one.
+  const params = new URLSearchParams();
+  if (effectiveSearch) {
+    params.set('q', effectiveSearch);
+    params.set('min_score', (committedThreshold / 100).toFixed(2));
+  }
+  if (year) params.set('year', year);
+  if (program) params.set('program', program);
+  if (activeKeyword) params.set('keyword', activeKeyword);
+  if (awaitingSubjectReview) params.set('subject_review', 'pending');
+  params.set('page', String(page));
+  params.set('page_size', String(PAGE_SIZE));
+  const cacheKey = params.toString();
 
-    const cacheKey = params.toString();
-    const cached = getCached(cacheKey);
+  const [fetched, setFetched] = useState(null); // { key, results, count } — last response
+  const [failedKey, setFailedKey] = useState(null); // query whose request errored
 
-    if (cached) {
-      // Instant render from cache — no skeleton shown
-      setTheses(cached.results || []);
-      setTotalCount(cached.count || 0);
-      setLoading(false);
-      setSoftLoading(false);
-      return;
-    }
+  // A failure only describes the query it happened on. Clearing it when the
+  // query changes means returning to a failed query retries with the normal
+  // loading indicators instead of a stale error.
+  const [lastKey, setLastKey] = useState(cacheKey);
+  if (lastKey !== cacheKey) {
+    setLastKey(cacheKey);
+    setFailedKey(null);
+  }
 
-    // No cache: show skeleton only if we have no results yet, otherwise use soft indicator
-    if (theses.length === 0) {
-      setLoading(true);
-    } else {
-      setSoftLoading(true);
-    }
-    setError('');
+  const cacheEntry = readCache(cacheKey);
+  const fetchedHere = fetched?.key === cacheKey ? fetched : null;
+  const current = fetchedHere ?? cacheEntry?.data ?? null;
+  // Fetch when this mount has no reply for the query and the cache has no
+  // fresh copy. A stale cached copy stays on screen while it refreshes.
+  const needsFetch = !fetchedHere && !cacheEntry?.fresh;
+  const errored = failedKey === cacheKey;
 
-    try {
-      const res = await client.get(`/theses/?${cacheKey}`);
-      setCache(cacheKey, res.data);
-      setTheses(res.data.results || []);
-      setTotalCount(res.data.count || 0);
-    } catch (err) {
-      // Ignore request cancellations (component unmounted mid-fetch)
-      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
-        return;
-      }
-      // If we were doing a background refresh and already have results visible,
-      // silently swallow the error — don't replace good data with an error banner.
-      // Only show the error state when the page has nothing to display.
-      if (theses.length === 0) {
-        setError('Failed to load theses. Please try again.');
-        setTheses([]);
-      }
-      // If theses.length > 0 (soft-loading), leave existing data intact
-    } finally {
-      setLoading(false);
-      setSoftLoading(false);
-    }
-  }, [effectiveSearch, year, program, activeKeyword, awaitingSubjectReview, page, committedThreshold]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Note: `theses` is intentionally excluded from deps — it's read only to
-  // decide skeleton vs soft-indicator, and including it would cause an extra
-  // render cycle after every fetch.
+  // The rows actually on screen, kept so they survive the cache being
+  // cleared underneath them (an upload calls clearAllCaches()) and stay
+  // visible while a new query loads. Synced during render, not in an effect.
+  const [displayed, setDisplayed] = useState(current);
+  if (current && current !== displayed) setDisplayed(current);
+  const shown = current ?? displayed;
 
+  const theses = shown?.results ?? [];
+  const totalCount = shown?.count ?? 0;
+  // Skeleton only when nothing is on screen yet; otherwise a soft indicator.
+  const loading = !shown && !errored;
+  const softLoading = !!shown && needsFetch && !errored;
+  // A failed background refresh keeps the visible results instead of an error.
+  const error = errored && !shown ? 'Failed to load theses. Please try again.' : '';
+
+  const ready = !isInitializing && isAuthenticated;
   useEffect(() => {
-    if (isInitializing || !isAuthenticated) return;
-    loadTheses();
-  }, [isAuthenticated, isInitializing, loadTheses]);
+    if (!ready || !needsFetch) return undefined;
+    const controller = new AbortController();
+    client.get(`/theses/?${cacheKey}`, { signal: controller.signal })
+      .then((res) => {
+        setCache(cacheKey, res.data);
+        setFetched({ key: cacheKey, results: res.data.results || [], count: res.data.count || 0 });
+      })
+      .catch((err) => {
+        // Superseded or unmounted: the newer query owns the screen now.
+        if (controller.signal.aborted || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setFailedKey(cacheKey);
+      });
+    return () => controller.abort();
+  }, [ready, needsFetch, cacheKey]);
 
   // Bring the destination header into view rather than the top of the page, so
   // the sentence explaining what just happened is the thing the user sees.
@@ -521,29 +544,6 @@ export default function RepositoryPage() {
     setSliderThreshold(pct);
     updateSearchParams({ min: pct === DEFAULT_THRESHOLD ? '' : pct, page: '' });
   };
-
-  // Reusable example-query chip row
-  const ExampleChips = () => (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {EXAMPLE_QUERIES.map((q) => (
-        <button
-          key={q}
-          type="button"
-          onClick={() => runExampleQuery(q)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-            isDark
-              ? 'border-white/15 text-gray-300 hover:bg-white/[0.07] hover:text-white'
-              : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-          }`}
-        >
-          <svg className="w-3 h-3 flex-shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          {q}
-        </button>
-      ))}
-    </div>
-  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -706,7 +706,7 @@ export default function RepositoryPage() {
             <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Try a semantic search:
             </p>
-            <ExampleChips />
+            <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
           </div>
         )}
 
@@ -843,7 +843,7 @@ export default function RepositoryPage() {
               {/* Example-query recovery */}
               <div className="mt-2 flex flex-col items-center gap-2">
                 <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Or try one of these searches:</p>
-                <ExampleChips />
+                <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
               </div>
             </div>
           ) : (
