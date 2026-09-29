@@ -615,9 +615,7 @@ export default function RepositoryPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
-                  isDark
-                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
-                    : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+                  'thesys-input'
                 }`}
               />
 

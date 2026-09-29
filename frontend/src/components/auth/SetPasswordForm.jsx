@@ -96,9 +96,7 @@ export default function SetPasswordForm({
   };
 
   const inputCls = (hasErr) => `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors pr-11 ${
-    isDark
-      ? `bg-white/[0.04] text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary ${hasErr ? 'border-rose-500/50' : 'border-white/10'}`
-      : `bg-white text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 ${hasErr ? 'border-rose-400' : 'border-gray-200'}`
+    `thesys-input ${hasErr ? 'border-danger' : ''}`
   }`;
   const eyeCls = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${
     isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'

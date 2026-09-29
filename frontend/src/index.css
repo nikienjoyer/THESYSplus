@@ -188,6 +188,28 @@
     box-shadow: none;
   }
 
+  /* ── .thesys-input — text field fill, border, placeholder and focus ── */
+  /* Size, radius and padding stay with the field's own utilities; add
+     border-danger for an error state (utilities win over this layer). */
+  .thesys-input {
+    border-width: 1px;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-text);
+    outline: none;
+    transition-property: border-color, box-shadow;
+    transition-duration: 150ms;
+  }
+  .thesys-input::placeholder {
+    color: var(--color-text-muted);
+  }
+  .thesys-input:focus {
+    border-color: var(--color-primary);
+  }
+  .thesys-input:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-primary);
+  }
+
   /* ── Primary button — consistent hover + focus ring ──────────────── */
   .thesys-btn-primary {
     display: inline-flex;
