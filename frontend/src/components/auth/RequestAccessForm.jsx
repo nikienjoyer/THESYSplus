@@ -38,7 +38,7 @@ function validateFile(file) {
   return '';
 }
 
-export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, onOpenLegal }) {
+export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLegal }) {
   const [firstName, setFirstName]     = useState('');
   const [lastName, setLastName]       = useState('');
   const [email, setEmail]             = useState('');
@@ -96,8 +96,8 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
   const inputCls = `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
     'thesys-input'
   }`;
-  const labelCls = `block text-sm font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
-  const errCls   = `text-xs mt-1 ${isDark ? 'text-rose-400' : 'text-rose-600'}`;
+  const labelCls = `block text-sm font-medium mb-1.5 text-body`;
+  const errCls   = `text-xs mt-1 text-danger`;
 
   const canSubmit = firstName && lastName && email && !emailErr && doc && !docErr && agreed && !isLoading;
 
@@ -136,7 +136,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
           placeholder="2023123456@pampangastateu.edu.ph"
           disabled={isLoading}
           aria-invalid={!!emailErr}
-          className={`${inputCls} ${emailErr ? (isDark ? 'border-rose-500/50' : 'border-rose-400') : ''}`}
+          className={`${inputCls} ${emailErr ? ('border-danger') : ''}`}
         />
         {emailErr && <p className={errCls}>{emailErr}</p>}
       </div>
@@ -154,7 +154,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
                 disabled={isLoading}
                 className="accent-blue-600"
               />
-              <span className={`text-sm capitalize ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{r}</span>
+              <span className={`text-sm capitalize text-body`}>{r}</span>
             </label>
           ))}
         </div>
@@ -165,7 +165,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
         <label className={labelCls}>
           Student ID or Certificate of Registration
         </label>
-        <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        <p className={`text-xs mb-2 text-muted`}>
           Upload a clear PampangaStateU Student ID or Certificate of Registration.
           <br />
           Accepted: PNG · JPG · PDF · max 10 MB
@@ -175,15 +175,13 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
           <label
             htmlFor="req-doc"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed cursor-pointer transition-colors ${
-              isDark
-                ? 'border-white/20 hover:border-blue-500/40 hover:bg-blue-500/[0.06]'
-                : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
+              'border-border-strong hover:border-primary hover:bg-info-bg'
             }`}
           >
-            <svg className={`w-5 h-5 flex-shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg className={`w-5 h-5 flex-shrink-0 text-muted`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
             </svg>
-            <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <span className={`text-sm text-muted`}>
               Click to upload document
             </span>
             <input
@@ -196,17 +194,17 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
           </label>
         ) : (
           <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${
-            isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-50'
+            'border-border-default bg-surface-secondary'
           }`}>
-            <svg className={`w-5 h-5 flex-shrink-0 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg className={`w-5 h-5 flex-shrink-0 text-primary`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
             </svg>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{doc.name}</p>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{fmtBytes(doc.size)}</p>
+              <p className={`text-sm font-medium truncate text-ink`}>{doc.name}</p>
+              <p className={`text-xs text-muted`}>{fmtBytes(doc.size)}</p>
             </div>
             <button type="button" onClick={removeFile} disabled={isLoading}
-              className={`flex-shrink-0 transition-colors ${isDark ? 'text-gray-600 hover:text-rose-400' : 'text-gray-400 hover:text-rose-500'}`}
+              className={`flex-shrink-0 transition-colors text-subtle hover:text-danger`}
               aria-label="Remove file">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -231,7 +229,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
             disabled={isLoading}
             className="mt-0.5 accent-blue-600 cursor-pointer"
           />
-          <span className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <span className={`text-sm leading-relaxed text-body`}>
             I confirm that the information I provided is accurate, and I agree to the{' '}
             <button
               type="button"
@@ -262,11 +260,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
 
       {/* Server error */}
       {error && (
-        <div className={`rounded-lg border px-4 py-3 text-sm ${
-          isDark
-            ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-            : 'bg-rose-50 border-rose-200 text-rose-700'
-        }`}>
+        <div className={`rounded-lg border px-4 py-3 text-sm bg-danger-bg border-danger-border text-danger-text`}>
           {error}
         </div>
       )}

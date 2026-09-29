@@ -262,9 +262,7 @@ export default function ThesisDetailPage() {
               <button
                 type="button"
                 onClick={handleBack}
-                className={`flex w-fit items-center gap-1.5 mb-4 text-left text-sm font-medium transition-colors ${
-                  isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`flex w-fit items-center gap-1.5 mb-4 text-left text-sm font-medium transition-colors text-muted hover:text-ink`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
@@ -280,9 +278,7 @@ export default function ThesisDetailPage() {
                 {thesis.program}
               </span>
               <span
-                className={`text-xs px-2 py-0.5 rounded-md ${
-                  isDark ? 'bg-white/[0.05] text-gray-300 border border-white/10' : 'bg-gray-100 text-gray-700 border border-gray-200'
-                }`}
+                className={`text-xs px-2 py-0.5 rounded-md bg-surface-secondary text-body border border-border-default`}
               >
                 {thesis.year}
               </span>
@@ -353,11 +349,7 @@ export default function ThesisDetailPage() {
                         title={label}
                         className={`text-xs px-2 py-1 rounded-md cursor-pointer transition-colors
                           hover:underline focus-visible:underline
-                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          isDark
-                            ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
-                            : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
-                        }`}
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-info-bg text-info-text border border-info-border hover:bg-info-border`}
                       >
                         {label}
                       </button>
@@ -365,11 +357,7 @@ export default function ThesisDetailPage() {
                   })}
                   {thesis.keywords.length > 8 && (
                     <span
-                      className={`text-xs px-2 py-1 rounded-md ${
-                        isDark
-                          ? 'bg-white/[0.05] text-gray-400 border border-white/10'
-                          : 'bg-gray-50 text-gray-600 border border-gray-200'
-                      }`}
+                      className={`text-xs px-2 py-1 rounded-md bg-surface-secondary text-muted border border-border-default`}
                     >
                       +{thesis.keywords.length - 8} more
                     </span>
@@ -395,11 +383,7 @@ export default function ThesisDetailPage() {
                       aria-label={`View theses in ${thesis.primary_subject.name}`}
                       className={`inline-flex items-center text-xs px-2 py-1 rounded-md transition-colors
                         hover:underline focus-visible:underline
-                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isDark
-                          ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
-                          : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
-                      }`}
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-info-bg text-info-text border border-info-border hover:bg-info-border`}
                     >
                       {thesis.primary_subject.name}
                     </Link>

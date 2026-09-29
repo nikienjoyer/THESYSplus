@@ -10,7 +10,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
 import { SignInCard } from '../components/auth';
 import Alert from '../components/ui/Alert';
 import AuthBranding from '../components/brand/AuthBranding';
@@ -42,8 +41,6 @@ export default function SignInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signIn } = useAuth();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,14 +76,14 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <AuthBranding subtitle="Sign in to continue" isDark={isDark} />
+        <AuthBranding subtitle="Sign in to continue" />
 
         {/* Context banner */}
         {banner && (
           <Alert className={`mb-5 ${
             banner.variant === 'success'
-              ? isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : isDark ? 'bg-blue-500/10 border-blue-500/30 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-800'
+              ? 'bg-success-bg border-success-border text-success-text'
+              : 'bg-info-bg border-info-border text-info-text'
           }`}>
             {banner.message}
           </Alert>
@@ -97,14 +94,14 @@ export default function SignInPage() {
 
         {/* Footer — all internal links use <Link> to avoid full reloads */}
         <div className="mt-5 flex flex-col items-center gap-2">
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm text-body`}>
             Don&rsquo;t have an account?{' '}
             <Link to="/request-access" className={`font-medium hover:underline text-primary`}>
               Request Access
             </Link>
           </p>
           <Link to="/forgot-password"
-            className={`text-sm hover:underline ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`text-sm hover:underline text-muted hover:text-body`}>
             Forgot your password?
           </Link>
         </div>

@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 
-export default function LegalModal({ isOpen, onClose, type, isDark }) {
+export default function LegalModal({ isOpen, onClose, type }) {
   const panelRef = useFocusTrap(isOpen);
   const backdropRef = useBodyScrollLock(isOpen);
   // Close on Escape key
@@ -67,7 +67,7 @@ export default function LegalModal({ isOpen, onClose, type, isDark }) {
               Prose headings (h3/h4) inside content.body carry their own
               Inter class names and override font-family at element level. */}
           <div
-            className={`max-w-[65ch] font-reading text-[1.0625rem] leading-[1.65] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+            className={`max-w-[65ch] font-reading text-[1.0625rem] leading-[1.65] text-ink`}
             style={{ textWrap: 'pretty' }}
           >
             {content.body}

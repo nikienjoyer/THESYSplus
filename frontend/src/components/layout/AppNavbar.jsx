@@ -54,7 +54,7 @@ function initials(user) {
 // isDark is retained for the AvatarFallback background (blue tint differs
 // between themes) and is still passed in by LandingPage which has its own
 // theme derivation. All other colours use semantic tokens.
-export function AvatarDropdown({ user, isDark, onSignOut }) {
+export function AvatarDropdown({ user, onSignOut }) {
   const { dataUrl: avatarUrl } = useProfilePicture();
   const [dropOpen, setDropOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -93,9 +93,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
           <Avatar className="w-8 h-8">
             {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile" />}
             <AvatarFallback
-              className={`text-xs font-bold ${
-                isDark ? 'bg-blue-600/30 text-blue-200' : 'bg-blue-100 text-blue-700'
-              }`}
+              className={`text-xs font-bold bg-info-bg text-info-text`}
             >
               {initials(user)}
             </AvatarFallback>
@@ -234,11 +232,11 @@ export default function AppNavbar({ activePage = '' }) {
               </svg>
             </button>
             <Link to="/" className="flex items-center gap-2 select-none">
-              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+              <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
+            <AvatarDropdown user={user} onSignOut={handleSignOut} />
             <button
               type="button"
               onClick={toggleTheme}
@@ -255,7 +253,7 @@ export default function AppNavbar({ activePage = '' }) {
           {/* COL 1 — Logo */}
           <div className="flex items-center gap-2 select-none">
             <Link to="/" className="flex items-center gap-2">
-              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+              <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
 
@@ -299,7 +297,7 @@ export default function AppNavbar({ activePage = '' }) {
             >
               Upload Thesis
             </button>
-            <AvatarDropdown user={user} isDark={isDark} onSignOut={handleSignOut} />
+            <AvatarDropdown user={user} onSignOut={handleSignOut} />
             <button
               type="button"
               onClick={toggleTheme}
@@ -329,7 +327,7 @@ export default function AppNavbar({ activePage = '' }) {
           <div ref={drawerRef} className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl bg-surface-elevated border-r border-[var(--color-border)] thesys-drawer-enter">
             {/* Drawer header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+              <ThesysLogo variant="wordmark" size={28} />
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}

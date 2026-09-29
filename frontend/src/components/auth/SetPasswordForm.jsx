@@ -55,7 +55,6 @@ function EyeIcon({ off }) {
 export default function SetPasswordForm({
   setupToken,
   onSuccess,
-  isDark = false,
   idPrefix = 'sp',
 }) {
   const [newPw, setNewPw]               = useState('');
@@ -98,12 +97,10 @@ export default function SetPasswordForm({
   const inputCls = (hasErr) => `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors pr-11 ${
     `thesys-input ${hasErr ? 'border-danger' : ''}`
   }`;
-  const eyeCls = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${
-    isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-  }`;
-  const labelCls = `block text-sm font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
-  const errCls   = `text-xs mt-1 ${isDark ? 'text-rose-400' : 'text-rose-600'}`;
-  const hintCls  = `text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`;
+  const eyeCls = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none text-muted hover:text-body`;
+  const labelCls = `block text-sm font-medium mb-1.5 text-body`;
+  const errCls   = `text-xs mt-1 text-danger`;
+  const hintCls  = `text-xs mt-1 text-subtle`;
 
   // INVALID_RESET_TOKEN means the setup token was consumed or aged out between
   // being issued and being submitted. The email address is already verified at
@@ -112,18 +109,16 @@ export default function SetPasswordForm({
   if (tokenInvalid) {
     return (
       <div className="text-center">
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-          isDark ? 'bg-rose-500/15' : 'bg-rose-50'
-        }`}>
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-danger-bg`}>
           <TriangleAlert className="w-7 h-7 text-rose-500" aria-hidden="true" />
         </div>
-        <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <h2 className={`text-xl font-bold mb-2 text-ink`}>
           Setup link expired
         </h2>
-        <p className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+        <p className={`text-sm mb-1 text-body`}>
           This account setup link is invalid or has expired.
         </p>
-        <p className={`text-xs mb-6 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        <p className={`text-xs mb-6 text-muted`}>
           Your email is already verified — use &quot;Forgot your password?&quot; on the
           sign-in page to request a new setup link.
         </p>
@@ -139,11 +134,11 @@ export default function SetPasswordForm({
     <form onSubmit={handleSubmit} noValidate>
       <div className="flex items-center gap-2 mb-1">
         <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" aria-hidden="true" />
-        <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <h2 className={`text-xl font-bold text-ink`}>
           Email Verified
         </h2>
       </div>
-      <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+      <p className={`text-sm mb-5 text-body`}>
         Set a password below to activate your THESYS+ account.
       </p>
 
@@ -193,9 +188,7 @@ export default function SetPasswordForm({
       </div>
 
       {serverErr && (
-        <div className={`rounded-lg border px-4 py-3 text-sm mb-4 ${
-          isDark ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
-        }`}>
+        <div className={`rounded-lg border px-4 py-3 text-sm mb-4 bg-danger-bg border-danger-border text-danger-text`}>
           {serverErr}
         </div>
       )}

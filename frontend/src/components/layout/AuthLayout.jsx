@@ -60,7 +60,7 @@ export default function AuthLayout() {
           className="flex items-center select-none"
           aria-label="THESYS+ home"
         >
-          <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+          <ThesysLogo variant="wordmark" size={28} />
         </Link>
 
         {/* Theme toggle */}

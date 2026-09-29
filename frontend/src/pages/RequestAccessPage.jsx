@@ -23,7 +23,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
 import client from '../api/client';
-import { useTheme } from '../context/ThemeContext';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
 import SetPasswordForm from '../components/auth/SetPasswordForm';
 import LegalModal from '../components/legal/LegalModal';
@@ -119,20 +118,12 @@ const DECISIONS = {
   },
 };
 
-function toneClasses(tone, isDark) {
+function toneClasses(tone) {
   const map = {
-    success: isDark
-      ? { wrap: 'bg-emerald-500/10 border-emerald-500/25', icon: 'bg-emerald-500/20', title: 'text-white', body: 'text-emerald-100', note: 'text-emerald-300' }
-      : { wrap: 'bg-emerald-50 border-emerald-200', icon: 'bg-emerald-100', title: 'text-emerald-950', body: 'text-emerald-900', note: 'text-emerald-800' },
-    warning: isDark
-      ? { wrap: 'bg-amber-500/10 border-amber-500/25', icon: 'bg-amber-500/20', title: 'text-white', body: 'text-amber-100', note: 'text-amber-300' }
-      : { wrap: 'bg-amber-50 border-amber-200', icon: 'bg-amber-100', title: 'text-amber-950', body: 'text-amber-900', note: 'text-amber-800' },
-    error: isDark
-      ? { wrap: 'bg-rose-500/10 border-rose-500/25', icon: 'bg-rose-500/20', title: 'text-white', body: 'text-rose-100', note: 'text-rose-300' }
-      : { wrap: 'bg-rose-50 border-rose-200', icon: 'bg-rose-100', title: 'text-rose-950', body: 'text-rose-900', note: 'text-rose-800' },
-    neutral: isDark
-      ? { wrap: 'bg-blue-500/10 border-blue-500/20', icon: 'bg-blue-500/20', title: 'text-white', body: 'text-blue-100', note: 'text-blue-300' }
-      : { wrap: 'bg-blue-50 border-blue-200', icon: 'bg-blue-100', title: 'text-blue-950', body: 'text-blue-900', note: 'text-blue-800' },
+    success: { wrap: 'bg-success-bg border-success-border', icon: 'bg-success-bg', title: 'text-ink', body: 'text-success-text', note: 'text-success-text' },
+    warning: { wrap: 'bg-warning-bg border-warning-border', icon: 'bg-warning-bg', title: 'text-ink', body: 'text-warning-text', note: 'text-warning-text' },
+    error:   { wrap: 'bg-danger-bg border-danger-border',   icon: 'bg-danger-bg',  title: 'text-ink', body: 'text-danger-text',  note: 'text-danger-text' },
+    neutral: { wrap: 'bg-info-bg border-info-border',       icon: 'bg-info-bg',    title: 'text-ink', body: 'text-info-text',    note: 'text-info-text' },
   };
   return map[tone] || map.neutral;
 }
@@ -162,7 +153,7 @@ const STEP_TO_NODE = {
   [STEP_ACCOUNT_READY]: 3,
 };
 
-function ProgressStepper({ step, isDark }) {
+function ProgressStepper({ step }) {
   if (step === STEP_REJECTED) return null; // no stepper for rejected
 
   const isManualReview = step === STEP_MANUAL_REVIEW;
@@ -203,7 +194,7 @@ function ProgressStepper({ step, isDark }) {
                     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : isActive
                     ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
-                    : isDark ? 'bg-transparent border-white/20 text-gray-600' : 'bg-transparent border-gray-200 text-gray-400'
+                    : 'bg-transparent border-border-strong text-subtle'
                 }`}>
                   {isComplete ? (
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -215,10 +206,10 @@ function ProgressStepper({ step, isDark }) {
                 </div>
                 <span className={`text-[11px] mt-1 text-center leading-tight max-w-[52px] ${
                   isComplete
-                    ? isDark ? 'text-emerald-400' : 'text-emerald-600'
+                    ? 'text-success'
                     : isActive
                     ? 'text-primary font-semibold'
-                    : isDark ? 'text-gray-600' : 'text-gray-400'
+                    : 'text-subtle'
                 }`}>
                   {label}
                 </span>
@@ -229,7 +220,7 @@ function ProgressStepper({ step, isDark }) {
                 <div className={`flex-1 h-0.5 mx-1 mb-4 rounded-full transition-colors ${
                   i < activeNode
                     ? 'bg-emerald-500'
-                    : isDark ? 'bg-white/10' : 'bg-gray-200'
+                    : 'bg-border-default'
                 }`} />
               )}
             </div>
@@ -244,9 +235,7 @@ function ProgressStepper({ step, isDark }) {
 // Page
 // ---------------------------------------------------------------------------
 export default function RequestAccessPage() {
-  const { theme } = useTheme();
   const navigate = useNavigate();
-  const isDark = theme === 'dark';
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState('');
@@ -470,9 +459,7 @@ export default function RequestAccessPage() {
     stepperStep = STEP_FORM;
   }
 
-  const cardBg = isDark
-    ? 'bg-white/[0.03] border-white/10'
-    : 'bg-white border-slate-200 shadow-card';
+  const cardBg = 'bg-surface border-border-default shadow-card';
 
   const showPanel = (
     claimState === 'verified'
@@ -491,10 +478,10 @@ export default function RequestAccessPage() {
       <div className="w-full max-w-lg">
 
         {/* Branding */}
-        <AuthBranding subtitle={subtitle} isDark={isDark} />
+        <AuthBranding subtitle={subtitle} />
 
         {/* Progress stepper */}
-        <ProgressStepper step={stepperStep} isDark={isDark} />
+        <ProgressStepper step={stepperStep} />
 
         <div>
           {showPanel ? (
@@ -504,22 +491,19 @@ export default function RequestAccessPage() {
                 <SetPasswordForm
                   setupToken={setupToken}
                   onSuccess={handlePasswordSet}
-                  isDark={isDark}
                   idPrefix="ra"
                 />
               )}
 
               {claimState === 'account_ready' && (
                 <div className="text-center">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-                  }`}>
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
                     <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
                   </div>
-                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <h2 className={`text-xl font-bold mb-2 text-ink`}>
                     Account Ready
                   </h2>
-                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-sm mb-5 text-body`}>
                     Your password has been set and your THESYS+ account is now active.
                   </p>
                   <button
@@ -533,15 +517,13 @@ export default function RequestAccessPage() {
 
               {claimState === 'already_active' && (
                 <div className="text-center">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-                  }`}>
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
                     <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
                   </div>
-                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <h2 className={`text-xl font-bold mb-2 text-ink`}>
                     This account is already active.
                   </h2>
-                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-sm mb-5 text-body`}>
                     Your password has already been set, so there is nothing left to do here.
                   </p>
                   <Link to="/sign-in"
@@ -554,18 +536,18 @@ export default function RequestAccessPage() {
               {claimState === 'expired' && (
                 <div className="text-center">
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    isDark ? 'bg-amber-500/15' : 'bg-amber-50'
+                    'bg-warning-bg'
                   }`}>
                     <Mail className="w-7 h-7 text-amber-500" aria-hidden="true" />
                   </div>
-                  <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <h2 className={`text-xl font-bold mb-2 text-ink`}>
                     Still waiting on your email
                   </h2>
                   {/* Deliberately NOT "session expired, start again": the access
                       request and the 24-hour email link are both still valid, and
                       telling the user to resubmit would mean re-uploading their ID
                       document for nothing. */}
-                  <p className={`text-sm mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <p className={`text-sm mb-5 text-body`}>
                     This page stopped waiting for your verification. If you&apos;ve already
                     clicked the link in your email, you can sign in now. If not, the link
                     is still valid — click it and follow the instructions there.
@@ -580,7 +562,7 @@ export default function RequestAccessPage() {
           ) : decision ? (
             /* ── Decision result ── */
             (() => {
-              const cls = toneClasses(decisionInfo.tone, isDark);
+              const cls = toneClasses(decisionInfo.tone);
               return (
                 <div>
                   <div className={`rounded-xl border p-5 mb-6 ${cls.wrap}`}>
@@ -602,7 +584,7 @@ export default function RequestAccessPage() {
                     {decision === 'pending_email_verification' && (
                       <p
                         aria-live="polite"
-                        className={`text-sm text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                        className={`text-sm text-center text-body`}
                       >
                         Click the link in your email to verify your address. This page
                         will continue automatically once you do.
@@ -618,7 +600,7 @@ export default function RequestAccessPage() {
                       </button>
                     )}
                     <Link to="/sign-in"
-                      className={`text-sm mt-1 ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}>
+                      className={`text-sm mt-1 text-muted hover:text-body`}>
                       Return to Sign In
                     </Link>
                   </div>
@@ -628,14 +610,13 @@ export default function RequestAccessPage() {
           ) : (
             /* ── Form ── */
             <>
-              <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-lg font-bold mb-2 text-ink`}>
                 Request Account Access
               </h2>
               <RequestAccessForm
                 onSubmit={handleSubmit}
                 error={error}
                 isLoading={isLoading}
-                isDark={isDark}
                 onOpenLegal={setLegalModal}
               />
             </>
@@ -645,7 +626,7 @@ export default function RequestAccessPage() {
         {/* Footer links */}
         {!decision && (
           <div className="mt-5 text-center">
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-sm text-body`}>
               Already have an account?{' '}
               <Link to="/sign-in" className="font-medium hover:underline text-primary">
                 Sign In
@@ -660,7 +641,6 @@ export default function RequestAccessPage() {
         isOpen={legalModal !== null}
         onClose={() => setLegalModal(null)}
         type={legalModal}
-        isDark={isDark}
       />
     </div>
   );

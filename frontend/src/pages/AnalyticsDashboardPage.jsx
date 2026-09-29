@@ -31,14 +31,13 @@ import { BarChart3 } from 'lucide-react';
 import client from '../api/client';
 import { registerCacheClearer } from '../utils/appCaches';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
 import AnimatedCounter from '../components/ui/AnimatedCounter';
 import { useMotionVariants } from '../lib/motion';
-import { CHART_PALETTE, TOKEN_COLORS } from '../styles/tokens';
+import { CHART_PALETTE } from '../styles/tokens';
 
 
 // ---------------------------------------------------------------------------
@@ -256,10 +255,8 @@ function shortProgram(prog) {
 // Page
 // ---------------------------------------------------------------------------
 export default function AnalyticsDashboardPage() {
-  const { theme } = useTheme();
   const { isAuthenticated, isInitializing } = useAuth();
   const navigate = useNavigate();
-  const isDark = theme === 'dark';
 
   // Seed state from cache immediately — avoids blank flash on revisit
   const [data, setData] = useState(() => getAnalyticsCached());
@@ -391,7 +388,7 @@ export default function AnalyticsDashboardPage() {
                 label="Semantic Ready"
                 value={data.semantic_ready}
                 sublabel="indexed for AI search"
-                accent={isDark ? TOKEN_COLORS.primaryDark : TOKEN_COLORS.primaryLight}
+                accent="var(--color-primary)"
                 tooltipText="Theses with generated SBERT embeddings that are available for semantic retrieval. A thesis becomes Semantic Ready after its embedding vector is computed."
               />
               <StatCard
@@ -405,7 +402,7 @@ export default function AnalyticsDashboardPage() {
                 sublabel={`last ${data.recent_uploads_days} days`}
                 accent={
                   data.recent_uploads_count > 0
-                    ? isDark ? '#34d399' : '#059669'
+                    ? 'var(--color-success)'
                     : undefined
                 }
               />
@@ -416,7 +413,7 @@ export default function AnalyticsDashboardPage() {
                   sublabel="awaiting faculty approval"
                   accent={
                     data.pending_review_count > 0
-                      ? isDark ? '#fbbf24' : '#d97706'
+                      ? 'var(--color-warning)'
                       : undefined
                   }
                 />

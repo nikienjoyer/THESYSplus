@@ -78,7 +78,6 @@ export default function ThesysLogo({
   variant   = 'wordmark',
   size      = 28,
   className = '',
-  isDark    = false,
 }) {
   const textSize = Math.round(size * 0.5) + 'px';
 
@@ -95,7 +94,7 @@ export default function ThesysLogo({
       <span className={`inline-flex items-center gap-2 select-none ${className}`}>
         <SymbolTile size={size} />
         <span className="font-bold tracking-wide leading-none" style={{ fontSize: textSize }}>
-          <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
+          <span className="text-ink">THE</span>
           <span className="text-primary">SYS+</span>
         </span>
       </span>
@@ -108,12 +107,12 @@ export default function ThesysLogo({
       <span className="inline-flex items-center gap-2">
         <SymbolTile size={size} />
         <span className="font-bold tracking-wide leading-none" style={{ fontSize: textSize }}>
-          <span className={isDark ? 'text-white' : 'text-gray-900'}>THE</span>
+          <span className="text-ink">THE</span>
           <span className="text-primary">SYS+</span>
         </span>
       </span>
       <span
-        className={isDark ? 'text-gray-500' : 'text-gray-500'}
+        className="text-muted"
         style={{ fontSize: Math.round(size * 0.28) + 'px', lineHeight: 1.3 }}
       >
         Pampanga State University · College of Computing Studies

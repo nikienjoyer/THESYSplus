@@ -12,7 +12,6 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
 import client from '../api/client';
-import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AuthBranding from '../components/brand/AuthBranding';
 
@@ -47,8 +46,6 @@ function EyeIcon({ off }) {
 }
 
 export default function SetupAccountPage() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
@@ -84,39 +81,35 @@ export default function SetupAccountPage() {
     }
   };
 
-  const cardBg   = isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200 shadow-sm';
+  const cardBg   = 'bg-surface border-border-default shadow-sm';
   const inputCls = (hasErr) => `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors pr-11 ${
     `thesys-input ${hasErr ? 'border-danger' : ''}`
   }`;
-  const eyeCls   = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none ${
-    isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-  }`;
-  const labelCls = `block text-sm font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
-  const errCls   = `text-xs mt-1 ${isDark ? 'text-rose-400' : 'text-rose-600'}`;
-  const hintCls  = `text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`;
+  const eyeCls   = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none text-muted hover:text-body`;
+  const labelCls = `block text-sm font-medium mb-1.5 text-body`;
+  const errCls   = `text-xs mt-1 text-danger`;
+  const hintCls  = `text-xs mt-1 text-subtle`;
 
   return (
     <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <AuthBranding subtitle="Create a secure password to activate your THESYS+ account." isDark={isDark} />
+        <AuthBranding subtitle="Create a secure password to activate your THESYS+ account." />
 
         <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
           {invalidToken ? (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDark ? 'bg-rose-500/15' : 'bg-rose-50'
-              }`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-danger-bg`}>
                 <TriangleAlert className="w-7 h-7 text-rose-500" aria-hidden="true" />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-2 text-ink`}>
                 Link invalid or expired
               </h2>
-              <p className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-sm mb-1 text-body`}>
                 This account setup link is invalid or has expired.
               </p>
-              <p className={`text-xs mb-6 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-xs mb-6 text-muted`}>
                 Setup links expire after 30 minutes. Use "Forgot your password?" on the sign-in
                 page to request a new one.
               </p>
@@ -127,7 +120,7 @@ export default function SetupAccountPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} noValidate>
-              <h2 className={`text-xl font-bold mb-5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-5 text-ink`}>
                 Set Up Your Password
               </h2>
 
@@ -177,9 +170,7 @@ export default function SetupAccountPage() {
               </div>
 
               {serverErr && (
-                <div className={`rounded-lg border px-4 py-3 text-sm mb-4 ${
-                  isDark ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
-                }`}>
+                <div className={`rounded-lg border px-4 py-3 text-sm mb-4 bg-danger-bg border-danger-border text-danger-text`}>
                   {serverErr}
                 </div>
               )}
@@ -194,7 +185,7 @@ export default function SetupAccountPage() {
         </div>
 
         {!invalidToken && (
-          <p className={`mt-5 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`mt-5 text-center text-sm text-body`}>
             Already activated your account?{' '}
             <Link to="/sign-in" className="font-medium hover:underline text-primary">
               Sign In

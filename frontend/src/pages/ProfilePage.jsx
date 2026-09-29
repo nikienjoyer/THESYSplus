@@ -34,17 +34,11 @@ import { getUserData, setUserData } from '../utils/userStorage';
 // Same status → color mapping as RepositoryPage's ThesisCard, so a thesis's
 // status badge looks identical whether you're looking at it from the
 // repository or from your own profile.
-function statusVariantClass(status, isDark) {
+function statusVariantClass(status) {
   const map = {
-    approved: isDark
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50',
-    pending_review: isDark
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
-      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50',
-    rejected: isDark
-      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/15'
-      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50',
+    approved: 'bg-success-bg text-success-text border-success-border',
+    pending_review: 'bg-warning-bg text-warning-text border-warning-border',
+    rejected: 'bg-danger-bg text-danger-text border-danger-border',
   };
   return map[status] || map.pending_review;
 }
@@ -76,7 +70,7 @@ function roleLabel(role) {
 // ---------------------------------------------------------------------------
 // Sidebar
 // ---------------------------------------------------------------------------
-function Sidebar({ user, stats, isDark }) {
+function Sidebar({ user, stats }) {
   const { dataUrl: avatarUrl } = useProfilePicture();
   return (
     <aside className="flex flex-col items-center text-center lg:border-r lg:border-[var(--color-border-subtle)] lg:pr-6">
@@ -84,9 +78,7 @@ function Sidebar({ user, stats, isDark }) {
       <Avatar className="w-20 h-20 mb-4 ring-2 ring-blue-500/30">
         {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile" />}
         <AvatarFallback
-          className={`text-2xl font-bold ${
-            isDark ? 'bg-blue-600/25 text-blue-200' : 'bg-blue-100 text-blue-700'
-          }`}
+          className={`text-2xl font-bold bg-info-bg text-info-text`}
         >
           {initials(user)}
         </AvatarFallback>
@@ -96,9 +88,7 @@ function Sidebar({ user, stats, isDark }) {
         {user ? `${user.first_name} ${user.last_name}`.trim() : '—'}
       </h2>
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border mb-3 ${
-          isDark ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200'
-        }`}
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border mb-3 bg-info-bg text-info-text border-info-border`}
       >
         {roleLabel(user?.role)}
       </span>
@@ -110,7 +100,7 @@ function Sidebar({ user, stats, isDark }) {
       {/* Bio */}
       <p className={`text-sm text-center mb-5 text-body`}>
         {stats.bio || (
-          <span className={isDark ? 'text-gray-600 italic' : 'text-gray-400 italic'}>
+          <span className={'text-subtle italic'}>
             No bio yet.
           </span>
         )}
@@ -125,9 +115,7 @@ function Sidebar({ user, stats, isDark }) {
 
       {/* Quick stats */}
       <div
-        className={`mt-5 w-full grid grid-cols-2 divide-x ${
-          isDark ? 'divide-white/[0.08]' : 'divide-gray-200'
-        }`}
+        className={`mt-5 w-full grid grid-cols-2 divide-x divide-border-default`}
       >
         {[
           { label: 'Saved', value: stats.saved },
@@ -157,7 +145,7 @@ function Sidebar({ user, stats, isDark }) {
 // ---------------------------------------------------------------------------
 // Saved thesis card
 // ---------------------------------------------------------------------------
-function SavedCard({ entry, isDark, onRemove }) {
+function SavedCard({ entry, onRemove }) {
   const savedDate = entry.savedAt
     ? new Date(entry.savedAt).toLocaleDateString()
     : '';
@@ -176,9 +164,7 @@ function SavedCard({ entry, isDark, onRemove }) {
           type="button"
           onClick={() => onRemove(entry.id)}
           aria-label={`Remove "${entry.title}" from saved`}
-          className={`flex-shrink-0 mt-0.5 text-lg leading-none transition-colors ${
-            isDark ? 'text-gray-600 hover:text-rose-400' : 'text-gray-400 hover:text-rose-500'
-          }`}
+          className={`flex-shrink-0 mt-0.5 text-lg leading-none transition-colors text-subtle hover:text-danger`}
           title="Remove from saved"
         >
           ×
@@ -204,9 +190,7 @@ function SavedCard({ entry, isDark, onRemove }) {
           ))}
           {entry.keywords.length > 4 && (
             <span
-              className={`text-xs px-2 py-0.5 rounded-md ${
-                isDark ? 'bg-white/[0.05] text-gray-400 border border-white/10' : 'bg-gray-50 text-gray-600 border border-gray-200'
-              }`}
+              className={`text-xs px-2 py-0.5 rounded-md bg-surface-secondary text-muted border border-border-default`}
             >
               +{entry.keywords.length - 4} more
             </span>
@@ -320,9 +304,7 @@ export default function ProfilePage() {
         ? isDark
           ? 'border-blue-400 text-white'
           : 'border-blue-600 text-blue-700'
-        : isDark
-        ? 'border-transparent text-gray-400 hover:text-gray-200'
-        : 'border-transparent text-gray-500 hover:text-gray-800'
+        : 'border-transparent text-muted hover:text-ink'
     }`;
 
   return (
@@ -333,7 +315,7 @@ export default function ProfilePage() {
         <PageHeader title="Profile" />
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           {/* Sidebar */}
-          <Sidebar user={user} stats={stats} isDark={isDark} />
+          <Sidebar user={user} stats={stats} />
 
           {/* Main content */}
           <div>
@@ -346,9 +328,7 @@ export default function ProfilePage() {
                 Saved Theses
                 {savedTheses.length > 0 && (
                   <span
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                      isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
-                    }`}
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info-text`}
                   >
                     {savedTheses.length}
                   </span>
@@ -404,10 +384,8 @@ export default function ProfilePage() {
                       </button>
                     </div>
                   ) : myUploads.length === 0 ? (
-                    <div className={`rounded-lg border border-dashed p-6 flex flex-col items-center text-center gap-2 ${
-                      isDark ? 'border-white/15 bg-white/[0.02]' : 'border-gray-300 bg-gray-50/50'
-                    }`}>
-                      <UploadCloud className={`w-7 h-7 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} aria-hidden="true" />
+                    <div className={`rounded-lg border border-dashed p-6 flex flex-col items-center text-center gap-2 border-border-strong bg-surface`}>
+                      <UploadCloud className={`w-7 h-7 text-subtle`} aria-hidden="true" />
                       <p className={`text-sm font-semibold text-body`}>
                         You haven&apos;t uploaded any theses yet.
                       </p>
@@ -436,7 +414,7 @@ export default function ProfilePage() {
                           </div>
                           <Badge
                             variant="outline"
-                            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide flex-shrink-0 ${statusVariantClass(t.status, isDark)}`}
+                            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide flex-shrink-0 ${statusVariantClass(t.status)}`}
                           >
                             {t.status.replace('_', ' ')}
                           </Badge>
@@ -474,11 +452,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowClearConfirm(true)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          isDark
-                            ? 'border-rose-500/30 text-rose-400 hover:bg-rose-500/10'
-                            : 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors border-danger-border text-danger hover:bg-danger-bg`}
                       >
                         Clear All Saved Theses
                       </button>
@@ -487,9 +461,7 @@ export default function ProfilePage() {
                     {/* Confirmation modal */}
                     {showClearConfirm && (
                       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                        <div className={`rounded-xl border p-6 max-w-sm w-full ${
-                          isDark ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'
-                        }`}>
+                        <div className={`rounded-xl border p-6 max-w-sm w-full bg-surface-elevated border-border-default`}>
                           <h3 className={`text-lg font-bold mb-2 text-ink`}>
                             Clear all saved theses?
                           </h3>
@@ -521,7 +493,6 @@ export default function ProfilePage() {
                         <SavedCard
                           key={entry.id}
                           entry={entry}
-                          isDark={isDark}
                           onRemove={handleRemoveSaved}
                         />
                       ))}

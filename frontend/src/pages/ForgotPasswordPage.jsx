@@ -11,7 +11,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 import client from '../api/client';
-import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AuthBranding from '../components/brand/AuthBranding';
 
@@ -26,8 +25,6 @@ function mapError(err) {
 }
 
 export default function ForgotPasswordPage() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
 
   const [email, setEmail]         = useState('');
   const [emailErr, setEmailErr]   = useState('');
@@ -59,7 +56,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const cardBg  = isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200 shadow-sm';
+  const cardBg  = 'bg-surface border-border-default shadow-sm';
   const inputCls = `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
     'thesys-input'
   }`;
@@ -69,23 +66,21 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <AuthBranding subtitle={success ? 'Check your email' : 'Forgot your password?'} isDark={isDark} />
+        <AuthBranding subtitle={success ? 'Check your email' : 'Forgot your password?'} />
 
         <div className={`rounded-2xl border p-6 sm:p-8 ${cardBg}`}>
           {success ? (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-              }`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
                 <Mail className="w-7 h-7 text-emerald-500" aria-hidden="true" />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-2 text-ink`}>
                 Reset link sent
               </h2>
-              <p className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-sm mb-1 text-body`}>
                 If an account exists for that email, a password reset link has been sent.
               </p>
-              <p className={`text-xs mb-6 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-xs mb-6 text-muted`}>
                 The link expires in 30 minutes. Check your spam folder if you don't see it.
               </p>
               <Link to="/sign-in"
@@ -95,18 +90,18 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <>
-              <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm mb-5 text-body`}>
                 Enter your institutional email and we'll send you a link to reset your password.
               </p>
               {/* Security trust cue */}
-              <p className={`text-xs mb-4 flex items-center gap-1.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              <p className={`text-xs mb-4 flex items-center gap-1.5 text-subtle`}>
                 <Lock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                 For security, password reset links expire after 30 minutes.
               </p>
               <form onSubmit={handleSubmit} noValidate>
                 <div className="mb-4">
                   <label htmlFor="fp-email"
-                    className={`block text-sm font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    className={`block text-sm font-medium mb-1.5 text-body`}>
                     Institutional Email
                   </label>
                   <input
@@ -117,17 +112,15 @@ export default function ForgotPasswordPage() {
                     placeholder="2012345678@pampangastateu.edu.ph"
                     disabled={isLoading}
                     aria-invalid={!!emailErr}
-                    className={`${inputCls} ${emailErr ? (isDark ? 'border-rose-500/50' : 'border-rose-400') : ''}`}
+                    className={`${inputCls} ${emailErr ? ('border-danger') : ''}`}
                   />
                   {emailErr && (
-                    <p className={`text-xs mt-1 ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{emailErr}</p>
+                    <p className={`text-xs mt-1 text-danger`}>{emailErr}</p>
                   )}
                 </div>
 
                 {error && (
-                  <div className={`rounded-lg border px-4 py-3 text-sm mb-4 ${
-                    isDark ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
-                  }`}>
+                  <div className={`rounded-lg border px-4 py-3 text-sm mb-4 bg-danger-bg border-danger-border text-danger-text`}>
                     {error}
                   </div>
                 )}
@@ -143,7 +136,7 @@ export default function ForgotPasswordPage() {
 
         {/* Footer */}
         {!success && (
-          <p className={`mt-5 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`mt-5 text-center text-sm text-body`}>
             Remember your password?{' '}
             <Link to="/sign-in" className="font-medium hover:underline text-primary">
               Sign In

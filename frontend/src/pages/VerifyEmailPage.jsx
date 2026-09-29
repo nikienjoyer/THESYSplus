@@ -30,12 +30,9 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
-import { useTheme } from '../context/ThemeContext';
 import AuthBranding from '../components/brand/AuthBranding';
 
 export default function VerifyEmailPage() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
 
@@ -85,16 +82,16 @@ export default function VerifyEmailPage() {
     return () => { cancelled = true; };
   }, [token]);
 
-  const cardBg = isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-slate-200 shadow-card';
+  const cardBg = 'bg-surface border-border-default shadow-card';
   const primaryBtn = 'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
-  const quietLink = `text-sm ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`;
+  const quietLink = `text-sm text-muted hover:text-body`;
 
   return (
     <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
 
         {/* Branding */}
-        <AuthBranding subtitle="Email Verification" isDark={isDark} />
+        <AuthBranding subtitle="Email Verification" />
 
         {/* No ProgressStepper here — the stepper belongs to the tab that is
             actually progressing through the flow. */}
@@ -107,11 +104,11 @@ export default function VerifyEmailPage() {
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" className="opacity-15"/>
                 <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm text-body`}>
                 Verifying your email…
               </p>
               {/* Trust cue */}
-              <p className={`text-xs text-center max-w-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              <p className={`text-xs text-center max-w-xs text-subtle`}>
                 Your PampangaStateU institutional email is used to verify account ownership.
               </p>
             </div>
@@ -119,20 +116,18 @@ export default function VerifyEmailPage() {
 
           {state === 'verified' && (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-              }`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
                 <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-2 text-ink`}>
                 Your email has been verified.
               </h2>
-              <p className={`text-sm mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-sm mb-5 text-body`}>
                 You can now return to the tab where you started and close this one.
               </p>
               {/* Escape hatch — the only route forward for anyone whose original
                   tab is gone. Quieter than the primary message, never absent. */}
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-xs text-muted`}>
                 Don&apos;t have that tab open?{' '}
                 <Link to="/forgot-password" className="font-medium hover:underline text-primary">
                   Request a password setup link
@@ -145,15 +140,13 @@ export default function VerifyEmailPage() {
             <div className="text-center">
               {/* Deliberately the same positive treatment as `verified` — no
                   rose, no TriangleAlert. Nothing has gone wrong here. */}
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDark ? 'bg-emerald-500/15' : 'bg-emerald-50'
-              }`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
                 <CheckCircle2 className="w-7 h-7 text-emerald-500" aria-hidden="true" />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-2 text-ink`}>
                 Your email is already verified
               </h2>
-              <p className={`text-sm mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-sm mb-5 text-body`}>
                 Verification is complete, so there is nothing more to do on this page.
                 If you haven&apos;t set a password yet, you can request a setup link below.
               </p>
@@ -174,15 +167,13 @@ export default function VerifyEmailPage() {
 
           {state === 'error' && (
             <div className="text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDark ? 'bg-rose-500/15' : 'bg-rose-50'
-              }`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-danger-bg`}>
                 <TriangleAlert className="w-7 h-7 text-rose-500" aria-hidden="true" />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h2 className={`text-xl font-bold mb-2 text-ink`}>
                 Verification Failed
               </h2>
-              <p className={`text-sm mb-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm mb-5 text-body`}>
                 {errorMsg}
               </p>
               {/* Retained for this state only. Past 24 hours the link really is

@@ -21,7 +21,7 @@
  * helperText  {string|null}     overrides the default helper text when provided
  */
 
-export default function SimilaritySlider({ value, onChange, isDark, disabled, helperText }) {
+export default function SimilaritySlider({ value, onChange, disabled, helperText }) {
   const MIN = 30;
   const MAX = 95;
 
@@ -54,7 +54,7 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
 
   // The empty side of the track still needs a fixed colour because
   // we can't use a CSS var in a linear-gradient without var() in inline style
-  const trackEmptyColor = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
+  const trackEmptyColor = 'var(--color-border)';
 
   const trackStyle = {
     background: `linear-gradient(to right, ${trackFill} ${pct}%, ${trackEmptyColor} ${pct}%)`,

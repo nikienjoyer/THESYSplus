@@ -55,11 +55,7 @@ function keywordChipClass(isDark, isActive) {
         : 'bg-blue-100 text-blue-800 border-blue-300'
     }`;
   }
-  return `${base} ${
-    isDark
-      ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/20'
-      : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100'
-  }`;
+  return `${base} bg-info-bg text-info-text border-info-border hover:bg-info-border`;
 }
 
 const PROGRAMS = [
@@ -156,35 +152,23 @@ registerCacheClearer(() => repoCache.clear());
 // Helpers
 // ---------------------------------------------------------------------------
 
-function statusVariantClass(status, isDark) {
+function statusVariantClass(status) {
   const map = {
-    approved: isDark
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50',
-    pending_review: isDark
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
-      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50',
-    rejected: isDark
-      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/15'
-      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-50',
+    approved: 'bg-success-bg text-success-text border-success-border',
+    pending_review: 'bg-warning-bg text-warning-text border-warning-border',
+    rejected: 'bg-danger-bg text-danger-text border-danger-border',
   };
   return map[status] || map.pending_review;
 }
 
-function semanticBadgeClass(score, isDark) {
+function semanticBadgeClass(score) {
   if (score >= 0.80) {
-    return isDark
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+    return 'bg-success-bg text-success-text border-success-border';
   }
   if (score >= 0.60) {
-    return isDark
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15'
-      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50';
+    return 'bg-warning-bg text-warning-text border-warning-border';
   }
-  return isDark
-    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/15'
-    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50';
+  return 'bg-info-bg text-info-text border-info-border';
 }
 
 function semanticDotColor(score) {
@@ -245,7 +229,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
               <TooltipTrigger asChild>
                 <Badge
                   variant="outline"
-                  className={`gap-1 text-xs px-2 py-0.5 h-auto cursor-default ${semanticBadgeClass(score, isDark)}`}
+                  className={`gap-1 text-xs px-2 py-0.5 h-auto cursor-default ${semanticBadgeClass(score)}`}
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -262,7 +246,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
           )}
           <Badge
             variant="outline"
-            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${statusVariantClass(thesis.status, isDark)}`}
+            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${statusVariantClass(thesis.status)}`}
           >
             {thesis.status.replace('_', ' ')}
           </Badge>
@@ -307,11 +291,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
              keyword, so that is the complete surface for the overflow. */
           <Badge
             variant="outline"
-            className={`text-xs px-2 py-0.5 h-auto ${
-              isDark
-                ? 'bg-white/[0.05] text-gray-400 border-white/10 hover:bg-white/[0.05]'
-                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-50'
-            }`}
+            className={`text-xs px-2 py-0.5 h-auto bg-surface-secondary text-muted border-border-default`}
           >
             +{keywords.length - 4} more
           </Badge>
@@ -323,7 +303,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
 
 // Reusable example-query chip row. Module scope (not inside the page) so
 // React keeps the same component between renders instead of rebuilding it.
-function ExampleChips({ onSelect, isDark }) {
+function ExampleChips({ onSelect }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
       {EXAMPLE_QUERIES.map((q) => (
@@ -331,11 +311,7 @@ function ExampleChips({ onSelect, isDark }) {
           key={q}
           type="button"
           onClick={() => onSelect(q)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            isDark
-              ? 'border-white/15 text-gray-300 hover:bg-white/[0.07] hover:text-white'
-              : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-          }`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary hover:text-ink`}
         >
           <svg className="w-3 h-3 flex-shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -569,11 +545,11 @@ export default function RepositoryPage() {
             </span>
             {!effectiveSearch && !activeKeyword && (
               <>
-                <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
+                <span className={'text-subtle'}>·</span>
                 <span className={'text-muted'}>{totalCount} indexed</span>
               </>
             )}
-            <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
+            <span className={'text-subtle'}>·</span>
             <span className={`inline-flex items-center gap-1 text-primary`}>
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -634,9 +610,9 @@ export default function RepositoryPage() {
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary bg-surface border-border-default text-ink`}
               >
-                <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All years</option>
+                <option value="" style={{ color: 'var(--color-text-body)', backgroundColor: 'var(--color-surface-elevated)' }}>All years</option>
                 {YEARS.map((y) => (
-                  <option key={y} value={y} style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>{y}</option>
+                  <option key={y} value={y} style={{ color: 'var(--color-text-body)', backgroundColor: 'var(--color-surface-elevated)' }}>{y}</option>
                 ))}
               </select>
 
@@ -646,9 +622,9 @@ export default function RepositoryPage() {
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary bg-surface border-border-default text-ink`}
               >
-                <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All programs</option>
+                <option value="" style={{ color: 'var(--color-text-body)', backgroundColor: 'var(--color-surface-elevated)' }}>All programs</option>
                 {PROGRAMS.map((p) => (
-                  <option key={p} value={p} style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>{p}</option>
+                  <option key={p} value={p} style={{ color: 'var(--color-text-body)', backgroundColor: 'var(--color-surface-elevated)' }}>{p}</option>
                 ))}
               </select>
 
@@ -670,7 +646,6 @@ export default function RepositoryPage() {
                     <SimilaritySlider
                       value={sliderThreshold}
                       onChange={handleThresholdChange}
-                      isDark={isDark}
                       disabled={false}
                       helperText="Set the minimum semantic similarity for repository search results. Theses matching a title, or a known term such as IoT in their keywords or text, may still appear below this threshold."
                     />
@@ -690,7 +665,7 @@ export default function RepositoryPage() {
             <p className={`text-xs text-muted`}>
               Try a semantic search:
             </p>
-            <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
+            <ExampleChips onSelect={runExampleQuery} />
           </div>
         )}
 
@@ -823,7 +798,7 @@ export default function RepositoryPage() {
               {/* Example-query recovery */}
               <div className="mt-2 flex flex-col items-center gap-2">
                 <p className={`text-xs text-muted`}>Or try one of these searches:</p>
-                <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
+                <ExampleChips onSelect={runExampleQuery} />
               </div>
             </div>
           ) : (

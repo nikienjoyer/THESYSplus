@@ -18,7 +18,6 @@ import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Info, Lightbulb, ShieldCheck } from 'lucide-react';
 import client from '../api/client';
 import { waitForJob } from '../api/jobs';
-import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
@@ -168,9 +167,7 @@ function MatchCard({ match }) {
 // Page
 // ---------------------------------------------------------------------------
 export default function TitleSimilarityPage() {
-  const { theme } = useTheme();
   const { toast } = useToast();
-  const isDark = theme === 'dark';
   const { reduceMotion, fadeUp } = useMotionVariants();
 
   const location = useLocation();
@@ -475,9 +472,7 @@ export default function TitleSimilarityPage() {
                 <div
                   role="tablist"
                   aria-label="Title input method"
-                  className={`inline-flex items-center gap-1 rounded-full border p-1 ${
-                    isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-200 bg-gray-100'
-                  }`}
+                  className={`inline-flex items-center gap-1 rounded-full border p-1 border-border-default bg-surface-secondary`}
                 >
                   {[
                     { key: 'manual', label: 'Type a Title', ref: manualTabRef },
@@ -499,7 +494,7 @@ export default function TitleSimilarityPage() {
                         className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
                             ? 'bg-primary-solid text-white'
-                            : isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
+                            : 'text-muted hover:text-ink'
                         }`}
                       >
                         {label}
@@ -562,7 +557,7 @@ export default function TitleSimilarityPage() {
                             Proposal document
                           </label>
                           <details className="relative">
-                            <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                            <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden text-muted hover:text-ink`}>
                               <Info className="h-4 w-4" aria-hidden="true" />
                               <span className="sr-only">About automatic title extraction</span>
                             </summary>
@@ -613,7 +608,7 @@ export default function TitleSimilarityPage() {
                               {autoDetected ? (
                                 <>
                                   Detected title
-                                  <span className={`ml-2 text-[11px] font-medium normal-case ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                                  <span className={`ml-2 text-[11px] font-medium normal-case text-info-text`}>
                                     Auto-detected
                                   </span>
                                   <ConfidenceHint confidence={extractConf} />
@@ -704,9 +699,7 @@ export default function TitleSimilarityPage() {
                       <span><strong>No meaningful match</strong> — &lt; {MEANINGFUL_PCT}%</span>
                     </li>
                   </ul>
-                  <p className={`mt-3 pt-3 border-t text-[11px] flex items-center gap-1.5 ${
-                    isDark ? 'border-white/10 text-gray-500' : 'border-gray-100 text-gray-500'
-                  }`}>
+                  <p className={`mt-3 pt-3 border-t text-[11px] flex items-center gap-1.5 border-border-subtle text-muted`}>
                     <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                     </svg>
@@ -729,7 +722,7 @@ export default function TitleSimilarityPage() {
                       <h2 className={`text-lg font-bold leading-none text-ink`}>No meaningful match found</h2>
                     </div>
                   </div>
-                  <div className={`pt-3 border-t ${isDark ? 'border-white/10' : 'border-black/5'}`}>
+                  <div className={`pt-3 border-t border-border-subtle`}>
                     <p className={`text-sm leading-relaxed text-body`}>{result.recommendation}</p>
                   </div>
                 </div>
@@ -751,16 +744,14 @@ export default function TitleSimilarityPage() {
                       </span>
                     </div>
                   </div>
-                  <div className={`pt-3 border-t ${isDark ? 'border-white/10' : 'border-black/5'}`}>
+                  <div className={`pt-3 border-t border-border-subtle`}>
                     <div className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${tone.text} opacity-70`}>Recommendation</div>
                     <p className={`text-sm leading-relaxed ${tone.text}`}>{result.recommendation}</p>
                   </div>
                 </div>
               ) : (
-                <div className={`rounded-xl border border-dashed p-6 flex flex-col items-center text-center gap-2 ${
-                  isDark ? 'border-white/15 bg-white/[0.02]' : 'border-gray-300 bg-gray-50/50'
-                }`}>
-                  <ShieldCheck className={`w-7 h-7 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} aria-hidden="true" />
+                <div className={`rounded-xl border border-dashed p-6 flex flex-col items-center text-center gap-2 border-border-strong bg-surface`}>
+                  <ShieldCheck className={`w-7 h-7 text-subtle`} aria-hidden="true" />
                   <p className={`text-xs font-semibold text-muted`}>Awaiting validation</p>
                   <p className={`text-xs leading-relaxed text-subtle`}>
                     Your similarity risk level and score will appear here once you check your title.
@@ -816,9 +807,7 @@ export default function TitleSimilarityPage() {
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {commonTerms.map((t) => (
-                            <span key={t} className={`text-[11px] px-2 py-0.5 rounded-md ${
-                              isDark ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-100'
-                            }`}>{t}</span>
+                            <span key={t} className={`text-[11px] px-2 py-0.5 rounded-md bg-warning-bg text-warning-text border border-warning-border`}>{t}</span>
                           ))}
                         </div>
                       </div>

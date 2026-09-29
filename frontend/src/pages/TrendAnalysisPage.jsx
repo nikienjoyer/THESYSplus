@@ -65,21 +65,21 @@ const TREND_UNDEREXPLORED = 'UNDEREXPLORED';
 // Visual helpers
 // ---------------------------------------------------------------------------
 
-function trendStyles(trend, isDark) {
+function trendStyles(trend) {
   switch (trend) {
     case TREND_SATURATED:
       return {
         emoji: '🔴',
         label: 'Saturated',
         chip: 'bg-danger-bg text-danger-text border-danger-border',
-        accent: isDark ? '#f87171' : '#e11d48',
+        accent: 'var(--color-danger)',
       };
     case TREND_EMERGING:
       return {
         emoji: '🟡',
         label: 'Emerging',
         chip: 'bg-warning-bg text-warning-text border-warning-border',
-        accent: isDark ? '#fbbf24' : '#d97706',
+        accent: 'var(--color-warning)',
       };
     case TREND_UNDEREXPLORED:
     default:
@@ -87,7 +87,7 @@ function trendStyles(trend, isDark) {
         emoji: '🟢',
         label: 'Underexplored',
         chip: 'bg-success-bg text-success-text border-success-border',
-        accent: isDark ? '#34d399' : '#059669',
+        accent: 'var(--color-success)',
       };
   }
 }
@@ -131,7 +131,7 @@ function buildDoughnutSegments(clusters, isDark, maxSlices = MAX_DOUGHNUT_SLICES
       id: 'other',
       topic: `Other (${rest.length} topics)`,
       thesis_count: otherCount,
-      color: isDark ? '#6b7280' : '#9ca3af',
+      color: 'var(--color-text-muted)',
     },
   ];
 }
@@ -141,7 +141,7 @@ function buildDoughnutSegments(clusters, isDark, maxSlices = MAX_DOUGHNUT_SLICES
 // Doughnut — topic distribution
 // ---------------------------------------------------------------------------
 
-function DoughnutChart({ segments, isDark }) {
+function DoughnutChart({ segments }) {
   const { fadeIn, drawArc } = useMotionVariants();
   const total = segments.reduce((sum, s) => sum + s.thesis_count, 0);
   // Drives the center total count-up. The SVG <text> node can't host
@@ -180,7 +180,7 @@ function DoughnutChart({ segments, isDark }) {
         {/* Background ring — static */}
         <circle
           cx="80" cy="80" r={radius}
-          fill="none" stroke={isDark ? '#1e293b' : '#e5e7eb'}
+          fill="none" style={{ stroke: 'var(--color-border)' }}
           strokeWidth={stroke}
         />
         {segments.map((s, idx) => {
@@ -219,7 +219,7 @@ function DoughnutChart({ segments, isDark }) {
         >
           <text
             x="80" y="74" textAnchor="middle"
-            className={`font-bold ${isDark ? 'fill-white' : 'fill-gray-900'}`}
+            className="font-bold fill-ink"
             style={{ fontSize: '22px' }}
             aria-hidden="true"
           >
@@ -227,7 +227,7 @@ function DoughnutChart({ segments, isDark }) {
           </text>
           <text
             x="80" y="92" textAnchor="middle"
-            className={isDark ? 'fill-gray-400' : 'fill-gray-500'}
+            className="fill-muted"
             style={{ fontSize: '10px', letterSpacing: '0.1em' }}
           >
             THESES
@@ -323,7 +323,7 @@ function StatCard({ label, value, sublabel, accent }) {
 // ---------------------------------------------------------------------------
 
 function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
-  const styles = trendStyles(cluster.trend, isDark);
+  const styles = trendStyles(cluster.trend);
   return (
     // The whole card is a Link (not an onClick on the <article>) so the
     // drill-down gets keyboard focus, Enter activation, and middle-click
@@ -370,11 +370,7 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
                 <Badge
                   key={kw}
                   variant="outline"
-                  className={`text-xs px-2 py-0.5 h-auto ${
-                    isDark
-                      ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/10'
-                      : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50'
-                  }`}
+                  className={`text-xs px-2 py-0.5 h-auto bg-info-bg text-info-text border-info-border`}
                 >
                   {kw}
                 </Badge>
@@ -436,7 +432,7 @@ function TopicCheck({ isDark }) {
     }
   };
 
-  const styles = result && trendStyles(result.trend, isDark);
+  const styles = result && trendStyles(result.trend);
   const muted = 'text-body';
 
   return (
@@ -471,7 +467,7 @@ function TopicCheck({ isDark }) {
 
       <div aria-live="polite">
         {error && (
-          <p className={`text-sm mt-4 ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{error}</p>
+          <p className={`text-sm mt-4 text-danger-text`}>{error}</p>
         )}
         {result && (
           <div className={`mt-5 pt-5 border-t border-border-default`}>
@@ -490,7 +486,7 @@ function TopicCheck({ isDark }) {
                 <h3 className={`text-xs font-semibold uppercase tracking-wider mt-5 mb-2 text-muted`}>
                   Most related theses
                 </h3>
-                <ul className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-100'}`}>
+                <ul className={`divide-y divide-border-subtle`}>
                   {result.related.map((t) => (
                     <li key={t.id}>
                       <Link
@@ -559,13 +555,11 @@ function TechnologyTags({ tags, isDark }) {
  * keyword chips, and abstract. This is a purpose-built simpler layout,
  * not RepositoryPage's ThesisCard.
  */
-function ClusterThesisRow({ thesis, isDark, tags = [] }) {
+function ClusterThesisRow({ thesis, tags = [] }) {
   return (
     <Link
       to={`/repository/${thesis.id}`}
-      className={`block px-4 py-3 transition-colors ${
-        isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-gray-50'
-      }`}
+      className={`block px-4 py-3 transition-colors hover:bg-surface-secondary`}
     >
       <h3
         className={`font-bold text-sm leading-snug line-clamp-2 hover:underline text-ink`}
@@ -580,7 +574,7 @@ function ClusterThesisRow({ thesis, isDark, tags = [] }) {
           {tags.map((tag) => (
             <span
               key={tag}
-              className={`text-[11px] px-1.5 py-0.5 rounded ${isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}
+              className={`text-[11px] px-1.5 py-0.5 rounded bg-success-bg text-success-text`}
             >
               {tag}
             </span>
@@ -645,7 +639,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
   // `fetchedRows`.
   const rows = hasIds ? fetchedRows : [];
 
-  const styles = trendStyles(cluster.trend, isDark);
+  const styles = trendStyles(cluster.trend);
   const overflowCount = Math.max(0, thesisIds.length - 100);
 
   return (
@@ -657,9 +651,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             type="button"
             onClick={() => navigate(-1)}
             aria-label="Back to thesis"
-            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm ${
-              isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm text-muted hover:text-ink`}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -669,9 +661,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
         ) : (
           <Link
             to={reviewed ? '/trend-analysis' : '/trend-analysis?view=clusters'}
-            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm ${
-              isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm text-muted hover:text-ink`}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -708,11 +698,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
               <Badge
                 key={kw}
                 variant="outline"
-                className={`text-xs px-2 py-0.5 h-auto ${
-                  isDark
-                    ? 'bg-blue-500/10 text-blue-300 border-blue-500/20 hover:bg-blue-500/10'
-                    : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50'
-                }`}
+                className={`text-xs px-2 py-0.5 h-auto bg-info-bg text-info-text border-info-border`}
               >
                 {kw}
               </Badge>
@@ -727,7 +713,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
       </div>
 
       {overflowCount > 0 && (
-        <p className={`text-xs mb-3 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+        <p className={`text-xs mb-3 text-warning-text`}>
           Showing first 100 of {thesisIds.length} theses in this cluster.
         </p>
       )}
@@ -758,7 +744,6 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             <ClusterThesisRow
               key={thesis.id}
               thesis={thesis}
-              isDark={isDark}
               tags={cluster.member_tags?.[thesis.id] || []}
             />
           ))}
@@ -966,9 +951,7 @@ export default function TrendAnalysisPage() {
         ) : data ? (
           <>
             {clusterIdStale && (
-              <div className={`rounded-lg px-4 py-3 mb-6 text-sm ${
-                isDark ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25' : 'bg-amber-50 text-amber-700 border border-amber-200'
-              }`}>
+              <div className={`rounded-lg px-4 py-3 mb-6 text-sm bg-warning-bg text-warning-text border border-warning-border`}>
                 {reviewed
                   ? 'That reviewed subject is no longer available. Showing the current overview.'
                   : 'That topic cluster is no longer available — clusters are recomputed as the repository changes. Showing the current overview instead.'}
@@ -988,8 +971,8 @@ export default function TrendAnalysisPage() {
                 <>
                   <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" />
                   <StatCard label="Total Topics" value={data.total_topics} sublabel="Groups by meaning" />
-                  <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" accent={isDark ? '#f87171' : '#e11d48'} />
-                  <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" accent={isDark ? '#34d399' : '#059669'} />
+                  <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" accent="var(--color-danger)" />
+                  <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" accent="var(--color-success)" />
                 </>
               )}
             </div>
@@ -1000,7 +983,7 @@ export default function TrendAnalysisPage() {
                 <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] text-ink`}>
                   {reviewed ? 'Subject distribution' : 'Topic Distribution'}
                 </h2>
-                <DoughnutChart segments={doughnutSegments} isDark={isDark} />
+                <DoughnutChart segments={doughnutSegments} />
                 <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 justify-center">
                   {doughnutSegments.map((s) => (
                     <div key={s.id} className="flex items-center gap-1.5">

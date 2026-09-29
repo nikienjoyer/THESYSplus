@@ -220,12 +220,12 @@ export default function LandingPage() {
               </svg>
             </button>
             <Link to="/" className="flex items-center gap-2 select-none">
-              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+              <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
           <div className="flex items-center gap-2">
             {!isInitializing && isAuthenticated && (
-              <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
+              <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
             )}
             {!isInitializing && !isAuthenticated && (
               <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -242,7 +242,7 @@ export default function LandingPage() {
         {/* Desktop row */}
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
           <Link to="/" className="flex items-center gap-2 select-none">
-            <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+            <ThesysLogo variant="wordmark" size={28} />
           </Link>
           <ul className="flex items-center gap-1">
             {CORE_NAV.map(({ label, to, implemented }) => (
@@ -265,7 +265,7 @@ export default function LandingPage() {
                 <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   Upload Thesis
                 </button>
-                <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
+                <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
             {!isInitializing && !isAuthenticated && (
@@ -287,7 +287,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm thesys-overlay-enter" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
           <div ref={drawerRef} className={`absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl thesys-drawer-enter ${isDark ? 'bg-[#0f1a3a] border-r border-white/10' : 'bg-white border-r border-gray-200'}`}>
             <div className={`flex items-center justify-between px-5 py-4 border-b border-border-default`}>
-              <ThesysLogo variant="wordmark" size={28} isDark={isDark} />
+              <ThesysLogo variant="wordmark" size={28} />
               <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation menu"
                 className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-muted hover:text-ink hover:bg-icon-btn-hover`}>
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -752,7 +752,6 @@ export default function LandingPage() {
         isOpen={legalModal !== null}
         onClose={() => setLegalModal(null)}
         type={legalModal}
-        isDark={isDark}
       />
     </div>
   );

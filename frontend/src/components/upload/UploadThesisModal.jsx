@@ -20,7 +20,6 @@ import { waitForJob } from '../../api/jobs';
 import { clearAllCaches } from '../../utils/appCaches';
 import { parseAuthorInput } from '../../utils/formatters';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../hooks/useToast';
 import { useUploadModal } from '../../hooks/useUploadModal';
 import useFocusTrap from '../../hooks/useFocusTrap';
@@ -124,7 +123,7 @@ const UPLOAD_PHASE_LABEL = {
   done:    'Upload complete',
 };
 
-function UploadProgress({ phase, percent, canDismiss, isDark }) {
+function UploadProgress({ phase, percent, canDismiss }) {
   const determinate = phase === 'sending' || phase === 'done';
   const done = phase === 'done';
   const pct = done ? 100 : Math.max(0, Math.min(100, Math.round(percent)));
@@ -153,7 +152,7 @@ function UploadProgress({ phase, percent, canDismiss, isDark }) {
         aria-valuemax={100}
         aria-valuenow={determinate ? pct : undefined}
         aria-valuetext={determinate ? `${pct}%` : label}
-        className={`relative h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/[0.08]' : 'bg-gray-100'}`}
+        className={`relative h-2 overflow-hidden rounded-full bg-surface-secondary`}
       >
         {determinate ? (
           <div
@@ -189,11 +188,9 @@ export default function UploadThesisModal() {
 
 function UploadThesisModalContent() {
   const { close } = useUploadModal();
-  const { theme } = useTheme();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const isDark = theme === 'dark';
 
   const [title, setTitle]       = useState('');
   const [abstract, setAbstract] = useState('');
@@ -723,7 +720,7 @@ function UploadThesisModalContent() {
               <X className="w-5 h-5" />
             </button>
             <div className={`w-16 h-16 flex items-center justify-center rounded-full mx-auto mb-3 ${
-              success.status === 'approved' ? (isDark ? 'bg-emerald-500/20' : 'bg-emerald-50') : (isDark ? 'bg-amber-500/20' : 'bg-amber-50')
+              success.status === 'approved' ? 'bg-success-bg' : 'bg-warning-bg'
             }`}>
               {success.status === 'approved'
                 ? <CheckCircle2 className="w-8 h-8 text-emerald-500" aria-hidden="true" />
@@ -790,7 +787,7 @@ function UploadThesisModalContent() {
                     Thesis Document
                   </label>
                   <details className="relative">
-                    <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                    <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden text-muted hover:text-ink`}>
                       <Info className="h-4 w-4" aria-hidden="true" />
                       <span className="sr-only">About automatic metadata extraction</span>
                     </summary>
@@ -823,7 +820,7 @@ function UploadThesisModalContent() {
                   {!extracting && extractionNote && !extractionNote.text.startsWith('Auto-filled ') && (
                     <p className={`mt-2 flex items-start gap-1.5 text-xs ${
                       extractionNote.tone === 'warn'
-                        ? (isDark ? 'text-amber-400' : 'text-amber-700')
+                        ? 'text-warning-text'
                         : ('text-body')
                     }`}>
                       {extractionNote.tone === 'warn'
@@ -892,7 +889,7 @@ function UploadThesisModalContent() {
                   placeholder="Dela Cruz, Juan M.; Santos, Maria A." required disabled={submitting} className={inputCls} />
                 {authorSuggestion && authors === authorSuggestion.source && (
                   <div id="author-capitalization-suggestion" className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-                    <p className={isDark ? 'text-gray-300' : 'text-gray-600'}>
+                    <p className={'text-body'}>
                       Suggested capitalization: <span className="font-medium break-words">{authorSuggestion.value}</span>
                     </p>
                     <button type="button" disabled={submitting}
@@ -998,7 +995,6 @@ function UploadThesisModalContent() {
                       phase={uploadPhase}
                       percent={sendPercent}
                       canDismiss={uploadAcknowledged}
-                      isDark={isDark}
                     />
                   ) : (
                     <div role="alert" className={`rounded-lg p-3 text-sm bg-danger-bg text-danger-text border border-danger-border`}>
