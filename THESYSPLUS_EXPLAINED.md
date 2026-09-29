@@ -14,7 +14,7 @@ jargon.
 
 ## How to read the explanations
 
-- A file is introduced with `## path/to/file`.
+- A file is introduced with `### path/to/file`; the `## Part N` headings group files that belong together.
 - Inside, we go through the file a few lines at a time, like a story.
 - Code words are shown in `backticks`.
 - Big ideas get a little emoji so they are easy to spot.
@@ -1694,19 +1694,39 @@ the most recent round of work.
 
 ### backend/theses/models.py — "The shelf label on every book"
 
-`Thesis` — one row per uploaded document. Worth calling out:
-- **`sha256` is globally unique** (line 73) — the database itself refuses
+Two tables live here.
+
+**`ResearchSubject`** — the small, fixed vocabulary of research subjects (a
+short `code`, a `name`, a `definition`, and a `sort_order`). It is data, not
+code: faculty pick from it when they confirm what a thesis is mainly about,
+and Trend Analysis uses the confirmed choices to name its groups.
+
+**`Thesis`** — one row per uploaded document. Worth calling out:
+- **`sha256` is globally unique** — the database itself refuses
   two theses with byte-identical file content, which is what powers the
   frontend's "This file has already been uploaded" duplicate check.
-- **`embedding_vector`** stores the 384-number SBERT fingerprint as a plain
-  JSON array rather than requiring a specialized vector database extension
-  (`pgvector`) — a deliberate simplicity trade-off appropriate for a
-  thesis-scale corpus; the comment notes this can be swapped for a real
-  vector index later without touching any calling code.
-- **Three `CheckConstraint`s** (status, file_type, year range) enforce data
-  integrity at the database level, not just in Django forms — so even a
-  direct SQL insert or a bug in application code can't leave a row with an
-  invalid year or an unrecognized status.
+- **`processing_job_id`** (also unique) remembers which background job created
+  the row, so a worker that restarts and retries an upload can never create the
+  same thesis twice.
+- **`embedding_vector`** stores the 384-number SBERT fingerprint of the whole
+  thesis as a plain JSON array rather than requiring a specialized vector
+  database extension (`pgvector`) — a deliberate simplicity trade-off
+  appropriate for a thesis-scale corpus. **`title_embedding`** is a second,
+  title-only fingerprint (with its own timestamp and a
+  `title_embedding_source_hash` that changes when the title changes) used by
+  Title Similarity and the reviewer's redundancy check. `embedding_status`
+  tracks whether either is ready.
+- **`technology_tags`** — a JSON list of technologies the thesis is actually
+  about (IoT, AI, NLP…), filled in by `services/technology_tags.py`.
+- **Review trail:** `status`, `rejection_reason`, `reviewed_by`, `reviewed_at`
+  say who decided and when. **Subject trail:** `primary_subject`,
+  `subject_reviewed_by`, `subject_reviewed_at` say which subject was confirmed
+  and by whom.
+- **Four `CheckConstraint`s** enforce data integrity at the database level,
+  not just in Django forms: the status must be a known one, the file type
+  must be PDF or DOCX, the year must be 1980–2100, and a subject and its
+  review time must be set *together* or not at all. So even a direct SQL
+  insert or a bug in application code can't leave an invalid row behind.
 
 ### backend/theses/validators.py — "Is this really a PDF or DOCX?"
 
@@ -1733,9 +1753,20 @@ archive under the hood, so its magic bytes are the same as any ZIP's).
 
 ### backend/theses/services/text_extractor.py — "Read the whole document into searchable text"
 
-Runs once, right after a successful upload, to populate `Thesis.extracted_text`
-— the raw text every later AI feature (semantic search, title similarity,
-topic clustering) is built from.
+Reads a PDF or DOCX into plain text for `Thesis.extracted_text` — the raw
+text every later AI feature (semantic search, title similarity, topic
+clustering) is built from. It is now used in three places: by the upload
+pipeline (which reads the document once, up front, to run the "is this really
+a thesis?" gate), by the title-extraction helper, and by the metadata
+helper.
+
+**Page limits keep it fast.** `extract()` takes an optional `max_pages`.
+Left empty it reads everything (what upload needs). Title detection passes
+`FRONT_MATTER_PAGES` (5) and the metadata helper passes `METADATA_PAGES` (10),
+because the title, authors and year sit on the title page and the abstract
+can land as late as page 8 — much cheaper than reading a 93-page thesis to
+find a title. A hard `OCR_MAX_PAGES` (50) ceiling still protects memory when
+a scanned PDF has to be read by OCR (about 12 MB per page at 200 dpi).
 - **PDF (`_extract_pdf`):** Tries `pypdf`'s direct text extraction first
   (fast, and accurate for "born-digital" PDFs with a real text layer). If
   that yields fewer than 200 characters — a strong signal the PDF is
@@ -1769,6 +1800,18 @@ topic clustering) is built from.
   dot product against every candidate thesis's stored embedding (skipping
   any thesis that doesn't have one yet) — entirely in NumPy, no external
   vector database needed at this scale.
+- **Acronyms are understood:** before scoring, `rank_theses` asks
+  `expand_query` (from `acronyms.py`, explained below) for every form of the
+  query, so "IoT" and "Internet of Things" are treated as one question; each
+  thesis keeps its best score across the forms.
+- **`generate_thesis_embedding` / `generate_title_embedding`:** Compute and
+  store the whole-thesis fingerprint and the title-only fingerprint.
+  `title_source_hash` stamps the title fingerprint with a hash of the model
+  name and the exact title, so an edited title (or a new model) is noticed as
+  stale and re-encoded instead of silently reusing an old vector.
+- **`ScoredThesis`:** The little envelope every ranking returns — a thesis, its
+  score, and a `title_match` flag that Title Similarity sets when the query
+  exactly matches a stored title or name.
 
 ### backend/theses/services/title_similarity.py — "Has this exact idea been done before?" (Phase 2B)
 
@@ -1782,6 +1825,16 @@ duplicate-topic warnings. Three classification bands (`HIGHLY_SIMILAR` ≥
 85%, `MODERATELY_SIMILAR` 60–84%, `LOW_SIMILARITY` below that) each carry a
 canned, defensible recommendation sentence — the kind of language that could
 be quoted in an actual thesis-defense committee meeting.
+
+There is also a **relevance floor** (`THRESHOLD_MEANINGFUL`, 0.35): below it a
+comparison is treated as noise rather than a match (an unrelated sentence
+scores about 0.23 against the corpus), so `LOW_SIMILARITY` really covers
+0.35 up to 0.60 and anything under 0.35 is "no meaningful match". Stored
+title fingerprints are reused when they still match the current title and
+model, so only missing or stale ones are encoded during a request. Finally,
+an **exact title or name match** (found by `title_match.py`, explained below)
+is shown even when it falls below the floor and is listed ahead of the
+meaning-based matches — it never changes the score or the risk label.
 
 ### backend/theses/services/topic_analysis.py — "What is everyone researching lately?" (Phase 3)
 
@@ -1818,6 +1871,15 @@ The most involved of the three AI services:
    — so the classification stays meaningful as the whole repository grows,
    instead of every cluster eventually looking "saturated" by the old fixed
    numbers.
+5. **`_trend_cutoffs` and `check_title_topic`:** `_trend_cutoffs` turns those
+   rules into two plain numbers (the size where a topic counts as Saturated,
+   and the size at or below which it counts as Underexplored), so every
+   caller uses the same edges. `check_title_topic` uses them to answer
+   the Trend page's "check my proposed topic" box: it counts the approved
+   theses whose meaning is at least as close as the Title Similarity
+   relevance floor (0.35) to the proposed title, then labels that count with
+   the same edges the groups use — "a title and a group are never judged by
+   different standards."
 
 ### backend/theses/services/preview_pdf.py — the DOCX PDF renderer
 
@@ -1840,65 +1902,122 @@ that the source document is unavailable.
 
 ### backend/theses/views.py — the repository's many counters
 
-- **`ThesisListView` / `ThesisSearchView`:** Plain filtered browsing vs.
-  SBERT-ranked semantic search — two separate endpoints because "browse
-  everything, optionally filtered" and "rank by meaning against a query"
-  are different enough operations to deserve their own request/response
-  shapes rather than one endpoint silently switching behavior based on
-  whether `?q=` was present.
+This is the biggest file in the kitchen, and it has grown a lot: it now
+answers seventeen different kinds of order. Every counter has the same
+shape — check who is asking, check the order is sensible, hand the real
+work to a `services/` file, and pass the answer back.
+
 - **`_visible_queryset`:** The role-based visibility rule used by every
   listing/search/detail endpoint — students see only `approved` theses (plus
   their *own* uploads regardless of status); faculty/administrators see
-  everything.
-- **`ThesisDetailView`:** Plain metadata lookup.
-- **`ThesisDownloadView`:** Covered in depth in the previous round of work —
-  streams PDFs inline, converts DOCX to PDF on the fly, and falls back to a
-  placeholder PDF, never a 404.
-- **`ThesisUploadView`:** The eight-step upload pipeline: validate the file →
-  validate the metadata → SHA-256 hash it for duplicate detection → decide
-  the initial workflow status from the uploader's role (`student` → 
-  `pending_review`, needs faculty sign-off; `faculty`/`administrator` →
-  `approved` immediately) → save inside a transaction → **best-effort** text
-  extraction (a failure here is logged but never blocks the upload from
-  succeeding) → **best-effort** SBERT embedding generation (same
-  never-block guarantee) → respond with the full detail shape.
-  `_coerce_list_fields` (lines 459–492) exists because `multipart/form-data`
-  can only carry strings, not real JSON arrays — so `authors`/`keywords`
-  arrive as either a JSON-encoded string or a comma-separated fallback, and
-  this helper normalizes either shape into a real Python list before
-  validation runs.
-- **`ThesisValidateTitleView` / `ThesisTopicTrendsView` / `ThesisAnalyticsView`:**
-  Thin HTTP wrappers around the three AI services above — each does
-  parameter validation, calls the service, and serializes the result; none
-  of them contain any AI logic themselves (that all lives in `services/`).
-  `ThesisAnalyticsView` is explicitly documented as "no ML, no AI inference"
-  — pure Django ORM aggregation (`Count`, date-range filters, a Python
-  `Counter` over the JSON keyword arrays) — deliberately kept separate from
-  the AI-driven Trend Analysis page so the two pages' numbers can never be
-  confused with each other.
-- **`ThesisExtractTitleView`:** A stateless helper (nothing is saved to the
-  database) that reuses `ThesisTextExtractor`, then scores each line of the
-  extracted text against a heuristic (uppercase/title-case, word count in a
-  plausible title range, contains common thesis-title keywords like "system"
-  or "framework," penalized if the document appears to start directly with
-  chapter headings rather than an actual title page) to guess the most
-  likely thesis title — returning a `high`/`medium`/`low` confidence label
-  the frontend uses to warn the user to double-check a low-confidence guess.
+  everything. A student can never widen this by passing a clever filter.
+- **`ThesisListView`:** Plain browsing with filters (`q`, `year`, `program`,
+  `status`, `mine`, `ids`, `keyword`). When `q` is present the survivors of
+  the filters are re-ranked by meaning; without it they come back newest
+  first. `mine=true` and `ids=` are *narrowing* filters laid on top of the
+  visibility rule, so they can never reveal something the caller could not
+  already see. `keyword=` goes through `_normalise_keyword`, which folds
+  case and stray spaces so "IoT", "IOT" and " Internet Of Things " match
+  the way a human would expect (the stored spelling is never rewritten).
+- **`ThesisSearchView`:** The semantic-search counter — ranked results with
+  a `similarity_score` per item, same pagination shape as the list.
+- **`ThesisDetailView`:** Plain metadata lookup through `_resolve_thesis`.
+- **`ResearchSubjectListView`, `ThesisSubjectReviewView`,
+  `ThesisSubjectSuggestionsView`, `ThesisSubjectTrendsView`:** The
+  "research subject" desk. Each approved thesis can carry one confirmed
+  *primary subject* from a fixed vocabulary. Faculty or administrators
+  confirm or change it (`ThesisSubjectReviewView`); the suggestions view
+  proposes two likely subjects from the most similar already-reviewed
+  theses, but only *suggests* — nothing is assigned until a human confirms.
+  `ThesisSubjectTrendsView` counts the confirmed subjects for the Trend page.
+- **`ThesisDownloadView`:** Serves the thesis as a **watermarked**
+  `application/pdf`. PDFs are stamped and served; DOCX files are converted
+  to PDF on the fly and stamped the same way (the conversion is never saved
+  as "the" thesis file). There is deliberately **no unstamped response**:
+  both `?disposition=inline` (the default preview) and
+  `?disposition=attachment` go through the stamper, otherwise the clean copy
+  would be one click away in the browser's network tab. Stamped bytes are
+  cached on disk (not in Django's memory cache) under a name built from the
+  file hash, the watermark version and the disposition, so replacing the file
+  or changing the stamp invalidates them automatically. If the file is
+  missing, encrypted, or a DOCX will not convert, the answer is a structured
+  `DOCUMENT_NOT_AVAILABLE` 404 — never a made-up stand-in PDF that the viewer
+  could mistake for the real document.
+- **`ThesisPreviewPageView`:** One watermarked *page image* of a thesis
+  (`/<id>/preview/pages/<page>/`), behind the same permission gate, so the
+  viewer can show page by page without ever holding the whole file.
+- **`ThesisUploadView`:** Submitting a thesis is now a two-stage order. The
+  `post` method validates the file and metadata, refuses duplicates with a
+  409, then **enqueues a processing job** and answers `202 Accepted` with a
+  `job_id`; the frontend polls the job (see the `processing_jobs` app in
+  Part 18) while a separate worker does the slow part. The worker runs the
+  same steps `_process_synchronous` spells out: validate the file (size,
+  extension, magic bytes) → validate the metadata → SHA-256 the contents for
+  duplicate detection → **document-type gate** (a Certificate of
+  Registration is refused *before* anything is saved) → choose the starting
+  status from the uploader's role (`student` → `pending_review`;
+  `faculty`/`administrator` → `approved`) → save inside a transaction →
+  best-effort SBERT embeddings (a failure is logged, never blocks the
+  upload) → answer with the full detail shape. `_coerce_list_fields` turns
+  the strings that `multipart/form-data` can carry into real `authors` /
+  `keywords` lists.
+- **`ThesisValidateTitleView`:** The Title Similarity counter. It classifies
+  a proposed title as `HIGHLY_SIMILAR`, `MODERATELY_SIMILAR` or
+  `LOW_SIMILARITY`, gives the recommendation text, and lists the closest
+  approved theses that reach the relevance floor; `has_meaningful_match` is
+  `false` when nothing does.
+- **`ThesisTopicTrendsView` / `ThesisTopicCheckView`:** Trend Analysis. The
+  first groups the approved theses by *meaning* (agglomerative clustering of
+  the stored SBERT vectors, TF-IDF keywords per group, group size →
+  `SATURATED` / `EMERGING` / `UNDEREXPLORED`, technology tags counted) and is
+  read-only. The second (`POST /topic-trends/check-title/`) takes a proposed
+  title and says whether *that* topic is saturated, emerging or
+  under-explored, using the same size rule as the groups.
+- **`ThesisAnalyticsView`:** Pure Django ORM counting — no ML, no AI — for
+  the Analytics page, deliberately kept apart from Trend Analysis so the two
+  pages' numbers can never be confused. Everyone sees counts and
+  distributions; only faculty/administrators also see the pending count.
+- **`ThesisPublicStatsView`:** The one counter that needs **no login**: it
+  returns only `indexed_theses_count` for the landing page. No titles, no
+  authors, no files, nothing private.
+- **`ThesisExtractTitleView` / `ThesisExtractMetadataView`:** Helpers for the
+  upload and Title Similarity pages. Neither saves a thesis. Each stores a
+  short-lived *processing job* and the worker returns the answer through job
+  status: the first guesses the title (with a `high`/`medium`/`low`
+  confidence so the page can warn about a shaky guess), the second reads the
+  front matter and returns title, abstract, authors, keywords, program and
+  year so the upload form can pre-fill itself. The user can edit everything;
+  the server re-extracts on submit and that copy is the authoritative one.
+  Both run the same document gate, and a document that is not a thesis is
+  refused with a message that differs by page: on upload it says "upload the
+  manuscript itself", on Title Similarity it says the file is not a thesis
+  proposal (a student checking a proposed title has no manuscript yet).
 
 ### backend/theses/urls.py / admin.py / apps.py
 
-- **`urls.py`** mounts ten routes under `/api/v1/theses/` — list, public
-  stats, upload, search, validate-title, extract-title, topic-trends,
-  analytics, detail, download.
-- **`admin.py`** gives Django admin a full-featured `ThesisAdmin`: colored
-  status badges, an extracted-text preview, embedding-vector info, and bulk
-  actions to approve/reject/reset-to-pending selected theses. The
-  `approve_theses` bulk action (lines 162–208) is worth noting: after
-  bulk-approving, it **automatically retries SBERT embedding generation**
-  for any newly-approved thesis that doesn't already have one — closing a
-  real lifecycle gap where a student's thesis got approved but its
-  embedding had failed at upload time, which would otherwise leave it
-  silently invisible to semantic search and title similarity forever.
+- **`urls.py`** mounts seventeen routes under `/api/v1/theses/`: list,
+  `public-stats/`, `upload/`, `search/`, `validate-title/`, `extract-title/`,
+  `extract-metadata/`, `topic-trends/`, `topic-trends/check-title/`,
+  `subject-trends/`, `subjects/`, `analytics/`, and per thesis `<id>/`,
+  `<id>/download/`, `<id>/preview/pages/<page>/`, `<id>/subject/`,
+  `<id>/subject-suggestions/`. The fixed words are listed before `<id>/` on
+  purpose so a word like `analytics` is never mistaken for a thesis id.
+- **`admin.py`** now enforces a strict review policy: **no bulk actions at
+  all** (`actions = None` also removes Django's built-in "delete selected"),
+  so one admin request can never change more than one manuscript. Every
+  status change goes through the single-thesis form; a real transition
+  stamps `reviewed_by` / `reviewed_at` and writes exactly one entry to the
+  append-only audit log (the "before" status is re-read from the database,
+  not from the form, so two reviewers cannot confuse each other). The change
+  page also shows a colored status badge, an *overlap badge* and a
+  *redundancy analysis* that tells the reviewer how closely the title
+  overlaps the approved corpus (see `services/redundancy.py`), an
+  extracted-text preview, embedding info, and a link to preview the thesis
+  on the frontend. When a thesis is approved without an embedding,
+  `_retry_embedding_if_needed` tries to create one — the old
+  `approve_theses` bulk action's safety net, now per thesis. A second admin,
+  `ResearchSubjectAdmin`, shows the subject vocabulary read-only (no add, no
+  delete from the admin).
 - **`apps.py`** is a minimal `AppConfig` with no custom `ready()` hook.
 
 > 📝 `theses/management/commands/` holds three Django management commands
@@ -2135,6 +2254,27 @@ whole document:
   overridable via environment variables so a deployment can tune them
   without touching code.
 
+**Newer switches in `base.py`:**
+- **`processing_jobs`** is now one of the installed apps (Part 18), and a
+  `RequestTimingMiddleware` from `common/performance.py` logs how long the
+  slow stages take (route, page, bytes, cache hit, time — never the content).
+- **`SBERT_PRELOAD`** (default: on in production, off elsewhere) loads the
+  90 MB meaning-model when the server starts, so the first search does not
+  make a visitor wait.
+- **`DOCUMENT_PROCESSING_ASYNC`** (default on) decides whether uploads and
+  extractions go through the background-job queue.
+- **`REVIEWED_SUBJECTS_MAIN_ENABLED`** (default off) chooses whether the Trend
+  page shows the faculty-confirmed subjects by default or the exploratory
+  meaning-based groups; it is switched on only after the subjects have been
+  imported and reconciled.
+- **A separate `topic_trends` file cache** keeps the default Topic Trend
+  result across restarts and shares it between workers.
+- **Private storage** for identity documents is a different folder from public
+  thesis media; the development server refuses to serve the old
+  `/media/private/` path.
+- **`CORS_ALLOWED_ORIGIN_REGEXES`** lets the Vite dev app on a private
+  Wi-Fi address (port 5173) call the backend during LAN testing.
+
 ### backend/thesys/settings/dev.py / prod.py — "Loosen the belt at home, tighten it at the restaurant"
 
 - **`dev.py`** turns `DEBUG` on, opens `ALLOWED_HOSTS` to `'*'` (so a phone
@@ -2151,6 +2291,14 @@ whole document:
   HTTPS redirection are deliberately deferred until a real TLS-terminating
   reverse proxy is in front of the app — turning them on prematurely would
   make even a valid plain-HTTP smoke test fail.
+  It has also learned to sit behind a tunnel: `DJANGO_CSRF_TRUSTED_ORIGINS`
+  lists the website origins allowed to send logged-in requests,
+  `SECURE_PROXY_SSL_HEADER` trusts the tunnel's "this was HTTPS" header (only
+  safe while the app server is reachable from nowhere else), WhiteNoise serves
+  the admin's static files (never thesis uploads), and a comment spells out a
+  hard rule: **never** publish `/media/theses/` through nginx or a CDN, because
+  the institutional watermark is stamped into the PDF at download time and a
+  public copy would bypass it.
 
 ### backend/thesys/urls.py — "The building directory in the lobby"
 
