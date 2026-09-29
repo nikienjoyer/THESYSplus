@@ -25,6 +25,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import SimilaritySlider from '../components/ui/SimilaritySlider';
 import { Badge } from '../components/shadcn/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
@@ -43,7 +44,7 @@ function keywordChipClass(isDark, isActive) {
     // signal they are clickable. focus-visible mirrors it, because a hover
     // affordance alone serves mouse users and leaves keyboard users guessing.
     + ' hover:underline focus-visible:underline'
-    + ' focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+    + ' focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
   if (isActive) {
     // Pressed: a deeper fill of the same blue, so "this is the filter you are
@@ -332,7 +333,7 @@ function ExampleChips({ onSelect, isDark }) {
           key={q}
           type="button"
           onClick={() => onSelect(q)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             isDark
               ? 'border-white/15 text-gray-300 hover:bg-white/[0.07] hover:text-white'
               : 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:text-gray-900'
@@ -554,10 +555,7 @@ export default function RepositoryPage() {
       <PageShell>
 
         {/* Page heading */}
-        <div className="mb-6">
-          <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Research Repository
-          </h1>
+        <PageHeader title="Research Repository">
           <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
             <span>
               {effectiveSearch
@@ -595,14 +593,14 @@ export default function RepositoryPage() {
               </span>
             )}
           </p>
-        </div>
+        </PageHeader>
 
         {canReviewSubjects && (
           <div className="mb-5 flex flex-wrap items-center gap-3 text-sm">
             {awaitingSubjectReview ? (
-              <Link to="/repository" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Show all theses</Link>
+              <Link to="/repository" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Show all theses</Link>
             ) : (
-              <Link to="/repository?subject_review=pending" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Awaiting subject review</Link>
+              <Link to="/repository?subject_review=pending" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Awaiting subject review</Link>
             )}
           </div>
         )}
@@ -620,7 +618,7 @@ export default function RepositoryPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
                   isDark
-                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+                    ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
                     : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
                 }`}
               />
@@ -638,7 +636,7 @@ export default function RepositoryPage() {
                 value={year}
                 onChange={(e) => updateSearchParams({ year: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
@@ -654,7 +652,7 @@ export default function RepositoryPage() {
                 value={program}
                 onChange={(e) => updateSearchParams({ program: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                   isDark
                     ? 'bg-white/[0.04] border-white/10 text-gray-200'
                     : 'bg-white border-gray-200 text-gray-700'
@@ -722,7 +720,7 @@ export default function RepositoryPage() {
             >
               <Link
                 to="/repository"
-                className="rounded hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="rounded hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Repository
               </Link>
@@ -747,7 +745,7 @@ export default function RepositoryPage() {
                 type="button"
                 onClick={clearKeyword}
                 aria-label="Clear keyword filter"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   isDark
                     ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
                     : 'border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -809,7 +807,7 @@ export default function RepositoryPage() {
               <button
                 type="button"
                 onClick={clearKeyword}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Back to all theses
               </button>
@@ -834,7 +832,7 @@ export default function RepositoryPage() {
                 <button
                   type="button"
                   onClick={() => applyThreshold(50)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Try lowering the threshold to 50%
                 </button>

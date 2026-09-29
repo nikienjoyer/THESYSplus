@@ -88,7 +88,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
           onClick={() => setDropOpen((o) => !o)}
           aria-label="Profile menu"
           aria-expanded={dropOpen}
-          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-full transition-opacity hover:opacity-90 flex-shrink-0"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full transition-opacity hover:opacity-90 flex-shrink-0"
         >
           <Avatar className="w-8 h-8">
             {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile" />}
@@ -180,7 +180,7 @@ export function AvatarDropdown({ user, isDark, onSignOut }) {
               <button
                 type="button"
                 onClick={() => setShowLogoutModal(false)}
-                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-[var(--color-border)] text-body hover:bg-[var(--color-surface-secondary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-[var(--color-border)] text-body hover:bg-[var(--color-surface-secondary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Stay Logged In
               </button>
@@ -227,7 +227,7 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
-              className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 flex-shrink-0 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex-shrink-0 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
@@ -243,7 +243,7 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={toggleTheme}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
@@ -272,7 +272,7 @@ export default function AppNavbar({ activePage = '' }) {
                     aria-current={isActive ? 'page' : undefined}
                     className={[
                       'relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                       soon
                         ? 'text-gray-400 dark:text-gray-600 pointer-events-none cursor-default'
                         : isActive
@@ -295,7 +295,7 @@ export default function AppNavbar({ activePage = '' }) {
             <button
               type="button"
               onClick={openUpload}
-              className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Upload Thesis
             </button>
@@ -304,7 +304,7 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={toggleTheme}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>

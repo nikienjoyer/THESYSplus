@@ -363,7 +363,7 @@ export default function ThesisDetailPage() {
                         title={label}
                         className={`text-xs px-2 py-1 rounded-md cursor-pointer transition-colors
                           hover:underline focus-visible:underline
-                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isDark
                             ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
                             : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
@@ -405,7 +405,7 @@ export default function ThesisDetailPage() {
                       aria-label={`View theses in ${thesis.primary_subject.name}`}
                       className={`inline-flex items-center text-xs px-2 py-1 rounded-md transition-colors
                         hover:underline focus-visible:underline
-                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         isDark
                           ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
                           : 'bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100'
@@ -423,13 +423,13 @@ export default function ThesisDetailPage() {
                     <div className="flex flex-col sm:flex-row gap-2">
                       <select id="primary-subject" value={selectedSubject} onChange={(event) => setSelectedSubject(event.target.value)}
                         style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                        className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? 'bg-[#111a37] border-white/15 text-gray-100' : 'bg-white border-gray-300 text-gray-800'}`}>
+                        className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDark ? 'bg-[#111a37] border-white/15 text-gray-100' : 'bg-white border-gray-300 text-gray-800'}`}>
                         <option value="">Choose a subject</option>
                         {subjects.map((subject) => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
                       </select>
                       <button type="button" onClick={saveSubject}
                         disabled={!selectedSubject || savingSubject || selectedSubject === thesis.primary_subject?.code}
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         {savingSubject ? 'Saving…' : thesis.primary_subject ? 'Save change' : 'Confirm subject'}
                       </button>
                     </div>
@@ -445,7 +445,7 @@ export default function ThesisDetailPage() {
                               type="button"
                               onClick={() => setSelectedSubject(s.code)}
                               aria-pressed={selectedSubject === s.code}
-                              className={`rounded-full border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                              className={`rounded-full border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                                 selectedSubject === s.code
                                   ? 'bg-blue-600 border-blue-600 text-white'
                                   : isDark

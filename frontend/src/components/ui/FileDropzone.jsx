@@ -142,7 +142,7 @@ export default function FileDropzone({
             type="button"
             onClick={() => { onRemove?.(); if (inputRef.current) inputRef.current.value = ''; }}
             aria-label={`Remove ${file.name}`}
-            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -173,7 +173,7 @@ export default function FileDropzone({
         compactIdle
           ? 'min-h-[150px] sm:min-h-[160px] px-4 sm:px-6 py-5'
           : 'px-6 py-8',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         dragOver
           ? 'border-primary bg-[var(--color-info-bg)]'

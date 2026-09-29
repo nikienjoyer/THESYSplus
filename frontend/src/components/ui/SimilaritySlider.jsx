@@ -95,7 +95,7 @@ export default function SimilaritySlider({ value, onChange, isDark, disabled, he
         onChange={(e) => onChange(Number(e.target.value))}
         disabled={disabled}
         style={trackStyle}
-        className="similarity-slider w-full h-1.5 rounded-full appearance-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+        className="similarity-slider w-full h-1.5 rounded-full appearance-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
         aria-label={`Similarity threshold: ${value}%`}
         aria-valuemin={MIN}
         aria-valuemax={MAX}

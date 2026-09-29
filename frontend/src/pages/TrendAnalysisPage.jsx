@@ -470,14 +470,14 @@ function TopicCheck({ isDark }) {
           placeholder="e.g. IoT-based smart irrigation system for rice farmers"
           className={`flex-1 min-w-0 px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
             isDark
-              ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+              ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
               : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
           }`}
         />
         <button
           type="submit"
           disabled={trimmed.length < 5 || loading}
-          className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {loading ? 'Analyzing…' : 'Analyze topic'}
         </button>
@@ -509,7 +509,7 @@ function TopicCheck({ isDark }) {
                     <li key={t.id}>
                       <Link
                         to={`/repository/${t.id}`}
-                        className={`flex items-baseline justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
+                        className={`flex items-baseline justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
                       >
                         <span className={`text-sm min-w-0 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                           {t.title}
@@ -673,7 +673,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             type="button"
             onClick={() => navigate(-1)}
             aria-label="Back to thesis"
-            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm ${
               isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -685,7 +685,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
         ) : (
           <Link
             to={reviewed ? '/trend-analysis' : '/trend-analysis?view=clusters'}
-            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm ${
+            className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm ${
               isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -702,7 +702,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             style={{ backgroundColor: paletteColor }}
             aria-hidden="true"
           />
-          <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <h1 className="text-2xl font-bold text-ink">
             {cluster.topic}
           </h1>
           <Badge
@@ -916,11 +916,11 @@ export default function TrendAnalysisPage() {
         {reviewedEnabled && showOverviewChrome && (
           <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
             <Link to="/trend-analysis" aria-current={reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
               Reviewed subjects
             </Link>
             <Link to="/trend-analysis?view=clusters" aria-current={!reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${!reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
               Explore text clusters
             </Link>
           </nav>

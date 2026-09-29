@@ -24,6 +24,7 @@ import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { useProfilePicture } from '../hooks/useProfilePicture';
 import { useUploadModal } from '../hooks/useUploadModal';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/shadcn/avatar';
@@ -339,6 +340,7 @@ export default function ProfilePage() {
       <AppNavbar activePage="profile" />
 
       <PageShell>
+        <PageHeader title="Profile" />
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           {/* Sidebar */}
           <Sidebar user={user} stats={stats} isDark={isDark} />

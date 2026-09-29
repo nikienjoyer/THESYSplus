@@ -130,11 +130,11 @@ export default function SettingsPage() {
 
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors ${
     isDark
-      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
   }`;
   const labelCls = `block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
-  const readonlyCls = `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+  const readonlyCls = `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
     isDark
       ? 'bg-white/[0.02] border-white/[0.06] text-gray-500 cursor-not-allowed'
       : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
@@ -166,7 +166,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => photoInputRef.current?.click()}
-                  className="group relative flex-shrink-0 w-16 h-16 rounded-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="group relative flex-shrink-0 w-16 h-16 rounded-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Change profile photo"
                   title="Click to change photo"
                 >

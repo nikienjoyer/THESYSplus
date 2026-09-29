@@ -22,6 +22,7 @@ import { useTheme } from '../context/ThemeContext';
 import Spinner from '../components/ui/Spinner';
 import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { useToast } from '../hooks/useToast';
 import FileDropzone from '../components/ui/FileDropzone';
 import { MAX_UPLOAD_MB } from '../lib/upload';
@@ -136,7 +137,7 @@ function MatchCard({ match, isDark }) {
   return (
     <Link
       to={`/repository/${match.id}`}
-      className="thesys-card thesys-card-lift p-4 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      className="thesys-card thesys-card-lift p-4 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <h3 className={`font-semibold text-sm leading-snug line-clamp-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -445,9 +446,9 @@ export default function TitleSimilarityPage() {
         exit:    { opacity: 0, x: -8, transition: { duration: DURATION.normal, ease: EASE_OUT } },
       };
 
-  const titleInputCls = `w-full px-4 py-3 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+  const titleInputCls = `w-full px-4 py-3 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
     isDark
-      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400'
   }`;
 
@@ -459,14 +460,11 @@ export default function TitleSimilarityPage() {
         <PageShell>
 
           {/* ── Header ────────────────────────────────────────────────── */}
-          <div className="mb-6">
-            <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Title Similarity Validation
-            </h1>
+          <PageHeader title="Title Similarity Validation">
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Validate proposed thesis titles using AI-assisted semantic comparison.
             </p>
-          </div>
+          </PageHeader>
 
           {/* Two-column layout: form (left) + methodology rail (right) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -500,7 +498,7 @@ export default function TitleSimilarityPage() {
                         tabIndex={selected ? 0 : -1}
                         onClick={() => setMode(key)}
                         onKeyDown={handleTabKeyDown}
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
                             ? 'bg-primary text-white'
                             : isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
@@ -566,7 +564,7 @@ export default function TitleSimilarityPage() {
                             Proposal document
                           </label>
                           <details className="relative">
-                            <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                            <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
                               <Info className="h-4 w-4" aria-hidden="true" />
                               <span className="sr-only">About automatic title extraction</span>
                             </summary>
@@ -658,7 +656,7 @@ export default function TitleSimilarityPage() {
                     <button
                       type="submit"
                       disabled={submitting || trimmedLen < 5 || blockedByRejectedDocument}
-                      className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {submitting ? <><Spinner /> Checking similarity…</> : 'Validate Title'}
                     </button>
@@ -672,7 +670,7 @@ export default function TitleSimilarityPage() {
             <aside className="lg:col-span-1 flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
               {/* Collapsible legend — native <details>, collapsed by default */}
               <details className="thesys-card p-4 group">
-                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-md">
+                <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md">
                   <span className={`text-sm font-semibold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     <Lightbulb className="w-4 h-4 flex-shrink-0 text-primary" aria-hidden="true" />
                     How scoring works

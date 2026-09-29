@@ -38,7 +38,7 @@ import PageHeader from '../components/layout/PageHeader';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
 import AnimatedCounter from '../components/ui/AnimatedCounter';
 import { useMotionVariants } from '../lib/motion';
-import { CHART_PALETTE } from '../styles/tokens';
+import { CHART_PALETTE, TOKEN_COLORS } from '../styles/tokens';
 
 
 // ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ export default function AnalyticsDashboardPage() {
                 value={data.semantic_ready}
                 sublabel="indexed for AI search"
                 isDark={isDark}
-                accent={isDark ? '#60a5fa' : '#2563eb'}
+                accent={isDark ? TOKEN_COLORS.primaryDark : TOKEN_COLORS.primaryLight}
                 tooltipText="Theses with generated SBERT embeddings that are available for semantic retrieval. A thesis becomes Semantic Ready after its embedding vector is computed."
               />
               <StatCard
@@ -427,7 +427,7 @@ export default function AnalyticsDashboardPage() {
                 />
               )}
               {data.pending_review_count !== null && data.reviewed_subject_summary && (
-                <Link to="/repository?subject_review=pending" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                <Link to="/repository?subject_review=pending" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   <StatCard label="Subject review" value={data.reviewed_subject_summary.awaiting_review_count} sublabel="approved theses awaiting a subject" isDark={isDark} />
                 </Link>
               )}

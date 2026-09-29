@@ -688,7 +688,7 @@ function UploadThesisModalContent() {
 
   const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
     isDark
-      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+      ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
   }`;
   const labelCls = `block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
@@ -720,7 +720,7 @@ function UploadThesisModalContent() {
               type="button"
               onClick={requestClose}
               aria-label="Close"
-              className="absolute right-4 top-4 p-1.5 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-ink hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="absolute right-4 top-4 p-1.5 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-ink hover:bg-surface-elevated transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X className="w-5 h-5" />
             </button>
@@ -778,7 +778,7 @@ function UploadThesisModalContent() {
                 onClick={requestClose}
                 disabled={submitting && !uploadAcknowledged}
                 aria-label="Close"
-                className="flex-shrink-0 -mr-1 -mt-1 p-1.5 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-ink hover:bg-surface-elevated transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="flex-shrink-0 -mr-1 -mt-1 p-1.5 flex items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-ink hover:bg-surface-elevated transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -796,7 +796,7 @@ function UploadThesisModalContent() {
                     Thesis Document
                   </label>
                   <details className="relative">
-                    <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
+                    <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>
                       <Info className="h-4 w-4" aria-hidden="true" />
                       <span className="sr-only">About automatic metadata extraction</span>
                     </summary>
@@ -910,7 +910,7 @@ function UploadThesisModalContent() {
                         setAuthors(authorSuggestion.value);
                         setAuthorSuggestion(null);
                       }}
-                      className="rounded text-sm font-medium text-blue-600 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50 dark:text-blue-400">
+                      className="rounded text-sm font-medium text-blue-600 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 dark:text-blue-400">
                       Use suggestion
                     </button>
                   </div>

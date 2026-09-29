@@ -214,7 +214,7 @@ export default function LandingPage() {
         <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu"
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -230,12 +230,12 @@ export default function LandingPage() {
               <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
               </Link>
             )}
             <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}>
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
@@ -253,7 +253,7 @@ export default function LandingPage() {
               <li key={label}>
                 <Link to={to} onClick={implemented ? undefined : (e) => e.preventDefault()}
                   aria-disabled={!implemented}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                     implemented
                       ? isDark ? 'text-gray-400 hover:text-white hover:bg-white/[0.06]' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
                       : isDark ? 'text-gray-600 cursor-default pointer-events-none'      : 'text-gray-300 cursor-default pointer-events-none'
@@ -266,19 +266,19 @@ export default function LandingPage() {
           <div className="flex items-center gap-2 justify-end">
             {!isInitializing && isAuthenticated && (
               <>
-                <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   Upload Thesis
                 </button>
                 <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+              <Link to="/sign-in" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
               </Link>
             )}
             <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
               }`}>
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
@@ -432,7 +432,7 @@ export default function LandingPage() {
                 />
               </div>
               <button type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Search Semantically
               </button>
@@ -441,7 +441,7 @@ export default function LandingPage() {
             {/* Secondary CTA */}
             <m.div variants={fadeUp} className="flex flex-wrap gap-3">
               <Link to="/title-similarity"
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Check Title Similarity
               </Link>
@@ -697,7 +697,7 @@ export default function LandingPage() {
                 ].map(({ label, onClick }) => (
                   <li key={label}>
                     <button type="button" onClick={onClick}
-                      className="text-xs text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400">
+                      className="text-xs text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
                       {label}
                     </button>
                   </li>
@@ -715,7 +715,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Visit the Pampanga State University official website (opens in new tab)"
-                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
                     Pampanga State University
                   </a>
@@ -726,7 +726,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Visit the CCS Facebook page (opens in new tab)"
-                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
                     CCS Facebook Page
                   </a>
@@ -741,7 +741,7 @@ export default function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Visit CCS Facebook page (opens in new tab)"
-                className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center hover:bg-white/[0.12] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center hover:bg-white/[0.12] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
               >
                 <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
