@@ -7,7 +7,10 @@ Implements the approved THESYS+ AI architecture for proposal validation:
 * Threshold-based classification (Chapter 1–3):
     - Highly Similar:        score >= 0.85
     - Moderately Similar:    0.60 <= score < 0.85
-    - Low Similarity:        score < 0.60
+    - Low Similarity:        0.35 <= score < 0.60
+* Relevance floor: a thesis title scoring below 0.35 is not a meaningful
+  match. It is dropped from ``matches``; if nothing reaches the floor the
+  result carries ``has_meaningful_match = False`` and a neutral message.
 
 Design notes
 ------------
@@ -21,6 +24,7 @@ Design notes
 * Public surface is intentionally minimal:
     - ``CLASS_HIGH``, ``CLASS_MODERATE``, ``CLASS_LOW`` — classification labels
     - ``THRESHOLD_HIGH``, ``THRESHOLD_MODERATE`` — score cut-offs
+    - ``THRESHOLD_MEANINGFUL`` — minimum score for a displayed match
     - ``classify(score) -> str``
     - ``recommendation_for(class_label) -> str``
     - ``rank_titles(candidate, queryset, top_k) -> List[ScoredThesis]``
@@ -44,6 +48,10 @@ from common.performance import timed_stage
 
 THRESHOLD_HIGH = 0.85       # >= this → HIGHLY_SIMILAR
 THRESHOLD_MODERATE = 0.60   # >= this → MODERATELY_SIMILAR; below → LOW_SIMILARITY
+# Relevance floor. Below this a title comparison is noise, not a match:
+# unrelated text such as "hello hi my name is Valerie" scores ~0.23
+# against the approved corpus. Inclusive — a score of exactly 0.35 counts.
+THRESHOLD_MEANINGFUL = 0.35
 
 CLASS_HIGH = 'HIGHLY_SIMILAR'
 CLASS_MODERATE = 'MODERATELY_SIMILAR'
@@ -71,6 +79,15 @@ _RECOMMENDATIONS = {
     ),
 }
 
+# Shown when no thesis title reaches THRESHOLD_MEANINGFUL. Deliberately
+# neutral: a low score against everything says nothing about whether the
+# input is a valid, original, or suitable thesis title.
+NO_MEANINGFUL_MATCH_RECOMMENDATION = (
+    'No existing thesis title reached the minimum similarity for a '
+    'meaningful comparison. This result does not confirm that the text is '
+    'a suitable or original thesis title.'
+)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -96,9 +113,10 @@ class TitleClassificationResult:
 
     query: str
     classification: str
-    similarity_score: float            # max similarity across the corpus
+    similarity_score: float            # raw max similarity across the corpus
     recommendation: str
-    matches: List[ScoredThesis] = field(default_factory=list)
+    matches: List[ScoredThesis] = field(default_factory=list)  # >= floor only
+    has_meaningful_match: bool = False
 
 
 def rank_titles(
@@ -173,21 +191,32 @@ def classify_title(
     Pipeline:
       1. Rank every thesis by cosine similarity of its **title** vs the
          candidate (``rank_titles``).
-      2. Take the top score as the overall similarity_score.
+      2. Take the raw top score as the overall similarity_score.
       3. Classify (``classify``) using the Chapter 1–3 thresholds.
-      4. Attach the recommendation message and top-K matches.
+      4. Keep only top-K matches scoring >= ``THRESHOLD_MEANINGFUL``.
+      5. Attach the recommendation, or the neutral no-match message when
+         no match survives the floor.
 
     An empty corpus (or candidate too short) yields an empty result with
-    classification = LOW_SIMILARITY and similarity_score = 0.0.
+    classification = LOW_SIMILARITY, similarity_score = 0.0 and
+    has_meaningful_match = False.
     """
     candidate = (candidate or '').strip()
-    matches = rank_titles(candidate, queryset, top_k=top_k)
-    top_score = matches[0].score if matches else 0.0
+    ranked = rank_titles(candidate, queryset, top_k=top_k)
+    top_score = ranked[0].score if ranked else 0.0
     label = classify(top_score)
+    # Compare at the API's 4-dp precision: float32 dot products land a
+    # hair under the floor (0.35 → 0.3499999) while displaying as 35.0%.
+    matches = [s for s in ranked if round(s.score, 4) >= THRESHOLD_MEANINGFUL]
+    has_match = bool(matches)
     return TitleClassificationResult(
         query=candidate,
         classification=label,
         similarity_score=top_score,
-        recommendation=recommendation_for(label),
+        recommendation=(
+            recommendation_for(label) if has_match
+            else NO_MEANINGFUL_MATCH_RECOMMENDATION
+        ),
         matches=matches,
+        has_meaningful_match=has_match,
     )

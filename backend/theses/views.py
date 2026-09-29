@@ -1286,7 +1286,8 @@ class ThesisValidateTitleView(APIView):
     Reuses the SBERT model loaded by Phase 2A and the cosine-similarity
     primitives. Returns a classification (HIGHLY_SIMILAR / MODERATELY_SIMILAR
     / LOW_SIMILARITY), a recommendation message per the Chapter 1–3
-    thresholds, and the top-K most similar approved theses.
+    thresholds, and the top-K most similar approved theses that reach the
+    relevance floor (``has_meaningful_match`` is False when none do).
     """
 
     permission_classes = [IsAuthenticated]
@@ -1331,6 +1332,7 @@ class ThesisValidateTitleView(APIView):
                 'query': result.query,
                 'classification': result.classification,
                 'similarity_score': round(result.similarity_score, 4),
+                'has_meaningful_match': result.has_meaningful_match,
                 'recommendation': result.recommendation,
                 'matches': [
                     {

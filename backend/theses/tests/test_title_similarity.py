@@ -5,6 +5,7 @@ Covers:
   * Recommendation messages
   * rank_titles ranks duplicate-flavoured candidates highest
   * classify_title produces the correct classification end-to-end
+  * The 35% relevance floor drops weak matches without hiding the raw score
   * The /api/v1/theses/validate-title/ endpoint:
       - returns 200 with the full envelope shape
       - rejects empty / too-short titles
@@ -30,7 +31,9 @@ from theses.services.title_similarity import (
     CLASS_HIGH,
     CLASS_LOW,
     CLASS_MODERATE,
+    NO_MEANINGFUL_MATCH_RECOMMENDATION,
     THRESHOLD_HIGH,
+    THRESHOLD_MEANINGFUL,
     THRESHOLD_MODERATE,
     classify,
     classify_title,
@@ -217,13 +220,90 @@ class TestClassifyTitleE2E:
         )
         assert result.classification == CLASS_LOW
         assert result.similarity_score < THRESHOLD_MODERATE
-        assert 'distinct' in result.recommendation.lower()
+        if result.has_meaningful_match:
+            assert 'distinct' in result.recommendation.lower()
+        else:
+            assert result.recommendation == NO_MEANINGFUL_MATCH_RECOMMENDATION
 
     def test_empty_corpus_returns_low(self):
         result = classify_title('Some Proposed Title', [])
         assert result.classification == CLASS_LOW
         assert result.similarity_score == 0.0
         assert result.matches == []
+        assert result.has_meaningful_match is False
+        assert result.recommendation == NO_MEANINGFUL_MATCH_RECOMMENDATION
+
+
+# ---------------------------------------------------------------------------
+# Relevance floor — controlled cosine scores, no model involved
+# ---------------------------------------------------------------------------
+
+def _thesis_at(score: float, title: str):
+    """A corpus row whose stored title vector has cosine ``score`` with e1."""
+    vector = [0.0] * 384
+    vector[0] = score
+    vector[1] = (1.0 - score * score) ** 0.5
+    return SimpleNamespace(
+        title=title, title_embedding=vector,
+        title_embedding_source_hash=title_source_hash(title),
+    )
+
+
+def _classify_controlled(corpus, top_k=5):
+    candidate = [1.0] + [0.0] * 383
+    with patch('theses.services.title_similarity.embed_text', return_value=candidate):
+        return classify_title('Proposed Thesis Title', corpus, top_k=top_k)
+
+
+class TestRelevanceFloor:
+    def test_below_floor_hides_matches_but_keeps_raw_score(self):
+        result = _classify_controlled([
+            _thesis_at(0.231, 'Dating App'),
+            _thesis_at(0.14, 'Medical Chart'),
+        ])
+        assert result.has_meaningful_match is False
+        assert result.matches == []
+        assert result.similarity_score == pytest.approx(0.231, abs=1e-6)
+        assert result.classification == CLASS_LOW
+        assert result.recommendation == NO_MEANINGFUL_MATCH_RECOMMENDATION
+
+    def test_neutral_recommendation_makes_no_validity_claim(self):
+        msg = NO_MEANINGFUL_MATCH_RECOMMENDATION.lower()
+        assert 'distinct' not in msg
+        assert 'does not confirm' in msg
+
+    def test_just_below_floor_excluded(self):
+        result = _classify_controlled([_thesis_at(THRESHOLD_MEANINGFUL - 0.0001, 'Near')])
+        assert result.has_meaningful_match is False
+        assert result.matches == []
+
+    def test_floor_is_inclusive(self):
+        result = _classify_controlled([_thesis_at(THRESHOLD_MEANINGFUL, 'Edge')])
+        assert result.has_meaningful_match is True
+        assert [s.thesis.title for s in result.matches] == ['Edge']
+        assert result.classification == CLASS_LOW
+        assert 'distinct' in result.recommendation.lower()
+
+    def test_only_qualifying_matches_kept_in_order(self):
+        result = _classify_controlled([
+            _thesis_at(0.30, 'Weak'),
+            _thesis_at(0.72, 'Strong'),
+            _thesis_at(0.40, 'Fair'),
+        ])
+        assert [s.thesis.title for s in result.matches] == ['Strong', 'Fair']
+        assert result.classification == CLASS_MODERATE
+        assert result.similarity_score == pytest.approx(0.72, abs=1e-6)
+
+    def test_qualifying_matches_capped_at_five(self):
+        corpus = [_thesis_at(0.40 + i * 0.05, f'T{i}') for i in range(8)]
+        result = _classify_controlled(corpus)
+        assert [s.thesis.title for s in result.matches] == ['T7', 'T6', 'T5', 'T4', 'T3']
+
+    def test_existing_risk_boundaries_unchanged(self):
+        assert _classify_controlled([_thesis_at(0.5999, 'x')]).classification == CLASS_LOW
+        assert _classify_controlled([_thesis_at(0.60, 'x')]).classification == CLASS_MODERATE
+        assert _classify_controlled([_thesis_at(0.8499, 'x')]).classification == CLASS_MODERATE
+        assert _classify_controlled([_thesis_at(0.85, 'x')]).classification == CLASS_HIGH
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +373,8 @@ class TestValidateTitleEndpoint:
         assert isinstance(body['recommendation'], str)
         assert isinstance(body['matches'], list)
 
+        assert body['has_meaningful_match'] is True
+
         # The attendance thesis must be the top match
         assert len(body['matches']) >= 1
         assert body['matches'][0]['id'] == str(face.id)
@@ -338,7 +420,13 @@ class TestValidateTitleEndpoint:
         # similarity should be below the moderate threshold.
         assert body['similarity_score'] < THRESHOLD_MODERATE
         assert body['classification'] == CLASS_LOW
-        assert 'distinct' in body['recommendation'].lower()
+        assert isinstance(body['has_meaningful_match'], bool)
+        assert all(m['similarity'] >= THRESHOLD_MEANINGFUL for m in body['matches'])
+        if body['has_meaningful_match']:
+            assert 'distinct' in body['recommendation'].lower()
+        else:
+            assert body['matches'] == []
+            assert body['recommendation'] == NO_MEANINGFUL_MATCH_RECOMMENDATION
 
     def test_endpoint_excludes_pending_and_rejected(self, client, faculty_user, make_thesis):
         """Only APPROVED theses should appear in matches."""

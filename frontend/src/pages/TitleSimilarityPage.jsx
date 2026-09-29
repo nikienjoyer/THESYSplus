@@ -32,13 +32,18 @@ const CLASS_MODERATE = 'MODERATELY_SIMILAR';
 const CLASS_LOW = 'LOW_SIMILARITY';
 
 // Mirrors theses/services/title_similarity.py THRESHOLD_HIGH / THRESHOLD_MODERATE
-// (0.85 / 0.60). Not imported — the frontend has no shared module for backend
+// / THRESHOLD_MEANINGFUL (0.85 / 0.60 / 0.35). Not imported — the frontend has no shared module for backend
 // constants — but centralised HERE so the legend text is generated from one
 // place instead of a second hand-typed copy of the manuscript's cut-offs.
 const THRESHOLD_HIGH = 0.85;
 const THRESHOLD_MODERATE = 0.60;
+// Relevance floor — the backend drops matches below this and reports
+// has_meaningful_match: false when none remain. Legend text only; the
+// no-match decision itself always comes from the API flag.
+const THRESHOLD_MEANINGFUL = 0.35;
 const HIGH_PCT = Math.round(THRESHOLD_HIGH * 100);
 const MODERATE_PCT = Math.round(THRESHOLD_MODERATE * 100);
+const MEANINGFUL_PCT = Math.round(THRESHOLD_MEANINGFUL * 100);
 
 const EXTRACTION_TIMEOUT_MS = 30_000;
 
@@ -85,7 +90,7 @@ function splitTerms(proposedTitle, matches = []) {
 // tokens (tokens.css), never to a new variable. The text label beside it is
 // mandatory at every call site — risk is never colour-only.
 // ---------------------------------------------------------------------------
-const TONE_DOT = { danger: 'bg-danger', warning: 'bg-warning', success: 'bg-success' };
+const TONE_DOT = { danger: 'bg-danger', warning: 'bg-warning', success: 'bg-success', neutral: 'bg-gray-400' };
 
 function RiskDot({ tone, className = 'w-2.5 h-2.5' }) {
   return <span className={`inline-block rounded-full flex-shrink-0 ${TONE_DOT[tone]} ${className}`} aria-hidden="true" />;
@@ -366,12 +371,15 @@ export default function TitleSimilarityPage() {
     setDocumentRejected(false);
   };
 
-  const visuals = result ? statusVisuals(result.classification) : null;
+  // No thesis title reached the relevance floor. Treated as its own neutral
+  // outcome, not as Low Similarity: no score, no risk colour, no matches.
+  const noMeaningfulMatch = result?.has_meaningful_match === false;
+  const visuals = result && !noMeaningfulMatch ? statusVisuals(result.classification) : null;
   const tone = visuals ? TONE_CLASSES[visuals.tone] : null;
   // One decimal place so the displayed score matches threshold filtering behaviour.
   const pct = result ? ((result.similarity_score ?? 0) * 100).toFixed(1) : '0.0';
   const { common: commonTerms, distinctive: distinctiveTerms } =
-    result ? splitTerms(result.query || title, result.matches || []) : { common: [], distinctive: [] };
+    visuals ? splitTerms(result.query || title, result.matches || []) : { common: [], distinctive: [] };
 
   const trimmedLen = title.trim().length;
 
@@ -644,6 +652,9 @@ export default function TitleSimilarityPage() {
                   <p className={`text-xs leading-relaxed mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Title validation compares your proposed title with existing thesis records using SBERT semantic similarity. Higher scores may indicate topic overlap with existing studies.
                   </p>
+                  <p className={`text-xs leading-relaxed mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Studies scoring at least {MEANINGFUL_PCT}% are listed as potentially related. A score alone does not mean the topics overlap, so review each study yourself.
+                  </p>
                   <ul className={`text-xs space-y-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     <li className="flex items-center gap-2">
                       <RiskDot tone="danger" />
@@ -655,7 +666,11 @@ export default function TitleSimilarityPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <RiskDot tone="success" />
-                      <span><strong>Low Similarity</strong> — &lt; {MODERATE_PCT}%</span>
+                      <span><strong>Low Similarity</strong> — {MEANINGFUL_PCT}–{MODERATE_PCT - 1}%</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <RiskDot tone="neutral" />
+                      <span><strong>No meaningful match</strong> — &lt; {MEANINGFUL_PCT}%</span>
                     </li>
                   </ul>
                   <p className={`mt-3 pt-3 border-t text-[11px] flex items-center gap-1.5 ${
@@ -670,7 +685,24 @@ export default function TitleSimilarityPage() {
               </details>
 
               {/* Risk Level — announced when a result lands, not visual-only */}
-              {result && visuals && tone ? (
+              {noMeaningfulMatch ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-xl border border-[var(--color-border)] bg-surface-elevated p-5"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <RiskDot tone="neutral" className="w-3 h-3" />
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-muted">Result</p>
+                      <h2 className={`text-lg font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>No meaningful match found</h2>
+                    </div>
+                  </div>
+                  <div className={`pt-3 border-t ${isDark ? 'border-white/10' : 'border-black/5'}`}>
+                    <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{result.recommendation}</p>
+                  </div>
+                </div>
+              ) : result && visuals && tone ? (
                 <div
                   role="status"
                   aria-live="polite"
@@ -720,14 +752,15 @@ export default function TitleSimilarityPage() {
           {/* ── Full-width results detail (below the two-column grid) ──── */}
           {result && visuals && (
             <div className="mt-6 space-y-6">
-              {/* Related Existing Studies — all matches rendered, no expander */}
+              {/* Potentially related studies — only matches at or above the
+                  relevance floor arrive here; all rendered, no expander */}
               {result.matches?.length > 0 && (
                 <div>
                   <h3 className={`text-sm font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Related Existing Studies
+                    Potentially Related Studies
                   </h3>
                   <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                    {result.matches.length} thes{result.matches.length === 1 ? 'is' : 'es'} with similar semantic content found in the repository.
+                    {result.matches.length} thes{result.matches.length === 1 ? 'is' : 'es'} scored at least {MEANINGFUL_PCT}% similar. Check whether their topics actually overlap with yours.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {result.matches.map((m) => <MatchCard key={m.id} match={m} isDark={isDark} />)}
