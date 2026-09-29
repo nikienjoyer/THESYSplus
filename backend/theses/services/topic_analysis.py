@@ -406,9 +406,14 @@ def get_topic_trends_queryset():
         # column from ``.only()`` while some consumer still reads it would
         # trade one large fetch for N small ones — slower than the problem it
         # was meant to solve, and invisible in tests.
+        .select_related('primary_subject')
         .only(
             'id', 'title', 'abstract',
             'keywords', 'program', 'year', 'status',
+            # Grouping inputs: the stored SBERT vector, the confirmed subject
+            # that names each group, and the stored technology tags.
+            'embedding_vector', 'embedding_generated_at', 'technology_tags',
+            'subject_reviewed_at', 'primary_subject', 'primary_subject__name',
         )
         .order_by('created_at', 'id')
     )

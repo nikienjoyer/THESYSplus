@@ -457,6 +457,24 @@ class TestGetTopicTrendsQueryset:
         assert first_call == second_call
         assert len(first_call) == 5
 
+    def test_grouping_fields_load_in_the_corpus_query(self, make_thesis, django_assert_num_queries):
+        from django.utils import timezone
+        from theses.models import ResearchSubject
+
+        thesis = make_thesis('Reviewed Thesis On Farming')
+        thesis.primary_subject = ResearchSubject.objects.get(pk='AGR')
+        thesis.subject_reviewed_at = timezone.now()
+        thesis.technology_tags = ['IoT']
+        thesis.embedding_vector = [0.1] * 384
+        thesis.save()
+
+        with django_assert_num_queries(1):
+            row = get_topic_trends_queryset().get(pk=thesis.pk)
+            assert row.primary_subject.name == 'Agriculture and growing systems'
+            assert row.subject_reviewed_at is not None
+            assert row.technology_tags == ['IoT']
+            assert len(row.embedding_vector) == 384
+
 
 # ---------------------------------------------------------------------------
 # analyze_topics — integration with TF-IDF + K-Means

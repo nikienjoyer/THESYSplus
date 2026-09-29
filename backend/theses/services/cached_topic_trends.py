@@ -11,7 +11,7 @@ from .topic_analysis import analyze_topics, get_topic_trends_queryset, to_dict
 
 
 logger = logging.getLogger(__name__)
-_CACHE_SCHEMA_VERSION = '1'
+_CACHE_SCHEMA_VERSION = '2'
 _ALGORITHM_FINGERPRINT = hashlib.sha256(
     Path(__file__).with_name('topic_analysis.py').read_bytes()
 ).hexdigest()
@@ -27,6 +27,10 @@ def _cache_key(theses):
         row = (
             str(thesis.id), thesis.title, thesis.abstract, thesis.keywords,
             thesis.program, thesis.year, thesis.status,
+            # Grouping inputs: vectors (regenerated vectors get a new
+            # timestamp), reviewed subjects (group names), technology tags.
+            thesis.embedding_generated_at, thesis.primary_subject_id,
+            thesis.subject_reviewed_at, thesis.technology_tags,
         )
         encoded = json.dumps(row, ensure_ascii=False, default=str, separators=(',', ':')).encode('utf-8')
         digest.update(len(encoded).to_bytes(8, 'big'))
