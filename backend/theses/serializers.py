@@ -60,6 +60,9 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
     # True when the search query is an exact title/name match for this thesis
     # (set by the search view alongside similarity_score; False in plain listings).
     title_match = serializers.BooleanField(read_only=True, default=False)
+    # True when a glossary-term search ("iot", "OCR") matched this thesis's
+    # keywords, abstract or full text rather than its title.
+    term_match = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = Thesis
@@ -77,6 +80,7 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
             'created_at',
             'similarity_score',
             'title_match',
+            'term_match',
         )
         read_only_fields = fields
 

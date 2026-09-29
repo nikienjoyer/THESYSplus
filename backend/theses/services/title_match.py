@@ -32,6 +32,8 @@ import re
 import unicodedata
 from typing import Callable, Iterable, Optional, Union
 
+from .acronyms import count_mentions, glossary_term_variants
+
 # A single word is a title match only if this rare in the corpus.
 TITLE_MATCH_MAX_TITLES = 3
 MIN_SINGLE_WORD_LENGTH = 3
@@ -76,14 +78,21 @@ class TitleMatcher:
     """
 
     def __init__(self, query: str, corpus_titles: Optional[CorpusTitles] = None):
+        self._raw_query = query or ''
         self.query = normalize_title(query)
         self._pattern = _whole_word_pattern(self.query) if self.query else None
+        # A whole-query glossary term ("iot", "Internet of Things", "OCR") is
+        # a known technical term, never a generic word, and matches titles in
+        # either form - see services/acronyms.py.
+        self._is_glossary_term = bool(glossary_term_variants(self._raw_query))
         self.qualifies = self._qualifies(corpus_titles)
 
     def _qualifies(self, corpus_titles: Optional[CorpusTitles]) -> bool:
         q = self.query
         if not q:
             return False
+        if self._is_glossary_term:
+            return True
         if _has_punctuation(q):
             return True
         if ' ' in q:
@@ -107,6 +116,8 @@ class TitleMatcher:
             return True
         if normalize_title(title_name_segment(title)) == self.query:
             return True
+        if self._is_glossary_term:
+            return count_mentions(title, self._raw_query) > 0
         return self.qualifies and bool(self._pattern.search(normalized))
 
 

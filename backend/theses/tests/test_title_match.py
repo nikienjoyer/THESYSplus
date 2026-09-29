@@ -96,8 +96,14 @@ class TestQualification:
         assert not is_title_match('web', 'Student Web Portal', corpus)
 
     def test_short_single_word_needs_equality(self):
-        assert not is_title_match('ai', 'AI Attendance Tool', ['AI Attendance Tool'])
-        assert is_title_match('ai', 'AI', ['AI'])
+        # "go" is not a glossary term, so the length rule still applies.
+        assert not is_title_match('go', 'Go Attendance Tool', ['Go Attendance Tool'])
+        assert is_title_match('go', 'Go', ['Go'])
+
+    def test_short_glossary_acronym_matches_as_a_word(self):
+        # "ai" is a glossary term (artificial intelligence), so it is
+        # specific despite its length.
+        assert is_title_match('ai', 'AI Attendance Tool', ['AI Attendance Tool'])
 
     def test_rarity_boundary_three_qualifies_four_does_not(self):
         assert TITLE_MATCH_MAX_TITLES == 3
@@ -151,3 +157,38 @@ class TestQualification:
 
     def test_no_corpus_means_single_word_does_not_qualify(self):
         assert build_title_matcher('thesix').qualifies is False
+
+
+class TestGlossaryTerms:
+    """Acronym and long form are one query (theses/services/acronyms.py)."""
+
+    IOT_TITLES = [
+        'ShopEase: An IoT-Based Shopping Cart',
+        'Headlink: An Iot-Powered Head Pose Tracking System',
+        'AnImo: Agricultural Platform With IoT Sensors',
+        'AquaFlow: IoT Irrigation',
+    ]
+
+    def test_long_form_matches_title_that_uses_the_acronym(self):
+        matcher = build_title_matcher('internet of things', FILLER + self.IOT_TITLES)
+        assert matcher.matches('ShopEase: An IoT-Based Shopping Cart')
+
+    def test_acronym_matches_title_that_uses_the_long_form(self):
+        matcher = build_title_matcher('IoT', FILLER)
+        assert matcher.matches('Smart Farm Using Internet of Things Sensors')
+
+    def test_glossary_acronym_qualifies_even_when_common(self):
+        # "iot" is in 4 titles, above TITLE_MATCH_MAX_TITLES, but it is a
+        # known technical term, not a generic word like "system".
+        assert len(self.IOT_TITLES) > TITLE_MATCH_MAX_TITLES
+        matcher = build_title_matcher('iot', FILLER + self.IOT_TITLES)
+        assert all(matcher.matches(t) for t in self.IOT_TITLES)
+
+    def test_case_sensitive_acronym_ignores_the_ordinary_word(self):
+        matcher = build_title_matcher('IT', FILLER)
+        assert matcher.matches('IT Helpdesk Ticketing System')
+        assert not matcher.matches('Make It Count: A Budget Tracker')
+
+    def test_non_glossary_common_word_still_rejected(self):
+        matcher = build_title_matcher('system', FILLER + self.IOT_TITLES)
+        assert not matcher.matches('Hotel Booking System')

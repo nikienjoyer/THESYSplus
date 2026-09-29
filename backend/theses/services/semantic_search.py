@@ -110,6 +110,10 @@ def compose_thesis_text(thesis) -> str:
     Including keywords improves semantic search quality for acronym-heavy
     and technical-term queries (e.g. "RFID", "IoT") that may appear in
     keywords metadata but not in the title or abstract prose.
+
+    Order matters: all-MiniLM-L6-v2 reads only the first 256 word pieces and
+    every thesis is longer, so keywords come right after the title. Placed
+    after the abstract they were always truncated away.
     """
     title = (thesis.title or '').strip()
     abstract = (thesis.abstract or '').strip()
@@ -124,7 +128,7 @@ def compose_thesis_text(thesis) -> str:
     else:
         keyword_str = ''
 
-    parts = [p for p in (title, abstract, extracted, keyword_str) if p]
+    parts = [p for p in (title, keyword_str, abstract, extracted) if p]
     return '\n\n'.join(parts)
 
 
@@ -251,7 +255,12 @@ def rank_theses(query: str, queryset: Iterable, *, top_k: int | None = None) -> 
     # Lazy NumPy import — keeps dev startup fast when search isn't used.
     import numpy as np
 
-    query_vec = np.asarray(embed_text(query), dtype=np.float32)
+    from .acronyms import expand_query
+
+    # "iot" and "internet of things" are one query: score every glossary
+    # form and keep each thesis's best (see services/acronyms.py).
+    query_vecs = [np.asarray(embed_text(q), dtype=np.float32) for q in expand_query(query)]
+    query_vec = query_vecs[0]
 
     scored: List[ScoredThesis] = []
     for thesis in queryset:
@@ -265,7 +274,7 @@ def rank_theses(query: str, queryset: Iterable, *, top_k: int | None = None) -> 
         if doc_vec.shape != query_vec.shape:
             continue
         # Both vectors are L2-normalised → cosine == dot product.
-        score = float(np.dot(query_vec, doc_vec))
+        score = max(float(np.dot(qv, doc_vec)) for qv in query_vecs)
         # Numerical noise can push scores slightly outside [-1, 1].
         score = max(-1.0, min(1.0, score))
         scored.append(ScoredThesis(thesis=thesis, score=score))

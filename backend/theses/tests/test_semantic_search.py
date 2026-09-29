@@ -671,3 +671,126 @@ class TestThresholdFilter:
             assert score >= 0.90, (
                 f'Result "{result["title"]}" has score {score} < 0.90 threshold'
             )
+
+
+class TestAcronymAwareRanking:
+    """rank_theses scores every glossary form of the query and keeps the best."""
+
+    @staticmethod
+    def _unit(index):
+        vec = [0.0] * 384
+        vec[index] = 1.0
+        return vec
+
+    def test_long_form_query_reaches_thesis_embedded_near_the_acronym(self):
+        from unittest.mock import patch
+        from theses.services.semantic_search import rank_theses
+
+        vectors = {'internet of things': self._unit(0), 'iot': self._unit(1)}
+        thesis = _FakeThesis(title='IoT cart')
+        thesis.embedding_vector = self._unit(1)   # embedded near "iot" only
+        with patch('theses.services.semantic_search.embed_text', side_effect=lambda q: vectors[q]):
+            scored = rank_theses('internet of things', [thesis])
+        assert scored[0].score == pytest.approx(1.0)
+
+    def test_both_spellings_rank_identically(self):
+        from unittest.mock import patch
+        from theses.services.semantic_search import rank_theses
+
+        vectors = {'internet of things': self._unit(0), 'iot': self._unit(1)}
+        a = _FakeThesis(title='A'); a.embedding_vector = self._unit(0)
+        b = _FakeThesis(title='B'); b.embedding_vector = self._unit(1)
+        with patch('theses.services.semantic_search.embed_text', side_effect=lambda q: vectors[q]):
+            by_acronym = {s.thesis.title: s.score for s in rank_theses('iot', [a, b])}
+            by_long_form = {s.thesis.title: s.score for s in rank_theses('internet of things', [a, b])}
+        assert by_acronym == by_long_form == {'A': pytest.approx(1.0), 'B': pytest.approx(1.0)}
+
+    def test_query_without_glossary_terms_embeds_once(self):
+        from unittest.mock import patch
+        from theses.services.semantic_search import rank_theses
+
+        thesis = _FakeThesis(title='Hotel'); thesis.embedding_vector = self._unit(0)
+        with patch('theses.services.semantic_search.embed_text', return_value=self._unit(0)) as embed:
+            rank_theses('hotel booking', [thesis])
+        assert embed.call_count == 1
+
+
+class TestComposeOrder:
+    def test_keywords_come_before_the_abstract(self):
+        # all-MiniLM-L6-v2 reads only the first 256 tokens; keywords placed
+        # after a long abstract were never seen by the model.
+        from theses.services.semantic_search import compose_thesis_text
+        t = _FakeThesis(
+            title='Smart Cart',
+            abstract='A long abstract. ' * 50,
+            extracted_text='Body text.',
+            keywords=['IoT (Internet of Things)'],
+        )
+        text = compose_thesis_text(t)
+        assert text.index('IoT (Internet of Things)') < text.index('A long abstract.')
+        assert text.index('Smart Cart') < text.index('IoT (Internet of Things)')
+
+
+@pytest.mark.django_db
+class TestGlossaryTermRescue:
+    """A glossary-term search (e.g. "iot") always returns theses that are
+    about the term, even below the slider: mentioned in the title, keywords or
+    abstract, or at least FULL_TEXT_MIN_MENTIONS times in the document."""
+
+    @staticmethod
+    def _search(client, faculty_user, q, min_score='0.95'):
+        from auth_service.services import issue_token_pair
+        from urllib.parse import quote
+        token = issue_token_pair(faculty_user, request=None, remember_me=False).access_token
+        response = client.get(
+            f"{reverse('thesis-list')}?q={quote(q)}&min_score={min_score}",
+            HTTP_AUTHORIZATION=f'Bearer {token}',
+        )
+        assert response.status_code == 200
+        return {r['title']: r for r in response.json()['results']}
+
+    @staticmethod
+    def _with_body(thesis, body):
+        thesis.extracted_text = f'{thesis.title}\n\n{thesis.abstract}\n\n{body}'
+        thesis.save(update_fields=['extracted_text'])
+        return thesis
+
+    @pytest.fixture
+    def corpus(self, make_thesis):
+        make_thesis('Smart Irrigation Monitor', 'Monitors soil moisture for farms.',
+                    keywords=['Internet of Things', 'irrigation'])
+        self._with_body(
+            make_thesis('Fuzzy Logic Indoor Farming App', 'An aeroponics tower and mobile app.',
+                        keywords=['aeroponics']),
+            'The tower is an IoT device. IoT sensors report. Internet of Things design.',
+        )
+        self._with_body(
+            make_thesis('Community Portal', 'A barangay portal for residents.',
+                        keywords=['portal']),
+            'Related studies used IoT. One cited IoT paper.',
+        )
+        make_thesis('Hotel Booking System', 'Room reservations for hotels.', keywords=['hotel'])
+
+    def test_keyword_mention_is_rescued_as_term_match(self, client, faculty_user, corpus):
+        results = self._search(client, faculty_user, 'iot')
+        hit = results['Smart Irrigation Monitor']
+        assert hit['term_match'] is True
+        assert hit['title_match'] is False
+
+    def test_three_full_text_mentions_are_rescued(self, client, faculty_user, corpus):
+        results = self._search(client, faculty_user, 'internet of things')
+        assert results['Fuzzy Logic Indoor Farming App']['term_match'] is True
+
+    def test_two_passing_mentions_are_not_rescued(self, client, faculty_user, corpus):
+        assert 'Community Portal' not in self._search(client, faculty_user, 'iot')
+
+    def test_acronym_and_long_form_return_the_same_theses(self, client, faculty_user, corpus):
+        by_acronym = set(self._search(client, faculty_user, 'iot'))
+        by_long_form = set(self._search(client, faculty_user, 'Internet of Things'))
+        assert by_acronym == by_long_form == {
+            'Smart Irrigation Monitor', 'Fuzzy Logic Indoor Farming App',
+        }
+
+    def test_generic_word_rescues_nothing(self, client, faculty_user, corpus):
+        results = self._search(client, faculty_user, 'system')
+        assert not any(r['term_match'] for r in results.values())

@@ -354,11 +354,40 @@ class ThesisListView(APIView):
                 _visible_queryset(request.user).order_by().values_list('title', flat=True)
             ),
         )
+        # Glossary-term rescue: a search that is exactly one glossary term
+        # ("iot", "Internet of Things", "OCR") also returns theses whose
+        # keywords/abstract mention it, or whose full text mentions it at least
+        # FULL_TEXT_MIN_MENTIONS times - the model reads only the start of each
+        # thesis and does not know acronyms. Filters already applied to `qs`.
+        from .services.acronyms import glossary_term_variants, is_about_term
+
+        term_ids = set()
+        term_forms = glossary_term_variants(q)
+        if term_forms:
+            from django.db.models import Q
+            # Broad DB prefilter on each form's first word; the whole-word,
+            # case-aware count below decides.
+            prefilter = Q()
+            for form in term_forms:
+                first = form.split()[0]
+                prefilter |= (Q(abstract__icontains=first) | Q(keywords__icontains=first)
+                              | Q(extracted_text__icontains=first))
+            with timed_stage('search_term_match'):
+                for thesis_id, abstract, keywords, text in (
+                    qs.filter(prefilter).order_by()
+                    .values_list('id', 'abstract', 'keywords', 'extracted_text')
+                ):
+                    kw_text = ' ; '.join(k for k in (keywords or []) if isinstance(k, str))
+                    head = f'{kw_text}\n{abstract or ""}'
+                    if is_about_term(q, head=head, full_text=text):
+                        term_ids.add(thesis_id)
+
         boosted = []
         for s in scored:
             s.thesis.title_match = matcher.matches(s.thesis.title)
+            s.thesis.term_match = not s.thesis.title_match and s.thesis.id in term_ids
             effective_score = s.score
-            if s.thesis.title_match:
+            if s.thesis.title_match or s.thesis.term_match:
                 effective_score = max(effective_score, min_score)
             if effective_score >= min_score:
                 boosted.append(s)

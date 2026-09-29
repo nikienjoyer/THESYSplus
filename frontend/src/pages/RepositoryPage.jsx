@@ -688,12 +688,12 @@ export default function RepositoryPage() {
                       onChange={handleThresholdChange}
                       isDark={isDark}
                       disabled={false}
-                      helperText="Set the minimum semantic similarity for repository search results. Exact title matches may still appear below this threshold."
+                      helperText="Set the minimum semantic similarity for repository search results. Theses matching a title, or a known term such as IoT in their keywords or text, may still appear below this threshold."
                     />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
-                Lower the threshold to see more semantic matches, or raise it to see closer matches. Exact title matches can still appear below the threshold. The default is 60%.
+                Lower the threshold to see more semantic matches, or raise it to see closer matches. Title and known-term matches (e.g. IoT or Internet of Things) can still appear below the threshold. The default is 60%.
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -863,10 +863,10 @@ export default function RepositoryPage() {
             {/* Result count summary — distinguishes semantic matches from title-rescued results */}
             {effectiveSearch && (() => {
               const threshold = committedThreshold / 100;
-              // An exact title match is only reported as one when it survived
-              // the slider by being title-matched; a title match that also
-              // clears the threshold is an ordinary semantic result.
-              const isRescued = (t) => t.title_match === true && (t.similarity_score ?? 0) < threshold;
+              // A result is reported as a title/keyword match only when it survived
+              // the slider by matching; a match that also clears the threshold
+              // is an ordinary semantic result.
+              const isRescued = (t) => (t.title_match === true || t.term_match === true) && (t.similarity_score ?? 0) < threshold;
               const aboveThreshold = theses.filter(t => !isRescued(t)).length;
               const belowThreshold = theses.filter(isRescued).length;
               // Use totalCount for the above-threshold count only when all current-page results pass,
@@ -880,10 +880,10 @@ export default function RepositoryPage() {
                 summary = `${totalAbove} result${totalAbove !== 1 ? 's' : ''} above ${committedThreshold}% similarity`;
               } else if (totalAbove === 0) {
                 // All results are title-rescued (below threshold)
-                summary = `${totalBelow} exact title match${totalBelow !== 1 ? 'es' : ''} found below ${committedThreshold}% semantic similarity`;
+                summary = `${totalBelow} title or keyword match${totalBelow !== 1 ? 'es' : ''} found below ${committedThreshold}% semantic similarity`;
               } else {
                 // Mixed: some semantic, some title-rescued
-                summary = `${totalAbove + totalBelow} result${totalAbove + totalBelow !== 1 ? 's' : ''} found: ${totalAbove} above ${committedThreshold}% similarity, ${totalBelow} exact title match${totalBelow !== 1 ? 'es' : ''} below threshold`;
+                summary = `${totalAbove + totalBelow} result${totalAbove + totalBelow !== 1 ? 's' : ''} found: ${totalAbove} above ${committedThreshold}% similarity, ${totalBelow} title or keyword match${totalBelow !== 1 ? 'es' : ''} below threshold`;
               }
 
               return (
