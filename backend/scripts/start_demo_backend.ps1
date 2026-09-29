@@ -41,10 +41,10 @@ if ($env:DJANGO_SECRET_KEY.Length -lt 50 -or $env:JWT_SECRET.Length -lt 50) {
 }
 
 $env:DJANGO_ENV = 'production'
-$env:FRONTEND_ORIGIN = 'https://thesysplus.vercel.app'
-$env:FRONTEND_BASE_URL = 'https://thesysplus.vercel.app'
+$env:FRONTEND_ORIGIN = 'https://thesys.plus,https://www.thesys.plus,https://thesysplus.vercel.app'
+$env:FRONTEND_BASE_URL = 'https://thesys.plus'
 $env:DJANGO_ALLOWED_HOSTS = '127.0.0.1,localhost'
-$env:DJANGO_CSRF_TRUSTED_ORIGINS = 'https://thesysplus.vercel.app'
+$env:DJANGO_CSRF_TRUSTED_ORIGINS = 'https://thesys.plus,https://www.thesys.plus,https://thesysplus.vercel.app'
 if ($NgrokHost) {
     $env:DJANGO_ALLOWED_HOSTS += ",$NgrokHost"
     $env:DJANGO_CSRF_TRUSTED_ORIGINS += ",https://$NgrokHost"
