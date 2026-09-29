@@ -102,7 +102,7 @@ function getContent(type) {
 
           <h3 className="text-base font-semibold mt-6 mb-3">Methodology</h3>
           <p className="text-sm leading-relaxed mb-4">
-            Semantic retrieval is powered by the all-MiniLM-L6-v2 sentence-transformer model, ranked by cosine similarity. Topic clusters are derived using TF-IDF feature extraction and K-Means clustering. These AI-assisted features are decision-support tools and do not replace consultation with faculty advisers.
+            Semantic retrieval is powered by the all-MiniLM-L6-v2 sentence-transformer model, ranked by cosine similarity. Exploratory topic groups are formed by agglomerative clustering of the same model's vectors and named after faculty-confirmed research subjects, with TF-IDF supplying each group's top keywords. These AI-assisted features are decision-support tools and do not replace consultation with faculty advisers.
           </p>
 
           <h3 className="text-base font-semibold mt-6 mb-3">Institutional Context</h3>
@@ -360,7 +360,7 @@ function getContent(type) {
 
           <h4 className="text-sm font-semibold mt-4 mb-2">What is Trend Analysis?</h4>
           <p className="text-sm leading-relaxed mb-4">
-            Trend Analysis identifies saturated, emerging, and underexplored research topics using TF-IDF and K-Means clustering. Use it to discover research gaps and trending topics in your field.
+            Trend Analysis identifies saturated, emerging, and underexplored research topics from faculty-confirmed research subjects, with exploratory groups of theses that are similar in meaning. Use it to discover research gaps and trending topics in your field.
           </p>
 
           <h4 className="text-sm font-semibold mt-4 mb-2">What is the Analytics Dashboard?</h4>

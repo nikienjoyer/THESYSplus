@@ -894,7 +894,7 @@ export default function TrendAnalysisPage() {
               ) : (
                 <>
                   <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" isDark={isDark} />
-                  <StatCard label="Total Topics" value={data.total_topics} sublabel="K-Means clusters" isDark={isDark} />
+                  <StatCard label="Total Topics" value={data.total_topics} sublabel="Groups by meaning" isDark={isDark} />
                   <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" isDark={isDark} accent={isDark ? '#f87171' : '#e11d48'} />
                   <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" isDark={isDark} accent={isDark ? '#34d399' : '#059669'} />
                 </>
@@ -965,7 +965,7 @@ export default function TrendAnalysisPage() {
               <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 {reviewed
                   ? 'Faculty and administrators confirm one primary research subject for each thesis. Only approved theses with a confirmed subject appear in these charts. Theses awaiting subject review remain published in the repository.'
-                  : 'Exploratory text clusters group approved thesis titles, abstracts, and author keywords with TF-IDF and K-Means. Cluster names describe shared vocabulary and may change as the corpus changes.'}
+                  : 'Exploratory groups put approved theses with similar meaning together, using Sentence-BERT vectors of their titles, keywords and abstracts. Each group is named after its members’ confirmed research subjects; technology tags such as IoT or AI appear only when a thesis actually uses that technology. Groups may change as the corpus changes.'}
               </p>
               <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 <li><strong>Saturated</strong> — at least 1.5 times the average {reviewed ? 'subject' : 'cluster'} count.</li>

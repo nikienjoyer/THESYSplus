@@ -471,7 +471,7 @@ export default function AnalyticsDashboardPage() {
               <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 {data.reviewed_subject_summary?.main_view_enabled
                   ? `Based on ${data.reviewed_subject_summary.reviewed_count} confirmed subjects among ${data.reviewed_subject_summary.approved_count} approved theses. Labels compare relative thesis counts, not growth over time. `
-                  : 'Derived from TF-IDF + K-Means exploratory grouping. Labels compare relative thesis counts, not growth over time. '}
+                  : 'Derived from exploratory groups of theses with similar meaning. Labels compare relative thesis counts, not growth over time. '}
                 <Link
                   to="/trend-analysis"
                   className="underline text-primary hover:opacity-80"
