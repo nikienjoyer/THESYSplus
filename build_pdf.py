@@ -52,6 +52,28 @@ styles = {
                            rightIndent=4, spaceBefore=3, spaceAfter=6),
 }
 
+# ---- font safety ----------------------------------------------------------
+# The built-in Helvetica/Courier fonts only cover Windows-1252, so anything else
+# (emoji, arrows, comparison signs) would print as a black box. Map the few
+# symbols that carry meaning, drop the rest.
+_ASCII_FOR = {"→": "->", "≥": ">=", "≤": "<=", "−": "-", "⚠": "(!)"}
+
+
+def pdf_safe(text: str) -> str:
+    for src, dst in _ASCII_FOR.items():
+        text = text.replace(src, dst)
+    text = "".join(c for c in text if _cp1252_ok(c))
+    return re.sub(r"(?m)^(#+ .*?)[ \t]+$", r"\1", text)
+
+
+def _cp1252_ok(c: str) -> bool:
+    try:
+        c.encode("cp1252")
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
 # ---- inline formatting ----------------------------------------------------
 def inline(text: str) -> str:
     """Escape then apply **bold** and `code` to reportlab markup."""
@@ -171,7 +193,7 @@ def build():
         canvas.restoreState()
 
     doc.addPageTemplates([PageTemplate(id="main", frames=[frame], onPage=deco)])
-    doc.build(parse(open(SRC, encoding="utf-8").read()))
+    doc.build(parse(pdf_safe(open(SRC, encoding="utf-8").read())))
     print("Wrote", OUT)
 
 if __name__ == "__main__":
