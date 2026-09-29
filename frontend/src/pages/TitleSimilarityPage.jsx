@@ -128,9 +128,16 @@ function MatchCard({ match, isDark }) {
         <h3 className={`font-semibold text-sm leading-snug line-clamp-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           {match.title}
         </h3>
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap flex-shrink-0 bg-info-bg text-info-text border-info-border">
-          {pct}% match
-        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {match.title_match && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-warning-bg text-warning-text border-warning-border">
+              Exact title match
+            </span>
+          )}
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-info-bg text-info-text border-info-border">
+            {pct}% match
+          </span>
+        </div>
       </div>
       <div className="text-xs text-muted">
         {match.program} · {match.year}
@@ -760,7 +767,7 @@ export default function TitleSimilarityPage() {
                     Potentially Related Studies
                   </h3>
                   <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                    {result.matches.length} thes{result.matches.length === 1 ? 'is' : 'es'} scored at least {MEANINGFUL_PCT}% similar. Check whether their topics actually overlap with yours.
+                    {result.matches.length} thes{result.matches.length === 1 ? 'is' : 'es'} {result.matches.some((m) => m.title_match) ? `scored at least ${MEANINGFUL_PCT}% similar or share your exact title` : `scored at least ${MEANINGFUL_PCT}% similar`}. Check whether their topics actually overlap with yours.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {result.matches.map((m) => <MatchCard key={m.id} match={m} isDark={isDark} />)}

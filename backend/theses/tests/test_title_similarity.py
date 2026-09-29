@@ -32,6 +32,7 @@ from theses.services.title_similarity import (
     CLASS_LOW,
     CLASS_MODERATE,
     NO_MEANINGFUL_MATCH_RECOMMENDATION,
+    TITLE_NAME_MATCH_RECOMMENDATION,
     THRESHOLD_HIGH,
     THRESHOLD_MEANINGFUL,
     THRESHOLD_MODERATE,
@@ -307,6 +308,101 @@ class TestRelevanceFloor:
 
 
 # ---------------------------------------------------------------------------
+# Exact title / name matches - controlled scores, no model involved
+# ---------------------------------------------------------------------------
+
+THESIX_TITLE = 'Thesix: Centralized Web-Based Capstone And Thesis Repository'
+
+
+def _classify_named(query, corpus, top_k=5):
+    candidate = [1.0] + [0.0] * 383
+    with patch('theses.services.title_similarity.embed_text', return_value=candidate):
+        return classify_title(query, corpus, top_k=top_k)
+
+
+class TestExactTitleMatch:
+    def corpus(self):
+        return [
+            _thesis_at(0.087, THESIX_TITLE),
+            _thesis_at(0.20, 'Hotel Booking System'),
+            _thesis_at(0.15, 'Library Inventory System'),
+        ]
+
+    def test_low_scoring_name_is_returned_as_title_match(self):
+        result = _classify_named('thesix', self.corpus())
+        assert result.has_meaningful_match is True
+        assert [(s.thesis.title, s.title_match) for s in result.matches] == [(THESIX_TITLE, True)]
+        # Score and classification stay purely semantic.
+        assert result.similarity_score == pytest.approx(0.20, abs=1e-6)
+        assert result.classification == CLASS_LOW
+        assert result.recommendation == TITLE_NAME_MATCH_RECOMMENDATION
+        assert 'distinct' not in result.recommendation.lower()
+
+    @pytest.mark.parametrize('query', ['thesix', 'THESIX', 'Thesix', 'tHeSiX'])
+    def test_casing_does_not_change_result(self, query):
+        baseline = _classify_named('thesix', self.corpus())
+        result = _classify_named(query, self.corpus())
+        assert [s.thesis.title for s in result.matches] == [s.thesis.title for s in baseline.matches]
+        assert result.classification == baseline.classification
+        assert result.similarity_score == baseline.similarity_score
+        assert result.recommendation == baseline.recommendation
+
+    def test_common_word_is_not_a_title_match(self):
+        corpus = [_thesis_at(0.10, f'Alpha System {n}') for n in range(5)]
+        result = _classify_named('system', corpus)
+        assert result.has_meaningful_match is False
+        assert result.matches == []
+        assert result.recommendation == NO_MEANINGFUL_MATCH_RECOMMENDATION
+
+    def test_title_matches_come_first_then_semantic_deduplicated(self):
+        corpus = [
+            _thesis_at(0.70, 'Attendance Monitoring'),
+            _thesis_at(0.50, 'Face Recognition Attendance Portal'),
+            _thesis_at(0.10, 'Campus Face Recognition Attendance Portal Redesign'),
+            _thesis_at(0.30, 'Weak Neighbour'),
+        ]
+        result = _classify_named('face recognition attendance', corpus)
+        assert [(s.thesis.title, s.title_match) for s in result.matches] == [
+            ('Face Recognition Attendance Portal', True),
+            ('Campus Face Recognition Attendance Portal Redesign', True),
+            ('Attendance Monitoring', False),
+        ]
+        assert len({id(s.thesis) for s in result.matches}) == len(result.matches)
+
+    def test_semantic_only_matches_are_not_flagged(self):
+        result = _classify_controlled([_thesis_at(0.72, 'Strong'), _thesis_at(0.40, 'Fair')])
+        assert [s.title_match for s in result.matches] == [False, False]
+
+    def test_title_match_outside_semantic_top_k_is_still_found(self):
+        corpus = [_thesis_at(0.90 - i * 0.05, f'Filler {i}') for i in range(6)]
+        corpus.append(_thesis_at(0.05, 'Zorbix: A Very Low Scoring Name'))
+        result = _classify_named('zorbix', corpus)
+        assert result.matches[0].thesis.title.startswith('Zorbix')
+        assert result.matches[0].title_match is True
+        assert len(result.matches) == 5  # capped
+        # The overall score still comes from the best semantic neighbour.
+        assert result.similarity_score == pytest.approx(0.90, abs=1e-6)
+
+    def test_cap_applies_to_title_matches(self):
+        corpus = [_thesis_at(0.10 + i * 0.01, f'Shared Phrase Study {i}') for i in range(8)]
+        result = _classify_named('shared phrase', corpus)
+        assert len(result.matches) == 5
+        assert all(s.title_match for s in result.matches)
+        assert [s.thesis.title for s in result.matches][0] == 'Shared Phrase Study 7'
+
+    def test_high_class_keeps_its_own_recommendation(self):
+        corpus = [_thesis_at(0.92, 'Thesix Platform')]
+        result = _classify_named('thesix', corpus)
+        assert result.classification == CLASS_HIGH
+        assert result.recommendation == recommendation_for(CLASS_HIGH)
+
+    def test_random_text_still_has_no_meaningful_match(self):
+        result = _classify_named('hello hi my name is Valerie', self.corpus())
+        assert result.has_meaningful_match is False
+        assert result.recommendation == NO_MEANINGFUL_MATCH_RECOMMENDATION
+
+
+# ---------------------------------------------------------------------------
 # /api/v1/theses/validate-title/ endpoint
 # ---------------------------------------------------------------------------
 
@@ -427,6 +523,29 @@ class TestValidateTitleEndpoint:
         else:
             assert body['matches'] == []
             assert body['recommendation'] == NO_MEANINGFUL_MATCH_RECOMMENDATION
+
+    def test_endpoint_reports_title_match_for_exact_name(self, client, faculty_user, make_thesis):
+        thesix = make_thesis(THESIX_TITLE)
+        for title in ('Hotel Booking System', 'Library Inventory System'):
+            make_thesis(title)
+
+        token = self._bearer(faculty_user)
+        url = reverse('thesis-validate-title')
+        bodies = []
+        for query in ('thesix', 'THESIX'):
+            response = client.post(
+                url, data={'title': query}, content_type='application/json',
+                HTTP_AUTHORIZATION=f'Bearer {token}',
+            )
+            assert response.status_code == 200
+            bodies.append(response.json())
+
+        assert bodies[0] == {**bodies[1], 'query': 'thesix'}
+        body = bodies[0]
+        assert body['has_meaningful_match'] is True
+        assert body['matches'][0]['id'] == str(thesix.id)
+        assert body['matches'][0]['title_match'] is True
+        assert all(isinstance(m['title_match'], bool) for m in body['matches'])
 
     def test_endpoint_excludes_pending_and_rejected(self, client, faculty_user, make_thesis):
         """Only APPROVED theses should appear in matches."""

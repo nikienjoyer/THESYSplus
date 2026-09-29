@@ -1328,6 +1328,7 @@ class ThesisValidateTitleView(APIView):
                         'program': s.thesis.program,
                         'year': s.thesis.year,
                         'similarity': round(s.score, 4),
+                        'title_match': s.title_match,
                     }
                     for s in result.matches
                 ],

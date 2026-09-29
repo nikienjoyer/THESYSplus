@@ -29,6 +29,10 @@ Design notes
     - ``recommendation_for(class_label) -> str``
     - ``rank_titles(candidate, queryset, top_k) -> List[ScoredThesis]``
     - ``classify_title(candidate, queryset) -> TitleClassificationResult``
+
+Exact title / name matches (``title_match.py``) are surfaced even below the
+relevance floor, ahead of the semantic matches. They never change the
+similarity score or the risk classification.
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ from typing import Iterable, List
 # Reuse SBERT primitives from the semantic search service — single source
 # of truth for the model load + embedding generation.
 from .semantic_search import EMBEDDING_DIM, ScoredThesis, embed_text, title_source_hash
+from .title_match import build_title_matcher
 from common.performance import timed_stage
 
 
@@ -86,6 +91,14 @@ NO_MEANINGFUL_MATCH_RECOMMENDATION = (
     'No existing thesis title reached the minimum similarity for a '
     'meaningful comparison. This result does not confirm that the text is '
     'a suitable or original thesis title.'
+)
+
+# Shown instead of the "sufficiently distinct" message when the proposed text
+# is an exact title/name match for an existing thesis but scores LOW
+# semantically (a short name scores far below the long title that carries it).
+TITLE_NAME_MATCH_RECOMMENDATION = (
+    'An existing thesis already uses this name or title. '
+    'Review it before proceeding.'
 )
 
 
@@ -193,30 +206,53 @@ def classify_title(
          candidate (``rank_titles``).
       2. Take the raw top score as the overall similarity_score.
       3. Classify (``classify``) using the Chapter 1–3 thresholds.
-      4. Keep only top-K matches scoring >= ``THRESHOLD_MEANINGFUL``.
-      5. Attach the recommendation, or the neutral no-match message when
-         no match survives the floor.
+      4. Keep the top-K semantic matches scoring >= ``THRESHOLD_MEANINGFUL``,
+         plus every exact title/name match from the whole corpus (even below
+         the floor). Title matches come first, then semantic matches; the
+         list is deduplicated and capped at ``top_k``.
+      5. Attach the recommendation: the title-name message when a title match
+         exists and the class is LOW, otherwise the class message, or the
+         neutral no-match message when nothing survives.
 
     An empty corpus (or candidate too short) yields an empty result with
     classification = LOW_SIMILARITY, similarity_score = 0.0 and
     has_meaningful_match = False.
     """
     candidate = (candidate or '').strip()
-    ranked = rank_titles(candidate, queryset, top_k=top_k)
-    top_score = ranked[0].score if ranked else 0.0
+    corpus = list(queryset)
+    all_ranked = rank_titles(candidate, corpus, top_k=None)
+    top_score = all_ranked[0].score if all_ranked else 0.0
     label = classify(top_score)
+
+    # A title match may rank outside the semantic top-K, so scan the whole
+    # ranked corpus. ``all_ranked`` is score-descending, so title matches
+    # keep highest-score-first order.
+    matcher = build_title_matcher(candidate, [t.title for t in corpus])
+    title_matches = []
+    for s in all_ranked:
+        if matcher.matches(s.thesis.title):
+            s.title_match = True
+            title_matches.append(s)
+
     # Compare at the API's 4-dp precision: float32 dot products land a
     # hair under the floor (0.35 → 0.3499999) while displaying as 35.0%.
-    matches = [s for s in ranked if round(s.score, 4) >= THRESHOLD_MEANINGFUL]
+    semantic = [
+        s for s in all_ranked[:top_k]
+        if round(s.score, 4) >= THRESHOLD_MEANINGFUL and not s.title_match
+    ]
+    matches = (title_matches + semantic)[:top_k]
     has_match = bool(matches)
+    if not has_match:
+        recommendation = NO_MEANINGFUL_MATCH_RECOMMENDATION
+    elif title_matches and label == CLASS_LOW:
+        recommendation = TITLE_NAME_MATCH_RECOMMENDATION
+    else:
+        recommendation = recommendation_for(label)
     return TitleClassificationResult(
         query=candidate,
         classification=label,
         similarity_score=top_score,
-        recommendation=(
-            recommendation_for(label) if has_match
-            else NO_MEANINGFUL_MATCH_RECOMMENDATION
-        ),
+        recommendation=recommendation,
         matches=matches,
         has_meaningful_match=has_match,
     )

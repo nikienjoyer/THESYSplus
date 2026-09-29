@@ -225,6 +225,8 @@ class ScoredThesis:
 
     thesis: 'Thesis'  # type: ignore[name-defined]  (forward ref)
     score: float
+    # Set by Title Similarity when the query is an exact title/name match.
+    title_match: bool = False
 
 
 def rank_theses(query: str, queryset: Iterable, *, top_k: int | None = None) -> List[ScoredThesis]:
