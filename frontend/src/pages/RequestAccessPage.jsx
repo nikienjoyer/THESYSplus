@@ -525,7 +525,7 @@ export default function RequestAccessPage() {
                   <button
                     type="button"
                     onClick={() => navigate('/sign-in?reason=account_setup')}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
                     Go to Sign In
                   </button>
                 </div>
@@ -545,7 +545,7 @@ export default function RequestAccessPage() {
                     Your password has already been set, so there is nothing left to do here.
                   </p>
                   <Link to="/sign-in"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
                     Sign In
                   </Link>
                 </div>
@@ -571,7 +571,7 @@ export default function RequestAccessPage() {
                     is still valid — click it and follow the instructions there.
                   </p>
                   <Link to="/sign-in"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
                     Sign In
                   </Link>
                 </div>
@@ -612,7 +612,7 @@ export default function RequestAccessPage() {
                       <button
                         type="button"
                         onClick={handleTryAgain}
-                        className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                        className="px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
                       >
                         Try Again
                       </button>

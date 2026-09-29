@@ -71,7 +71,7 @@ const PALETTE = CHART_PALETTE;
 // Inline SVG charts
 // ---------------------------------------------------------------------------
 
-function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
+function HBarChart({ data, keyField, valueField, maxBars = 10 }) {
   const { staggerContainer, growWidth } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const items = data.slice(0, maxBars);
@@ -91,19 +91,19 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
         return (
           <div key={d[keyField]} className="flex items-center gap-3">
             <span
-              className={`text-xs font-medium truncate w-36 sm:w-48 flex-shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+              className={`text-xs font-medium truncate w-36 sm:w-48 flex-shrink-0 text-body`}
               title={d[keyField]}
             >
               {d[keyField]}
             </span>
-            <div className={`flex-1 h-3 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.05]' : 'bg-gray-100'}`}>
+            <div className={`flex-1 h-3 rounded-full overflow-hidden bg-surface-secondary`}>
               <m.div
                 className="h-full"
                 variants={growWidth(pct)}
                 style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
               />
             </div>
-            <span className={`text-xs tabular-nums w-6 text-right flex-shrink-0 font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <span className={`text-xs tabular-nums w-6 text-right flex-shrink-0 font-semibold text-body`}>
               {d[valueField]}
             </span>
           </div>
@@ -113,7 +113,7 @@ function HBarChart({ data, keyField, valueField, isDark, maxBars = 10 }) {
   );
 }
 
-function YearBarChart({ data, isDark }) {
+function YearBarChart({ data }) {
   const { staggerContainer, growHeight } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const maxVal = Math.max(...data.map((d) => d.count), 1);
@@ -131,7 +131,7 @@ function YearBarChart({ data, isDark }) {
         const heightPct = Math.max((d.count / maxVal) * 100, 4);
         return (
           <div key={d.year} className="flex flex-col items-center flex-1 min-w-0 h-full">
-            <span className={`text-[11px] mb-0.5 font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <span className={`text-[11px] mb-0.5 font-semibold text-body`}>
               {d.count}
             </span>
             {/* Bar track — flex-1 gives the percentage-height bar a real basis */}
@@ -143,7 +143,7 @@ function YearBarChart({ data, isDark }) {
                 title={`${d.year}: ${d.count}`}
               />
             </div>
-            <span className={`text-[11px] mt-1 truncate w-full text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <span className={`text-[11px] mt-1 truncate w-full text-center text-muted`}>
               {String(d.year).slice(2)}
             </span>
           </div>
@@ -157,17 +157,17 @@ function YearBarChart({ data, isDark }) {
 // ---------------------------------------------------------------------------
 // Stat card — uses shadcn Card
 // ---------------------------------------------------------------------------
-function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
+function StatCard({ label, value, sublabel, accent, tooltipText }) {
   const isNumeric = typeof value === 'number' && Number.isFinite(value);
   const card = (
     <div>
       <div
-        className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
+        className={`text-3xl sm:text-4xl font-bold tracking-tight text-ink`}
         style={accent ? { color: accent } : undefined}
       >
         {isNumeric ? <AnimatedCounter value={value} /> : (value ?? '—')}
       </div>
-      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 flex items-center gap-1 text-muted`}>
         {label}
         {tooltipText && (
           <svg className="w-3 h-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -176,7 +176,7 @@ function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
         )}
       </div>
       {sublabel && (
-        <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{sublabel}</div>
+        <div className={`text-xs mt-0.5 text-muted`}>{sublabel}</div>
       )}
     </div>
   );
@@ -194,7 +194,7 @@ function StatCard({ label, value, sublabel, isDark, accent, tooltipText }) {
 // ---------------------------------------------------------------------------
 // Trend summary mini-cards
 // ---------------------------------------------------------------------------
-function TrendSummary({ summary, isDark, reviewed = false }) {
+function TrendSummary({ summary, reviewed = false }) {
   if (!summary) return null;
   const items = [
     {
@@ -202,21 +202,21 @@ function TrendSummary({ summary, isDark, reviewed = false }) {
       label: reviewed ? 'Emerging subjects' : 'Emerging Topics',
       count: summary.emerging_count,
       emoji: '🟡',
-      chip: isDark ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200',
+      chip: 'bg-warning-bg text-warning-text border-warning-border',
     },
     {
       key: 'saturated',
       label: reviewed ? 'Saturated subjects' : 'Saturated Topics',
       count: summary.saturated_count,
       emoji: '🔴',
-      chip: isDark ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' : 'bg-rose-50 text-rose-700 border-rose-200',
+      chip: 'bg-danger-bg text-danger-text border-danger-border',
     },
     {
       key: 'underexplored',
       label: reviewed ? 'Underexplored subjects' : 'Underexplored Areas',
       count: summary.underexplored_count,
       emoji: '🟢',
-      chip: isDark ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      chip: 'bg-success-bg text-success-text border-success-border',
     },
   ];
   return (
@@ -228,8 +228,8 @@ function TrendSummary({ summary, isDark, reviewed = false }) {
         >
           <span className="text-xl flex-shrink-0" aria-hidden="true">{emoji}</span>
           <div>
-            <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{count ?? 0}</div>
-            <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</div>
+            <div className={`text-2xl font-bold text-ink`}>{count ?? 0}</div>
+            <div className={`text-xs text-muted`}>{label}</div>
           </div>
         </div>
       ))}
@@ -310,7 +310,7 @@ export default function AnalyticsDashboardPage() {
   }));
 
   // Open data-block header: text-sm semibold + thin hairline rule beneath
-  const sectionHeader = `text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`;
+  const sectionHeader = `text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] text-ink`;
 
   return (
     <LazyMotion features={domAnimation}>
@@ -321,7 +321,7 @@ export default function AnalyticsDashboardPage() {
 
         {/* Header */}
         <PageHeader title="Repository Analytics">
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm text-body`}>
             Repository intelligence — counts, distributions, and growth insights.
           </p>
         </PageHeader>
@@ -329,7 +329,7 @@ export default function AnalyticsDashboardPage() {
         {/* Loading */}
         {loading && (
           <div className="space-y-6">
-            <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-1 text-muted`}>
               Loading repository analytics…
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -358,7 +358,7 @@ export default function AnalyticsDashboardPage() {
 
         {/* Error */}
         {!loading && error && (
-          <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+          <div className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}>
             {error}
           </div>
         )}
@@ -367,10 +367,10 @@ export default function AnalyticsDashboardPage() {
         {!loading && !error && data && data.total_theses === 0 && (
           <div className="thesys-empty">
             <BarChart3 className="w-10 h-10 text-primary" aria-hidden="true" />
-            <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            <p className={`font-semibold text-ink`}>
               No analytics data available yet.
             </p>
-            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-sm max-w-sm text-muted`}>
               Upload and approve thesis records to generate repository insights.
             </p>
           </div>
@@ -386,13 +386,11 @@ export default function AnalyticsDashboardPage() {
                 label="Total Theses"
                 value={data.total_theses}
                 sublabel="all statuses"
-                isDark={isDark}
               />
               <StatCard
                 label="Semantic Ready"
                 value={data.semantic_ready}
                 sublabel="indexed for AI search"
-                isDark={isDark}
                 accent={isDark ? TOKEN_COLORS.primaryDark : TOKEN_COLORS.primaryLight}
                 tooltipText="Theses with generated SBERT embeddings that are available for semantic retrieval. A thesis becomes Semantic Ready after its embedding vector is computed."
               />
@@ -400,13 +398,11 @@ export default function AnalyticsDashboardPage() {
                 label="Most Active Program"
                 value={shortProgram(data.most_active_program) || '—'}
                 sublabel={data.most_active_program || ''}
-                isDark={isDark}
               />
               <StatCard
                 label={`Recent Uploads`}
                 value={data.recent_uploads_count}
                 sublabel={`last ${data.recent_uploads_days} days`}
-                isDark={isDark}
                 accent={
                   data.recent_uploads_count > 0
                     ? isDark ? '#34d399' : '#059669'
@@ -418,7 +414,6 @@ export default function AnalyticsDashboardPage() {
                   label="Pending Review"
                   value={data.pending_review_count}
                   sublabel="awaiting faculty approval"
-                  isDark={isDark}
                   accent={
                     data.pending_review_count > 0
                       ? isDark ? '#fbbf24' : '#d97706'
@@ -428,7 +423,7 @@ export default function AnalyticsDashboardPage() {
               )}
               {data.pending_review_count !== null && data.reviewed_subject_summary && (
                 <Link to="/repository?subject_review=pending" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                  <StatCard label="Subject review" value={data.reviewed_subject_summary.awaiting_review_count} sublabel="approved theses awaiting a subject" isDark={isDark} />
+                  <StatCard label="Subject review" value={data.reviewed_subject_summary.awaiting_review_count} sublabel="approved theses awaiting a subject" />
                 </Link>
               )}
             </div>
@@ -441,13 +436,12 @@ export default function AnalyticsDashboardPage() {
                   data={programDist}
                   keyField="program"
                   valueField="count"
-                  isDark={isDark}
                 />
               </section>
 
               <section>
                 <h2 className={sectionHeader}>Research Growth by Year</h2>
-                <YearBarChart data={data.thesis_growth} isDark={isDark} />
+                <YearBarChart data={data.thesis_growth} />
               </section>
             </div>
 
@@ -459,7 +453,6 @@ export default function AnalyticsDashboardPage() {
                   data={keywordData}
                   keyField="keyword"
                   valueField="count"
-                  isDark={isDark}
                   maxBars={10}
                 />
               </section>
@@ -468,7 +461,7 @@ export default function AnalyticsDashboardPage() {
             {/* ── Section 5: Trend summary ── */}
             <section>
               <h2 className={sectionHeader}>{data.reviewed_subject_summary?.main_view_enabled ? 'Reviewed subject summary' : 'Exploratory cluster summary'}</h2>
-              <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-xs mb-4 text-muted`}>
                 {data.reviewed_subject_summary?.main_view_enabled
                   ? `Based on ${data.reviewed_subject_summary.reviewed_count} confirmed subjects among ${data.reviewed_subject_summary.approved_count} approved theses. Labels compare relative thesis counts, not growth over time. `
                   : 'Derived from exploratory groups of theses with similar meaning. Labels compare relative thesis counts, not growth over time. '}
@@ -479,7 +472,7 @@ export default function AnalyticsDashboardPage() {
                   View full Trend Analysis →
                 </Link>
               </p>
-              <TrendSummary summary={data.reviewed_subject_summary?.main_view_enabled ? data.reviewed_subject_summary : data.topic_summary} isDark={isDark} reviewed={Boolean(data.reviewed_subject_summary?.main_view_enabled)} />
+              <TrendSummary summary={data.reviewed_subject_summary?.main_view_enabled ? data.reviewed_subject_summary : data.topic_summary} reviewed={Boolean(data.reviewed_subject_summary?.main_view_enabled)} />
             </section>
 
           </div>

@@ -277,7 +277,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, isDark, 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {isLoading ? <><Spinner size="sm" /> Submitting…</> : 'Submit Access Request'}
       </button>

@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
                 Reset links expire after 30 minutes. Please request a new one.
               </p>
               <Link to="/forgot-password"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
                 Request New Reset Link
               </Link>
             </div>
@@ -182,7 +182,7 @@ export default function ResetPasswordPage() {
 
               <button type="submit"
                 disabled={isLoading || !!newErr || !!confirmErr || !newPw || !confirmPw}
-                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {isLoading ? <><Spinner size="sm" /> Resetting…</> : 'Reset Password'}
               </button>
             </form>

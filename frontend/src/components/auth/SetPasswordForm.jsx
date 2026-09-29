@@ -130,7 +130,7 @@ export default function SetPasswordForm({
           sign-in page to request a new setup link.
         </p>
         <Link to="/forgot-password"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors">
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
           Request New Link
         </Link>
       </div>
@@ -204,7 +204,7 @@ export default function SetPasswordForm({
 
       <button type="submit"
         disabled={isSubmitting || !!newErr || !!confirmErr || !newPw || !confirmPw}
-        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+        className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
         {isSubmitting ? <><Spinner size="sm" /> Activating…</> : 'Set Up Password'}
       </button>
     </form>

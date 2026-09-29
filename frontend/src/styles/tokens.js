@@ -62,6 +62,9 @@ export default {
 
   // ── Navigation / UI chrome ────────────────────────────────────────────
   'logo-bg':          'var(--color-logo-bg)',
+  'primary-solid':       'var(--color-primary-solid)',
+  'primary-solid-hover': 'var(--color-primary-solid-hover)',
+
   'nav-active-bg':    'var(--color-nav-active-bg)',
   'nav-active-text':  'var(--color-nav-active-text)',
   'nav-hover-bg':     'var(--color-nav-hover-bg)',

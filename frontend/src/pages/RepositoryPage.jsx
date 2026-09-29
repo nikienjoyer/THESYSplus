@@ -234,9 +234,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
       <Link to={`/repository/${thesis.id}`} className="block">
       <div className="flex items-start justify-between gap-3 mb-2">
         <h3
-          className={`font-semibold text-base leading-snug line-clamp-2 ${
-            isDark ? 'text-white' : 'text-gray-900'
-          }`}
+          className={`font-semibold text-base leading-snug line-clamp-2 text-ink`}
         >
           {thesis.title}
         </h3>
@@ -271,11 +269,11 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
         </div>
       </div>
 
-      <div className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+      <div className={`text-xs mb-3 text-muted`}>
         {thesis.program} · {thesis.year}
       </div>
 
-      <div className={`text-sm mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+      <div className={`text-sm mb-3 text-body`}>
         {thesis.authors.slice(0, 3).map(formatScholarAuthor).join(', ')}
         {thesis.authors.length > 3 && ` +${thesis.authors.length - 3} more`}
       </div>
@@ -556,10 +554,10 @@ export default function RepositoryPage() {
 
         {/* Page heading */}
         <PageHeader title="Research Repository">
-          <p className={`text-sm flex items-center gap-2 flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm flex items-center gap-2 flex-wrap text-body`}>
             <span>
               {effectiveSearch
-                ? <>Semantic search results for: <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>{effectiveSearch}</strong></>
+                ? <>Semantic search results for: <strong className={'text-ink'}>{effectiveSearch}</strong></>
                 : activeKeyword
                   // Not "Browsing all approved theses" — the list is filtered,
                   // and the keyword header below names the filter.
@@ -572,7 +570,7 @@ export default function RepositoryPage() {
             {!effectiveSearch && !activeKeyword && (
               <>
                 <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
-                <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>{totalCount} indexed</span>
+                <span className={'text-muted'}>{totalCount} indexed</span>
               </>
             )}
             <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>·</span>
@@ -584,7 +582,7 @@ export default function RepositoryPage() {
             </span>
             {/* Soft-loading indicator — appears beside the heading during background refreshes */}
             {softLoading && (
-              <span className={`inline-flex items-center gap-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <span className={`inline-flex items-center gap-1 text-xs text-muted`}>
                 <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" className="opacity-20"/>
                   <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
@@ -636,11 +634,7 @@ export default function RepositoryPage() {
                 value={year}
                 onChange={(e) => updateSearchParams({ year: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                  isDark
-                    ? 'bg-white/[0.04] border-white/10 text-gray-200'
-                    : 'bg-white border-gray-200 text-gray-700'
-                }`}
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary bg-surface border-border-default text-ink`}
               >
                 <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All years</option>
                 {YEARS.map((y) => (
@@ -652,11 +646,7 @@ export default function RepositoryPage() {
                 value={program}
                 onChange={(e) => updateSearchParams({ program: e.target.value, page: '' })}
                 style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                  isDark
-                    ? 'bg-white/[0.04] border-white/10 text-gray-200'
-                    : 'bg-white border-gray-200 text-gray-700'
-                }`}
+                className={`px-3 py-2.5 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary bg-surface border-border-default text-ink`}
               >
                 <option value="" style={{ color: isDark ? '#e5e7eb' : '#374151', backgroundColor: isDark ? '#0f1a3a' : '#ffffff' }}>All programs</option>
                 {PROGRAMS.map((p) => (
@@ -666,7 +656,7 @@ export default function RepositoryPage() {
 
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                className="px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
                 {searchInput.trim() ? 'Semantic Search' : 'Search'}
               </button>
@@ -674,9 +664,7 @@ export default function RepositoryPage() {
 
             {/* Row 2: similarity threshold — always visible */}
             <div
-              className={`pt-3 mt-1 border-t ${
-                isDark ? 'border-white/[0.06]' : 'border-gray-100'
-              }`}
+              className={`pt-3 mt-1 border-t border-border-subtle`}
             >
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -701,7 +689,7 @@ export default function RepositoryPage() {
         {/* Cold-start guidance — example queries shown before any search is run */}
         {!search && !loading && !error && (
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
-            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-xs text-muted`}>
               Try a semantic search:
             </p>
             <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
@@ -716,7 +704,7 @@ export default function RepositoryPage() {
           <div ref={keywordHeaderRef} className="mb-5 scroll-mt-24">
             <nav
               aria-label="Breadcrumb"
-              className={`text-xs mb-1 flex items-center gap-1.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}
+              className={`text-xs mb-1 flex items-center gap-1.5 text-muted`}
             >
               <Link
                 to="/repository"
@@ -725,17 +713,17 @@ export default function RepositoryPage() {
                 Repository
               </Link>
               <span aria-hidden="true">›</span>
-              <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Keyword</span>
+              <span className={'text-body'}>Keyword</span>
             </nav>
 
-            <h2 className={`text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h2 className={`text-2xl font-bold mb-1 text-ink`}>
               Theses tagged &ldquo;{collapseWhitespace(activeKeyword) || activeKeyword}&rdquo;
             </h2>
 
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p
                 aria-live="polite"
-                className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                className={`text-sm text-body`}
               >
                 {loading
                   ? 'Loading…'
@@ -745,11 +733,7 @@ export default function RepositoryPage() {
                 type="button"
                 onClick={clearKeyword}
                 aria-label="Clear keyword filter"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                  isDark
-                    ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary`}
               >
                 <X className="w-3.5 h-3.5" aria-hidden="true" />
                 Clear
@@ -761,7 +745,7 @@ export default function RepositoryPage() {
         {/* ── Results ───────────────────────────────────────────────────── */}
         {loading ? (
           <>
-            <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-3 text-muted`}>
               {search ? 'Searching semantically…' : 'Loading repository…'}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -780,15 +764,15 @@ export default function RepositoryPage() {
             </div>
           </>
         ) : error ? (
-          <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+          <div className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}>
             {error}
           </div>
         ) : theses.length === 0 ? (
           awaitingSubjectReview && !activeKeyword && !effectiveSearch ? (
             <div className="thesys-empty">
               <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
-              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>No approved theses await subject review.</p>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Newly approved theses will appear here until faculty or an administrator confirms their subject.</p>
+              <p className={`font-semibold text-ink`}>No approved theses await subject review.</p>
+              <p className={`text-sm text-muted`}>Newly approved theses will appear here until faculty or an administrator confirms their subject.</p>
             </div>
           ) : activeKeyword ? (
             /* ── No theses carry this keyword ────────────────────────────
@@ -797,17 +781,17 @@ export default function RepositoryPage() {
                yet", which reads as a broken app rather than an empty filter. */
             <div className="thesys-empty">
               <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
-              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <p className={`font-semibold text-ink`}>
                 No theses tagged &ldquo;{collapseWhitespace(activeKeyword) || activeKeyword}&rdquo;
               </p>
-              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm max-w-sm text-muted`}>
                 This keyword may be spelled differently on other theses, or the
                 only thesis using it may not be visible to you.
               </p>
               <button
                 type="button"
                 onClick={clearKeyword}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Back to all theses
               </button>
@@ -816,12 +800,12 @@ export default function RepositoryPage() {
             /* ── Zero Results — a query ran but nothing matched ─────────── */
             <div className="thesys-empty">
               <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
-              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <p className={`font-semibold text-ink`}>
                 {committedThreshold > 50
                   ? `No theses found above ${committedThreshold}% similarity.`
                   : 'No related theses found.'}
               </p>
-              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm max-w-sm text-muted`}>
                 {committedThreshold > 50
                   ? 'Lower the similarity threshold to broaden the search, or try a different query.'
                   : 'Try a broader query or one of the examples below.'}
@@ -832,7 +816,7 @@ export default function RepositoryPage() {
                 <button
                   type="button"
                   onClick={() => applyThreshold(50)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Try lowering the threshold to 50%
                 </button>
@@ -840,7 +824,7 @@ export default function RepositoryPage() {
 
               {/* Example-query recovery */}
               <div className="mt-2 flex flex-col items-center gap-2">
-                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Or try one of these searches:</p>
+                <p className={`text-xs text-muted`}>Or try one of these searches:</p>
                 <ExampleChips onSelect={runExampleQuery} isDark={isDark} />
               </div>
             </div>
@@ -848,10 +832,10 @@ export default function RepositoryPage() {
             /* ── Empty Corpus — repository has no theses at all ─────────── */
             <div className="thesys-empty">
               <BookOpen className="w-10 h-10 text-primary" aria-hidden="true" />
-              <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <p className={`font-semibold text-ink`}>
                 No theses in repository yet.
               </p>
-              <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm max-w-sm text-muted`}>
                 Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-assisted search.
               </p>
             </div>
@@ -885,7 +869,7 @@ export default function RepositoryPage() {
               }
 
               return (
-                <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <p className={`text-xs mb-3 text-muted`}>
                   {summary}
                 </p>
               );
@@ -910,22 +894,18 @@ export default function RepositoryPage() {
                   type="button"
                   disabled={page <= 1}
                   onClick={() => updateSearchParams({ page: page - 1 > 1 ? page - 1 : '' })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Previous
                 </button>
-                <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <span className={`text-sm text-body`}>
                   Page {page} of {totalPages}
                 </span>
                 <button
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => updateSearchParams({ page: Math.min(totalPages, page + 1) })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Next
                 </button>

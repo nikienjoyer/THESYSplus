@@ -295,7 +295,7 @@ export default function AppNavbar({ activePage = '' }) {
             <button
               type="button"
               onClick={openUpload}
-              className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Upload Thesis
             </button>
@@ -379,7 +379,7 @@ export default function AppNavbar({ activePage = '' }) {
               <button
                 type="button"
                 onClick={() => { setMobileMenuOpen(false); openUpload(); }}
-                className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors"
+                className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold text-center hover:bg-primary-solid-hover transition-colors"
               >
                 Upload Thesis
               </button>

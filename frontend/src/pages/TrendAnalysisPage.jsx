@@ -71,18 +71,14 @@ function trendStyles(trend, isDark) {
       return {
         emoji: '🔴',
         label: 'Saturated',
-        chip: isDark
-          ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-          : 'bg-rose-50 text-rose-700 border-rose-200',
+        chip: 'bg-danger-bg text-danger-text border-danger-border',
         accent: isDark ? '#f87171' : '#e11d48',
       };
     case TREND_EMERGING:
       return {
         emoji: '🟡',
         label: 'Emerging',
-        chip: isDark
-          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-          : 'bg-amber-50 text-amber-700 border-amber-200',
+        chip: 'bg-warning-bg text-warning-text border-warning-border',
         accent: isDark ? '#fbbf24' : '#d97706',
       };
     case TREND_UNDEREXPLORED:
@@ -90,9 +86,7 @@ function trendStyles(trend, isDark) {
       return {
         emoji: '🟢',
         label: 'Underexplored',
-        chip: isDark
-          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-          : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        chip: 'bg-success-bg text-success-text border-success-border',
         accent: isDark ? '#34d399' : '#059669',
       };
   }
@@ -249,7 +243,7 @@ function DoughnutChart({ segments, isDark }) {
 // Bar — thesis count per topic
 // ---------------------------------------------------------------------------
 
-function CountsBarChart({ clusters, isDark }) {
+function CountsBarChart({ clusters }) {
   const { staggerContainer, growWidth } = useMotionVariants();
   if (clusters.length === 0) return null;
   const max = Math.max(...clusters.map((c) => c.thesis_count), 1);
@@ -270,17 +264,13 @@ function CountsBarChart({ clusters, isDark }) {
         return (
           <div key={c.cluster_id} className="flex items-center gap-3">
             <span
-              className={`text-xs font-medium truncate w-32 sm:w-44 flex-shrink-0 ${
-                isDark ? 'text-gray-300' : 'text-gray-700'
-              }`}
+              className={`text-xs font-medium truncate w-32 sm:w-44 flex-shrink-0 text-body`}
               title={c.topic}
             >
               {c.topic}
             </span>
             <div
-              className={`flex-1 h-3 rounded-full overflow-hidden ${
-                isDark ? 'bg-white/[0.05]' : 'bg-gray-100'
-              }`}
+              className={`flex-1 h-3 rounded-full overflow-hidden bg-surface-secondary`}
             >
               <m.div
                 className="h-full"
@@ -289,9 +279,7 @@ function CountsBarChart({ clusters, isDark }) {
               />
             </div>
             <span
-              className={`text-xs font-semibold tabular-nums w-6 text-right flex-shrink-0 ${
-                isDark ? 'text-gray-400' : 'text-gray-600'
-              }`}
+              className={`text-xs font-semibold tabular-nums w-6 text-right flex-shrink-0 text-body`}
             >
               {c.thesis_count}
             </span>
@@ -307,21 +295,21 @@ function CountsBarChart({ clusters, isDark }) {
 // Stat card — shadcn Card
 // ---------------------------------------------------------------------------
 
-function StatCard({ label, value, sublabel, isDark, accent }) {
+function StatCard({ label, value, sublabel, accent }) {
   const isNumeric = typeof value === 'number' && Number.isFinite(value);
   return (
     <div>
       <div
-        className={`text-3xl sm:text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}
+        className={`text-3xl sm:text-4xl font-bold tracking-tight text-ink`}
         style={accent ? { color: accent } : undefined}
       >
         {isNumeric ? <AnimatedCounter value={value} /> : value}
       </div>
-      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wider mt-2 text-muted`}>
         {label}
       </div>
       {sublabel && (
-        <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+        <div className={`text-xs mt-0.5 text-muted`}>
           {sublabel}
         </div>
       )}
@@ -352,7 +340,7 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
               style={{ backgroundColor: paletteColor }}
               aria-hidden="true"
             />
-            <h3 className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className={`font-bold text-base text-ink`}>
               {cluster.topic}
             </h3>
           </div>
@@ -365,8 +353,8 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
           </Badge>
         </div>
 
-        <div className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
+        <div className={`text-xs mb-3 text-body`}>
+          <strong className={'text-ink'}>
             {cluster.thesis_count}
           </strong>{' '}
           thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
@@ -374,7 +362,7 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
 
         {cluster.keywords && cluster.keywords.length > 0 && (
           <div className="mb-3">
-            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
               Top keywords (TF-IDF)
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -399,14 +387,14 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
 
         {cluster.sample_titles && cluster.sample_titles.length > 0 && (
           <div className="mt-auto">
-            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
               Sample studies
             </div>
             <ul className="space-y-1">
               {cluster.sample_titles.slice(0, 3).map((title, i) => (
                 <li
                   key={i}
-                  className={`text-xs leading-snug line-clamp-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                  className={`text-xs leading-snug line-clamp-1 text-body`}
                   title={title}
                 >
                   · {title}
@@ -449,11 +437,11 @@ function TopicCheck({ isDark }) {
   };
 
   const styles = result && trendStyles(result.trend, isDark);
-  const muted = isDark ? 'text-gray-400' : 'text-gray-600';
+  const muted = 'text-body';
 
   return (
     <section className="thesys-panel mb-8" aria-labelledby="topic-check-heading">
-      <h2 id="topic-check-heading" className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      <h2 id="topic-check-heading" className={`font-bold text-base text-ink`}>
         Check your proposed topic
       </h2>
       <p className={`text-sm mt-1 mb-4 ${muted}`}>
@@ -477,7 +465,7 @@ function TopicCheck({ isDark }) {
         <button
           type="submit"
           disabled={trimmed.length < 5 || loading}
-          className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {loading ? 'Analyzing…' : 'Analyze topic'}
         </button>
@@ -488,7 +476,7 @@ function TopicCheck({ isDark }) {
           <p className={`text-sm mt-4 ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{error}</p>
         )}
         {result && (
-          <div className={`mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+          <div className={`mt-5 pt-5 border-t border-border-default`}>
             <Badge
               variant="outline"
               className={`gap-1 text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${styles.chip}`}
@@ -496,12 +484,12 @@ function TopicCheck({ isDark }) {
               <span aria-hidden="true">{styles.emoji}</span>
               {styles.label}
             </Badge>
-            <p className={`text-sm mt-3 max-w-prose ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            <p className={`text-sm mt-3 max-w-prose text-ink`}>
               {result.explanation}
             </p>
             {result.related.length > 0 && (
               <>
-                <h3 className={`text-xs font-semibold uppercase tracking-wider mt-5 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <h3 className={`text-xs font-semibold uppercase tracking-wider mt-5 mb-2 text-muted`}>
                   Most related theses
                 </h3>
                 <ul className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-100'}`}>
@@ -511,7 +499,7 @@ function TopicCheck({ isDark }) {
                         to={`/repository/${t.id}`}
                         className={`flex items-baseline justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
                       >
-                        <span className={`text-sm min-w-0 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                        <span className={`text-sm min-w-0 text-ink`}>
                           {t.title}
                           <span className={`block text-xs mt-0.5 ${muted}`}>{t.year} · {t.program}</span>
                         </span>
@@ -543,7 +531,7 @@ function TechnologyTags({ tags, isDark }) {
   if (!tags || tags.length === 0) return null;
   return (
     <div className="mb-3">
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+      <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
         Technologies
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -582,13 +570,11 @@ function ClusterThesisRow({ thesis, isDark, tags = [] }) {
       }`}
     >
       <h3
-        className={`font-bold text-sm leading-snug line-clamp-2 hover:underline ${
-          isDark ? 'text-white' : 'text-gray-900'
-        }`}
+        className={`font-bold text-sm leading-snug line-clamp-2 hover:underline text-ink`}
       >
         {thesis.title}
       </h3>
-      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+      <p className={`text-xs mt-0.5 text-muted`}>
         {thesis.program} · {thesis.year}
       </p>
       {tags.length > 0 && (
@@ -714,7 +700,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
           </Badge>
         </div>
 
-        <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`text-sm mb-3 text-body`}>
           {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
         </p>
 
@@ -759,12 +745,12 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
           ))}
         </div>
       ) : rowsError ? (
-        <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+        <div className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}>
           Failed to load theses for this {reviewed ? 'subject' : 'cluster'}. Please try again.
         </div>
       ) : rows && rows.length === 0 ? (
         <div className="thesys-empty">
-          <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+          <p className={`font-semibold text-ink`}>
             No theses found for this {reviewed ? 'subject' : 'cluster'}.
           </p>
         </div>
@@ -907,7 +893,7 @@ export default function TrendAnalysisPage() {
         {/* ── Header ──────────────────────────────────────────────── */}
         <PageHeader title="Topic Trend Analysis">
           {showOverviewChrome && (
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-sm text-body`}>
               {reviewed ? 'Group-reviewed research subjects across approved theses.' : 'Explore groups of theses with similar meaning. Group names come from reviewed subjects; tags show the technologies each thesis uses.'}
             </p>
           )}
@@ -916,11 +902,11 @@ export default function TrendAnalysisPage() {
         {reviewedEnabled && showOverviewChrome && (
           <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
             <Link to="/trend-analysis" aria-current={reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
               Reviewed subjects
             </Link>
             <Link to="/trend-analysis?view=clusters" aria-current={!reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-blue-600 border-blue-600 text-white' : isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
               Explore text clusters
             </Link>
           </nav>
@@ -931,7 +917,7 @@ export default function TrendAnalysisPage() {
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (
           <div className="space-y-6">
-            <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-xs mb-1 text-muted`}>
               {subjectLoading ? 'Loading trend analysis…' : reviewed ? 'Loading reviewed subjects…' : 'Loading text clusters…'}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -957,16 +943,16 @@ export default function TrendAnalysisPage() {
             </div>
           </div>
         ) : error ? (
-          <div className={`rounded-xl p-8 text-center ${isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'}`}>
+          <div className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}>
             {error}
           </div>
         ) : data && data.status === 'empty' ? (
           <div className="thesys-empty">
             <BarChart3 className="w-10 h-10 text-primary" aria-hidden="true" />
-            <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            <p className={`font-semibold text-ink`}>
               {reviewed ? 'No reviewed subjects yet.' : 'Not enough approved theses yet.'}
             </p>
-            <p className={`text-sm max-w-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className={`text-sm max-w-sm text-muted`}>
               {reviewed ? 'Approved theses remain in the repository while faculty or administrators review their subjects.' : 'Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.'}
             </p>
           </div>
@@ -995,17 +981,17 @@ export default function TrendAnalysisPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-6 mb-12">
               {reviewed ? (
                 <>
-                  <StatCard label="Approved" value={subjectData.approved_count} sublabel="Published theses" isDark={isDark} />
-                  <StatCard label="Reviewed" value={subjectData.reviewed_count} sublabel="In subject charts" isDark={isDark} />
-                  <StatCard label="Awaiting review" value={subjectData.awaiting_review_count} sublabel="Still in repository" isDark={isDark} />
-                  <StatCard label="Subjects" value={data.total_topics} sublabel="Group-approved definitions" isDark={isDark} />
+                  <StatCard label="Approved" value={subjectData.approved_count} sublabel="Published theses" />
+                  <StatCard label="Reviewed" value={subjectData.reviewed_count} sublabel="In subject charts" />
+                  <StatCard label="Awaiting review" value={subjectData.awaiting_review_count} sublabel="Still in repository" />
+                  <StatCard label="Subjects" value={data.total_topics} sublabel="Group-approved definitions" />
                 </>
               ) : (
                 <>
-                  <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" isDark={isDark} />
-                  <StatCard label="Total Topics" value={data.total_topics} sublabel="Groups by meaning" isDark={isDark} />
-                  <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" isDark={isDark} accent={isDark ? '#f87171' : '#e11d48'} />
-                  <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" isDark={isDark} accent={isDark ? '#34d399' : '#059669'} />
+                  <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" />
+                  <StatCard label="Total Topics" value={data.total_topics} sublabel="Groups by meaning" />
+                  <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" accent={isDark ? '#f87171' : '#e11d48'} />
+                  <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" accent={isDark ? '#34d399' : '#059669'} />
                 </>
               )}
             </div>
@@ -1013,7 +999,7 @@ export default function TrendAnalysisPage() {
             {/* ── Charts row — open on canvas ──────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-12 mb-12">
               <section>
-                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] text-ink`}>
                   {reviewed ? 'Subject distribution' : 'Topic Distribution'}
                 </h2>
                 <DoughnutChart segments={doughnutSegments} isDark={isDark} />
@@ -1026,7 +1012,7 @@ export default function TrendAnalysisPage() {
                         aria-hidden="true"
                       />
                       <span
-                        className={`text-xs truncate max-w-[8rem] ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                        className={`text-xs truncate max-w-[8rem] text-body`}
                         title={s.topic}
                       >
                         {s.topic}
@@ -1037,19 +1023,17 @@ export default function TrendAnalysisPage() {
               </section>
 
               <section className="lg:col-span-2">
-                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                <h2 className={`text-sm font-semibold pb-2 mb-5 border-b border-[var(--color-border-subtle)] text-ink`}>
                   {reviewed ? 'Theses per subject' : 'Theses per Topic'}
                 </h2>
-                <CountsBarChart clusters={data.clusters} isDark={isDark} />
+                <CountsBarChart clusters={data.clusters} />
               </section>
             </div>
 
             {/* ── Cluster cards ────────────────────────────────────── */}
             <div className="mb-6">
               <h2
-                className={`text-sm font-semibold uppercase tracking-wider mb-3 ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
-                }`}
+                className={`text-sm font-semibold uppercase tracking-wider mb-3 text-body`}
               >
                 {reviewed ? 'Reviewed subjects' : 'Topic Clusters'} ({data.clusters.length})
               </h2>
@@ -1068,20 +1052,20 @@ export default function TrendAnalysisPage() {
 
             {/* ── How this works ───────────────────────────────────── */}
             <section>
-              <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] text-ink`}>
                 How this works
               </h3>
-              <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-sm leading-relaxed mb-3 text-body`}>
                 {reviewed
                   ? 'Faculty and administrators confirm one primary research subject for each thesis. Only approved theses with a confirmed subject appear in these charts. Theses awaiting subject review remain published in the repository.'
                   : 'Exploratory groups put approved theses with similar meaning together, using Sentence-BERT vectors of their titles, keywords and abstracts. Each group is named after its members’ confirmed research subjects; technology tags such as IoT or AI appear only when a thesis actually uses that technology. Groups may change as the corpus changes.'}
               </p>
-              <ul className={`text-xs space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <ul className={`text-xs space-y-1 text-muted`}>
                 <li><strong>Saturated</strong> — at least 1.5 times the average {reviewed ? 'subject' : 'cluster'} count.</li>
                 <li><strong>Emerging</strong> — between the high- and low-count thresholds.</li>
                 <li><strong>Underexplored</strong> — at most half the average {reviewed ? 'subject' : 'cluster'} count.</li>
               </ul>
-              <p className={`text-xs italic mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <p className={`text-xs italic mt-2 text-muted`}>
                 These labels compare relative thesis counts. They do not measure growth over time.
               </p>
             </section>

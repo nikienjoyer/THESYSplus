@@ -230,9 +230,7 @@ export default function ThesisDetailPage() {
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : error ? (
           <div
-            className={`rounded-xl p-8 text-center ${
-              isDark ? 'bg-rose-500/10 text-rose-300' : 'bg-rose-50 text-rose-700'
-            }`}
+            className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}
           >
             {error}
           </div>
@@ -277,9 +275,7 @@ export default function ThesisDetailPage() {
               {/* Status + program tags */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span
-                className={`text-xs px-2 py-0.5 rounded-md ${
-                  isDark ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' : 'bg-blue-50 text-blue-700 border border-blue-100'
-                }`}
+                className={`text-xs px-2 py-0.5 rounded-md bg-info-bg text-info-text border border-info-border`}
               >
                 {thesis.program}
               </span>
@@ -293,53 +289,47 @@ export default function ThesisDetailPage() {
               <span
                 className={`text-xs uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold border ${
                   thesis.status === 'approved'
-                    ? isDark
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    ? 'bg-success-bg text-success-text border-success-border'
                     : thesis.status === 'rejected'
-                    ? isDark
-                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                    : isDark
-                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                    ? 'bg-danger-bg text-danger-text border-danger-border'
+                    : 'bg-warning-bg text-warning-text border-warning-border'
                 }`}
               >
                 {thesis.status.replace('_', ' ')}
               </span>
             </div>
 
-            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight mb-4 text-ink`}>
               {thesis.title}
             </h1>
 
-            <div className={`text-sm mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <div className={`text-sm mb-1 text-body`}>
               <strong>Authors:</strong> {formatFullAuthorList(thesis.authors)}
             </div>
             {thesis.adviser && (
-              <div className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <div className={`text-sm mb-4 text-body`}>
                 <strong>Adviser:</strong> {thesis.adviser}
               </div>
             )}
 
-            <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
+            <hr className={`my-5 border-border-default`} />
 
             {/* Align the abstract with Authors and Keywords and use the card width.
                 font-reading = Source Serif 4 Variable (Phase 2.C-2).
                 text-[1.0625rem] = 17px — within the 16-18px approved reading range. */}
             <div className="w-full mb-6">
-              <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
                 Abstract
               </h2>
               <p
-                className={`font-reading text-left text-[1.0625rem] leading-[1.65] whitespace-pre-line ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                className={`font-reading text-left text-[1.0625rem] leading-[1.65] whitespace-pre-line text-ink`}
                 style={{ textWrap: 'pretty' }}
               >
                 {thesis.abstract}
               </p>
             </div>
 
-            <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
               Keywords
             </h2>
             <div className="flex flex-wrap gap-1.5 mb-6">
@@ -386,7 +376,7 @@ export default function ThesisDetailPage() {
                   )}
                 </>
               ) : (
-                <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <span className={`text-xs text-muted`}>
                   No keywords available
                 </span>
               )}
@@ -394,10 +384,10 @@ export default function ThesisDetailPage() {
 
             {thesis.status === 'approved' && (
               <section className="mb-6" aria-labelledby="research-subject-heading">
-                <h2 id="research-subject-heading" className={`text-sm font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <h2 id="research-subject-heading" className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
                   Research subject
                 </h2>
-                <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                <p className={`text-sm text-ink`}>
                   {thesis.primary_subject ? (
                     <Link
                       to={`/trend-analysis?subject=${encodeURIComponent(thesis.primary_subject.code)}`}
@@ -417,7 +407,7 @@ export default function ThesisDetailPage() {
                 </p>
                 {canReviewSubject && (
                   <div className="mt-3 max-w-xl">
-                    <label htmlFor="primary-subject" className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <label htmlFor="primary-subject" className={`block text-xs font-medium mb-1.5 text-body`}>
                       Confirm or change primary subject
                     </label>
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -429,13 +419,13 @@ export default function ThesisDetailPage() {
                       </select>
                       <button type="button" onClick={saveSubject}
                         disabled={!selectedSubject || savingSubject || selectedSubject === thesis.primary_subject?.code}
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        className="rounded-lg bg-primary-solid px-4 py-2 text-sm font-semibold text-white hover:bg-primary-solid-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         {savingSubject ? 'Saving…' : thesis.primary_subject ? 'Save change' : 'Confirm subject'}
                       </button>
                     </div>
                     {awaitingSubjectReview && suggestions.length > 0 && (
                       <div className="mt-2">
-                        <p className={`text-xs mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <p className={`text-xs mb-1.5 text-body`}>
                           Suggested from similar reviewed theses. Check the thesis before confirming.
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -447,7 +437,7 @@ export default function ThesisDetailPage() {
                               aria-pressed={selectedSubject === s.code}
                               className={`rounded-full border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                                 selectedSubject === s.code
-                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  ? 'bg-primary-solid border-primary-solid text-white'
                                   : isDark
                                     ? 'border-white/15 text-gray-200 hover:bg-white/[0.06]'
                                     : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -460,7 +450,7 @@ export default function ThesisDetailPage() {
                       </div>
                     )}
                     {thesis.subject_reviewed_at && (
-                      <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p className={`mt-2 text-xs text-body`}>
                         Reviewed by {thesis.subject_reviewed_by_name || 'a former staff member'} on {new Date(thesis.subject_reviewed_at).toLocaleDateString()}.
                       </p>
                     )}
@@ -470,11 +460,11 @@ export default function ThesisDetailPage() {
               </section>
             )}
 
-            <hr className={`my-5 ${isDark ? 'border-white/10' : 'border-gray-200'}`} />
+            <hr className={`my-5 border-border-default`} />
 
-            <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted`}>
               <div>
-                Uploaded by <strong className={isDark ? 'text-gray-300' : 'text-gray-700'}>{thesis.uploaded_by_name}</strong>
+                Uploaded by <strong className={'text-body'}>{thesis.uploaded_by_name}</strong>
                 {' · '}
                 {new Date(thesis.created_at).toLocaleDateString()}
               </div>
@@ -488,9 +478,7 @@ export default function ThesisDetailPage() {
                       ? isDark
                         ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                         : 'bg-blue-50 border-blue-200 text-blue-700'
-                      : isDark
-                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                      : 'border-border-strong text-body hover:bg-surface-secondary'
                   }`}
                   title={saved ? 'Remove from saved theses' : 'Save to your profile'}
                 >
@@ -500,11 +488,7 @@ export default function ThesisDetailPage() {
                 <button
                   type="button"
                   onClick={handlePreview}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 ${
-                    isDark
-                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 border-border-strong text-body hover:bg-surface-secondary`}
                   title="Open watermarked preview"
                 >
                   <Eye className="w-4 h-4" aria-hidden="true" />
@@ -514,11 +498,7 @@ export default function ThesisDetailPage() {
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isDark
-                      ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                   title="Download the watermarked document"
                 >
                   {downloading ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" aria-hidden="true" />}

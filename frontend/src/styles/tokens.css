@@ -138,6 +138,11 @@
      change some of the app and not the rest. Change both together. */
   --color-primary:           var(--th-prim-600);       /* #1e40af — institutional ink-blue */
   --color-primary-hover:     var(--th-prim-700);       /* #1c3a99 */
+  /* Filled surfaces (buttons) keep a white label in both themes, so the fill
+     must be dark enough for 4.5:1: dark mode uses blue-600/700, not the 400
+     tint that --color-primary uses for text, links and rings. */
+  --color-primary-solid:       var(--th-prim-600);     /* #1e40af, white label 8.7:1 */
+  --color-primary-solid-hover: var(--th-prim-700);     /* #1c3a99 */
   --color-primary-light:     var(--th-prim-50);        /* #eff6ff */
   --color-primary-muted:     var(--th-prim-100);       /* #dbeafe */
   --color-accent:            var(--th-accent-600);     /* #7c3aed (unchanged) */
@@ -206,6 +211,8 @@
      index.css's .dark block (#60a5fa). Same caveat: change both together. */
   --color-primary:           var(--th-prim-400);       /* #60a5fa — lighter for dark bg, unchanged */
   --color-primary-hover:     var(--th-prim-500);       /* #2563eb (previous primary, now hover) */
+  --color-primary-solid:       #2563eb;                /* white label 5.2:1 */
+  --color-primary-solid-hover: #1d4ed8;                /* white label 6.7:1 */
   --color-primary-light:     rgba(30, 64, 175, 0.15);  /* ink-blue/15 */
   --color-primary-muted:     rgba(30, 64, 175, 0.10);  /* ink-blue/10 */
 
@@ -246,9 +253,9 @@
   --color-danger-text:       var(--th-danger-400);     /* #f87171 */
 
   --color-info:              var(--th-prim-400);       /* #60a5fa */
-  --color-info-bg:           rgba(30, 64, 175, 0.10);  /* ink-blue/10 */
-  --color-info-border:       rgba(30, 64, 175, 0.20);  /* ink-blue/20 */
-  --color-info-text:         var(--th-prim-400);       /* #60a5fa */
+  --color-info-bg:           rgba(59, 130, 246, 0.10); /* blue-500/10 */
+  --color-info-border:       rgba(59, 130, 246, 0.20); /* blue-500/20 */
+  --color-info-text:         #93c5fd;                  /* blue-300 */
 
   /* ── Overlays / decorations ──────────────────────────────────────── */
   --color-logo-bg:           rgba(30, 64, 175, 0.20);  /* ink-blue/20 (was blue-600/20) */

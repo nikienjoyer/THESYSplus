@@ -92,7 +92,7 @@ function Sidebar({ user, stats, isDark }) {
         </AvatarFallback>
       </Avatar>
 
-      <h2 className={`text-lg font-bold mb-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      <h2 className={`text-lg font-bold mb-0.5 text-ink`}>
         {user ? `${user.first_name} ${user.last_name}`.trim() : '—'}
       </h2>
       <span
@@ -103,12 +103,12 @@ function Sidebar({ user, stats, isDark }) {
         {roleLabel(user?.role)}
       </span>
 
-      <p className={`text-xs mb-4 break-all ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+      <p className={`text-xs mb-4 break-all text-body`}>
         {user?.email}
       </p>
 
       {/* Bio */}
-      <p className={`text-sm text-center mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+      <p className={`text-sm text-center mb-5 text-body`}>
         {stats.bio || (
           <span className={isDark ? 'text-gray-600 italic' : 'text-gray-400 italic'}>
             No bio yet.
@@ -118,11 +118,7 @@ function Sidebar({ user, stats, isDark }) {
 
       <Link
         to="/settings"
-        className={`w-full py-2 rounded-lg text-sm font-medium border transition-colors ${
-          isDark
-            ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-            : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-        }`}
+        className={`w-full py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
       >
         Edit Profile
       </Link>
@@ -141,13 +137,13 @@ function Sidebar({ user, stats, isDark }) {
             key={s.label}
             className="flex flex-col items-center py-3"
           >
-            <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <span className={`text-xl font-bold text-ink`}>
               {/* undefined = failed request or not loaded yet; a real zero
                   count is a number (0), so `?? 0` here would otherwise make
                   a failed fetch look identical to "confirmed zero uploads." */}
               {typeof s.value === 'number' ? s.value : '—'}
             </span>
-            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <span className={`text-xs text-muted`}>
               {s.label}
             </span>
           </div>
@@ -167,16 +163,12 @@ function SavedCard({ entry, isDark, onRemove }) {
     : '';
   return (
     <div
-      className={`rounded-xl border p-4 ${
-        isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'
-      }`}
+      className={`rounded-xl border p-4 bg-surface border-border-default`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <Link
           to={`/repository/${entry.id}`}
-          className={`font-semibold text-sm leading-snug line-clamp-2 hover:underline ${
-            isDark ? 'text-white' : 'text-gray-900'
-          }`}
+          className={`font-semibold text-sm leading-snug line-clamp-2 hover:underline text-ink`}
         >
           {entry.title}
         </Link>
@@ -193,7 +185,7 @@ function SavedCard({ entry, isDark, onRemove }) {
         </button>
       </div>
 
-      <div className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+      <div className={`text-xs mb-2 text-muted`}>
         {entry.program} · {entry.year}
         {entry.authors?.length > 0 && (
           <> · {entry.authors.slice(0, 2).join(', ')}{entry.authors.length > 2 ? ' …' : ''}</>
@@ -205,9 +197,7 @@ function SavedCard({ entry, isDark, onRemove }) {
           {entry.keywords.slice(0, 4).map((kw) => (
             <span
               key={kw}
-              className={`text-xs px-2 py-0.5 rounded-md ${
-                isDark ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' : 'bg-blue-50 text-blue-700 border border-blue-100'
-              }`}
+              className={`text-xs px-2 py-0.5 rounded-md bg-info-bg text-info-text border border-info-border`}
             >
               {kw}
             </span>
@@ -225,7 +215,7 @@ function SavedCard({ entry, isDark, onRemove }) {
       )}
 
       {savedDate && (
-        <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+        <p className={`text-xs mt-2 text-muted`}>
           Saved {savedDate}
         </p>
       )}
@@ -348,7 +338,7 @@ export default function ProfilePage() {
           {/* Main content */}
           <div>
             {/* Tabs */}
-            <div className={`flex gap-6 mb-6 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+            <div className={`flex gap-6 mb-6 border-b border-border-default`}>
               <button type="button" className={tabCls('overview')} onClick={() => setActiveTab('overview')}>
                 Profile Overview
               </button>
@@ -371,7 +361,7 @@ export default function ProfilePage() {
               <div className="space-y-10">
                 {/* Account information — open section */}
                 <section>
-                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] text-ink`}>
                     Account Information
                   </h3>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -384,10 +374,10 @@ export default function ProfilePage() {
                       { label: 'Bio', value: profileExtra.bio || '—' },
                     ].map(({ label, value }) => (
                       <div key={label}>
-                        <dt className={`text-xs uppercase tracking-wider font-semibold mb-0.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        <dt className={`text-xs uppercase tracking-wider font-semibold mb-0.5 text-muted`}>
                           {label}
                         </dt>
-                        <dd className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                        <dd className={`text-sm text-ink`}>
                           {value || '—'}
                         </dd>
                       </div>
@@ -397,15 +387,13 @@ export default function ProfilePage() {
 
                 {/* Your recent uploads — open section */}
                 <section>
-                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <h3 className={`text-sm font-semibold pb-2 mb-4 border-b border-[var(--color-border-subtle)] text-ink`}>
                     Your Recent Uploads
                   </h3>
                   {uploadsLoading ? (
                     <div className="flex justify-center py-4"><Spinner /></div>
                   ) : uploadsError ? (
-                    <div className={`rounded-lg p-3 text-sm flex items-center justify-between gap-3 ${
-                      isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}>
+                    <div className={`rounded-lg p-3 text-sm flex items-center justify-between gap-3 bg-danger-bg text-danger-text border border-danger-border`}>
                       <span>Couldn&apos;t load your uploads. Please try again.</span>
                       <button
                         type="button"
@@ -420,13 +408,13 @@ export default function ProfilePage() {
                       isDark ? 'border-white/15 bg-white/[0.02]' : 'border-gray-300 bg-gray-50/50'
                     }`}>
                       <UploadCloud className={`w-7 h-7 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} aria-hidden="true" />
-                      <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <p className={`text-sm font-semibold text-body`}>
                         You haven&apos;t uploaded any theses yet.
                       </p>
                       <button
                         type="button"
                         onClick={openUpload}
-                        className="mt-1 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                        className="mt-1 px-4 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
                       >
                         Upload Your First Thesis
                       </button>
@@ -442,7 +430,7 @@ export default function ProfilePage() {
                             >
                               {t.title}
                             </Link>
-                            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            <span className={`text-xs text-muted`}>
                               {' '}· {t.program} · {t.year}
                             </span>
                           </div>
@@ -466,15 +454,15 @@ export default function ProfilePage() {
                 {savedTheses.length === 0 ? (
                   <div className="thesys-empty">
                     <Bookmark className="w-10 h-10 text-primary" aria-hidden="true" />
-                    <p className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                    <p className={`font-semibold text-ink`}>
                       No saved theses yet.
                     </p>
-                    <p className={`text-sm max-w-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                    <p className={`text-sm max-w-sm text-muted`}>
                       Save papers from the Repository to quickly access them later.
                     </p>
                     <Link
                       to="/repository"
-                      className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                      className="px-4 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
                     >
                       Browse Repository
                     </Link>
@@ -502,10 +490,10 @@ export default function ProfilePage() {
                         <div className={`rounded-xl border p-6 max-w-sm w-full ${
                           isDark ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'
                         }`}>
-                          <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          <h3 className={`text-lg font-bold mb-2 text-ink`}>
                             Clear all saved theses?
                           </h3>
-                          <p className={`text-sm mb-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                          <p className={`text-sm mb-5 text-body`}>
                             This will remove all theses from your saved list.
                           </p>
                           <div className="flex gap-2">
@@ -519,11 +507,7 @@ export default function ProfilePage() {
                             <button
                               type="button"
                               onClick={() => setShowClearConfirm(false)}
-                              className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                                isDark
-                                  ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                              }`}
+                              className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
                             >
                               Cancel
                             </button>

@@ -230,7 +230,7 @@ export default function LandingPage() {
               <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
               </Link>
             )}
@@ -266,14 +266,14 @@ export default function LandingPage() {
           <div className="flex items-center gap-2 justify-end">
             {!isInitializing && isAuthenticated && (
               <>
-                <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <button type="button" onClick={openUpload} className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   Upload Thesis
                 </button>
                 <AvatarDropdown user={user} isDark={isDark} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <Link to="/sign-in" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
               </Link>
             )}
@@ -318,8 +318,8 @@ export default function LandingPage() {
                 ))}
               </ul>
               {!isInitializing && isAuthenticated
-                ? <button type="button" onClick={() => { setMobileMenuOpen(false); openUpload(); }} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">Upload Thesis</button>
-                : <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold text-center hover:bg-[var(--color-primary-hover)] transition-colors">Sign In</Link>
+                ? <button type="button" onClick={() => { setMobileMenuOpen(false); openUpload(); }} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold text-center hover:bg-primary-solid-hover transition-colors">Upload Thesis</button>
+                : <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)} className="mt-4 block w-full px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold text-center hover:bg-primary-solid-hover transition-colors">Sign In</Link>
               }
             </nav>
           </div>
@@ -432,7 +432,7 @@ export default function LandingPage() {
                 />
               </div>
               <button type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-[var(--color-primary-hover)] transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-primary-solid-hover transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Search Semantically
               </button>

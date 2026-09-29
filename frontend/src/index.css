@@ -199,14 +199,14 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: #ffffff;
-    background-color: var(--color-primary);
+    background-color: var(--color-primary-solid);
     transition-property: background-color, box-shadow, transform;
     transition-duration: 150ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
   }
   .thesys-btn-primary:hover {
-    background-color: var(--color-primary-hover);
+    background-color: var(--color-primary-solid-hover);
     box-shadow: 0 4px 12px -2px rgb(37 99 235 / 0.4);
   }
   .thesys-btn-primary:active {

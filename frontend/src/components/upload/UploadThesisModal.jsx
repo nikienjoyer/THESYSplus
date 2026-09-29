@@ -136,7 +136,7 @@ function UploadProgress({ phase, percent, canDismiss, isDark }) {
         <p
           role="status"
           aria-live="polite"
-          className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+          className={`text-sm font-medium text-ink`}
         >
           {label}
         </p>
@@ -165,7 +165,7 @@ function UploadProgress({ phase, percent, canDismiss, isDark }) {
         )}
       </div>
       {!done && (
-        <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+        <p className={`mt-2 text-xs text-muted`}>
           {canDismiss
             ? 'You can close this window. Processing continues; keep this page open to receive the result.'
             : 'Please keep this window open while the file is being sent.'}
@@ -691,7 +691,7 @@ function UploadThesisModalContent() {
       ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
   }`;
-  const labelCls = `block text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
+  const labelCls = `block text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`;
 
   return createPortal(
     <div
@@ -731,10 +731,10 @@ function UploadThesisModalContent() {
                 ? <CheckCircle2 className="w-8 h-8 text-emerald-500" aria-hidden="true" />
                 : <Clock className="w-8 h-8 text-amber-500" aria-hidden="true" />}
             </div>
-            <h2 id="upload-modal-title" className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h2 id="upload-modal-title" className={`text-2xl font-bold mb-2 text-ink`}>
               {success.status === 'approved' ? 'Thesis Approved & Published' : 'Submitted for Review'}
             </h2>
-            <p className={`text-sm mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <p className={`text-sm mb-6 text-body`}>
               {success.status === 'approved'
                 ? 'Your thesis is now live in the repository.'
                 : 'Your thesis has been submitted and is awaiting faculty review.'}
@@ -743,25 +743,21 @@ function UploadThesisModalContent() {
               <button
                 type="button"
                 onClick={() => goAndClose(`/repository/${success.id}`)}
-                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                className="px-4 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
                 View Thesis
               </button>
               <button
                 type="button"
                 onClick={() => goAndClose('/repository')}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                  isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
               >
                 View Repository
               </button>
               <button
                 type="button"
                 onClick={resetForm}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                  isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
               >
                 Upload Another Thesis
               </button>
@@ -783,7 +779,7 @@ function UploadThesisModalContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className={`mb-6 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`mb-6 text-sm text-body`}>
               {user?.role === 'student'
                 ? 'Your submission will be reviewed by a faculty member before being published.'
                 : 'Your thesis will be published immediately upon upload.'}
@@ -792,7 +788,7 @@ function UploadThesisModalContent() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <div className="mb-1.5 flex items-center gap-1.5">
-                  <label className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <label className={`text-xs font-semibold uppercase tracking-wider text-muted`}>
                     Thesis Document
                   </label>
                   <details className="relative">
@@ -800,12 +796,12 @@ function UploadThesisModalContent() {
                       <Info className="h-4 w-4" aria-hidden="true" />
                       <span className="sr-only">About automatic metadata extraction</span>
                     </summary>
-                    <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                    <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg text-body`}>
                       Auto-filled details are derived from your document. Typos, missing headings, unusual layouts, or reading errors can make fields incomplete or incorrect. Check every field before uploading.
                     </div>
                   </details>
                 </div>
-                <p className={`text-xs mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <p className={`text-xs mb-2 text-muted`}>
                   Attach your thesis document to prefill the details below.
                 </p>
                 <FileDropzone
@@ -816,12 +812,12 @@ function UploadThesisModalContent() {
                   idleTitle="Drag & drop your thesis"
                   compactIdle
                 />
-                {fieldErrors.file && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.file}</p>}
+                {fieldErrors.file && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.file}</p>}
 
                 {/* Auto-fill status — advisory only, never blocks the form */}
                 <div aria-live="polite" role="status">
                   {extracting && (
-                    <p className={`mt-2 flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p className={`mt-2 flex items-center gap-2 text-xs text-body`}>
                       <Spinner />
                       Reading the document to fill in what it can…
                     </p>
@@ -830,7 +826,7 @@ function UploadThesisModalContent() {
                     <p className={`mt-2 flex items-start gap-1.5 text-xs ${
                       extractionNote.tone === 'warn'
                         ? (isDark ? 'text-amber-400' : 'text-amber-700')
-                        : (isDark ? 'text-gray-400' : 'text-gray-600')
+                        : ('text-body')
                     }`}>
                       {extractionNote.tone === 'warn'
                         ? <AlertTriangle className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" />
@@ -845,9 +841,7 @@ function UploadThesisModalContent() {
                 <div
                   id="upload-blocked-reason"
                   role="alert"
-                  className={`rounded-lg p-3 text-sm ${
-                    isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                  }`}
+                  className={`rounded-lg p-3 text-sm bg-danger-bg text-danger-text border border-danger-border`}
                 >
                   <p>{rejectedReason}</p>
                   <p className="mt-1 text-xs opacity-80">
@@ -860,7 +854,7 @@ function UploadThesisModalContent() {
 
               <div>
                 {extractionFoundMetadata && file && (
-                  <p className={`mb-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`mb-2 text-xs text-body`}>
                     Please carefully review the details below.
                   </p>
                 )}
@@ -871,7 +865,7 @@ function UploadThesisModalContent() {
                 <input type="text" value={title}
                   onChange={(e) => { markTouched('title'); setTitle(e.target.value); }}
                   required minLength={5} maxLength={500} disabled={submitting} className={inputCls} />
-                {fieldErrors.title && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.title}</p>}
+                {fieldErrors.title && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.title}</p>}
               </div>
 
               <div>
@@ -882,7 +876,7 @@ function UploadThesisModalContent() {
                 <textarea value={abstract}
                   onChange={(e) => { markTouched('abstract'); setAbstract(e.target.value); }}
                   required minLength={20} rows={abstract.trim() ? 8 : 5} disabled={submitting} className={inputCls} />
-                {fieldErrors.abstract && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.abstract}</p>}
+                {fieldErrors.abstract && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.abstract}</p>}
               </div>
 
               <div>
@@ -915,7 +909,7 @@ function UploadThesisModalContent() {
                     </button>
                   </div>
                 )}
-                {fieldErrors.authors && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.authors}</p>}
+                {fieldErrors.authors && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.authors}</p>}
               </div>
 
               <div>
@@ -926,7 +920,7 @@ function UploadThesisModalContent() {
                 <input type="text" value={keywords}
                   onChange={(e) => { markTouched('keywords'); setKeywords(e.target.value); }}
                   placeholder="AI, OCR, web system" required disabled={submitting} className={inputCls} />
-                {fieldErrors.keywords && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.keywords}</p>}
+                {fieldErrors.keywords && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.keywords}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -967,7 +961,7 @@ function UploadThesisModalContent() {
                     <p
                       id="upload-program-error"
                       role="alert"
-                      className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}
+                      className={`mt-1 text-xs text-danger`}
                     >
                       {fieldErrors.program}
                     </p>
@@ -984,7 +978,7 @@ function UploadThesisModalContent() {
                       setYear(e.target.value === '' ? '' : Number(e.target.value));
                     }}
                     required disabled={submitting} className={inputCls} />
-                  {fieldErrors.year && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.year}</p>}
+                  {fieldErrors.year && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.year}</p>}
                 </div>
               </div>
 
@@ -993,7 +987,7 @@ function UploadThesisModalContent() {
                 <input type="text" value={adviser}
                   onChange={(e) => { markTouched('adviser'); setAdviser(e.target.value); }}
                   disabled={submitting} className={inputCls} />
-                {fieldErrors.adviser && <p className={`mt-1 text-xs ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{fieldErrors.adviser}</p>}
+                {fieldErrors.adviser && <p className={`mt-1 text-xs text-danger`}>{fieldErrors.adviser}</p>}
               </div>
 
               {/* Status slot — upload progress while submitting, and the error
@@ -1009,9 +1003,7 @@ function UploadThesisModalContent() {
                       isDark={isDark}
                     />
                   ) : (
-                    <div role="alert" className={`rounded-lg p-3 text-sm ${
-                      isDark ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}>
+                    <div role="alert" className={`rounded-lg p-3 text-sm bg-danger-bg text-danger-text border border-danger-border`}>
                       {error}
                     </div>
                   )}
@@ -1024,9 +1016,7 @@ function UploadThesisModalContent() {
                   type="button"
                   onClick={requestClose}
                   disabled={submitting && !uploadAcknowledged}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 ${
-                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   {uploadAcknowledged ? 'Close' : 'Cancel'}
                 </button>
@@ -1034,7 +1024,7 @@ function UploadThesisModalContent() {
                   type="submit"
                   disabled={submitting || extracting || !file || !!rejectedReason}
                   aria-describedby={rejectedReason ? 'upload-blocked-reason' : undefined}
-                  className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {submitting
                     ? <><Spinner /> Uploading…</>
@@ -1067,25 +1057,25 @@ function UploadThesisModalContent() {
 
               <div id="upload-confirm-body" className="mt-3 space-y-3">
                 <div>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider text-muted`}>
                     Title
                   </p>
-                  <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <p className={`text-sm text-ink`}>
                     {title.trim()}
                   </p>
                 </div>
                 <div>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider text-muted`}>
                     File
                   </p>
                   <p
-                    className={`text-sm break-all ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                    className={`text-sm break-all text-ink`}
                     title={file?.name}
                   >
                     {file?.name}
                   </p>
                 </div>
-                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs text-body`}>
                   {user?.role === 'student'
                     ? 'It will be submitted for faculty review.'
                     : 'It will be published to the repository immediately.'}
@@ -1096,9 +1086,7 @@ function UploadThesisModalContent() {
                 <button
                   type="button"
                   onClick={() => setConfirmOpen(false)}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-                    isDark ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Back
                 </button>
@@ -1106,7 +1094,7 @@ function UploadThesisModalContent() {
                   type="button"
                   autoFocus
                   onClick={performUpload}
-                  className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                  className="px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
                 >
                   Upload
                 </button>

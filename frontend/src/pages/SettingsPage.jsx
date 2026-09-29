@@ -133,13 +133,13 @@ export default function SettingsPage() {
       ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-primary'
       : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
   }`;
-  const labelCls = `block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`;
+  const labelCls = `block text-sm font-medium mb-1 text-body`;
   const readonlyCls = `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
     isDark
       ? 'bg-white/[0.02] border-white/[0.06] text-gray-500 cursor-not-allowed'
       : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
   }`;
-  const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`;
+  const sectionTitle = `text-xs font-semibold uppercase tracking-wider mb-4 text-body`;
 
   return (
     <div className={`min-h-screen bg-canvas`}>
@@ -147,7 +147,7 @@ export default function SettingsPage() {
 
       <PageShell>
         <PageHeader title="Account Settings">
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm text-body`}>
             Update your profile information and preferences.
           </p>
         </PageHeader>
@@ -220,13 +220,13 @@ export default function SettingsPage() {
                       Remove photo
                     </button>
                   )}
-                  <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                  <p className={`text-xs text-subtle`}>
                     PNG, JPG, WEBP · max 4 MB
                   </p>
                 </div>
               </div>
               {photoError && (
-                <p className={`text-xs mt-1.5 ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{photoError}</p>
+                <p className={`text-xs mt-1.5 text-danger`}>{photoError}</p>
               )}
             </div>
 
@@ -240,7 +240,7 @@ export default function SettingsPage() {
                   className={readonlyCls}
                   title="Name changes require contacting an administrator."
                 />
-                <p className={`text-xs mb-0.5 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                <p className={`text-xs mb-0.5 text-muted`}>
                   Contact your administrator to change.
                 </p>
               </div>
@@ -271,7 +271,7 @@ export default function SettingsPage() {
                 placeholder="A short description about yourself…"
                 className={inputCls}
               />
-              <p className={`text-xs text-right mt-0.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              <p className={`text-xs text-right mt-0.5 text-subtle`}>
                 {bio.length} / 500
               </p>
             </div>
@@ -301,7 +301,7 @@ export default function SettingsPage() {
                 readOnly
                 className={readonlyCls}
               />
-              <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              <p className={`text-xs mt-0.5 text-subtle`}>
                 Email is managed by the institution and cannot be changed here.
               </p>
             </div>
@@ -317,7 +317,7 @@ export default function SettingsPage() {
                 </svg>
                 Reset Password via Email
               </Link>
-              <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+              <p className={`text-xs mt-0.5 text-subtle`}>
                 A password reset link will be sent to your institutional email.
               </p>
             </div>
@@ -327,24 +327,20 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-6">
             <Link
               to="/profile"
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                isDark
-                  ? 'border-white/15 text-gray-300 hover:bg-white/[0.06]'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
             >
               Cancel
             </Link>
 
             <div className="flex items-center gap-3">
               {saved && (
-                <span className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                <span className={`text-sm font-medium text-success`}>
                   ✓ Profile updated successfully
                 </span>
               )}
               <button
                 type="submit"
-                className="px-5 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors"
+                className="px-5 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
                 Save Changes
               </button>

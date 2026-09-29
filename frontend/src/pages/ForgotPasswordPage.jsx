@@ -135,7 +135,7 @@ export default function ForgotPasswordPage() {
                 )}
 
                 <button type="submit" disabled={isLoading || !!emailErr || !email}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                  className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                   {isLoading ? <><Spinner size="sm" /> Sending…</> : 'Send Reset Link'}
                 </button>
               </form>
