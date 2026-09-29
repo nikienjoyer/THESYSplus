@@ -734,7 +734,7 @@ explored — an AI-generated map of the whole repository's research landscape.
   count, underexplored count), the doughnut + bar chart side by side, a grid
   of `ClusterCard`s (topic name, trend badge, thesis count, top TF-IDF
   keywords, up to 3 sample titles), and a "How this works" explainer describing
-  the TF-IDF + K-Means methodology in one paragraph.
+  the meaning-based grouping in one paragraph.
 
 ### frontend/src/pages/AnalyticsDashboardPage.jsx — "The restaurant's monthly report" 📊
 
@@ -1793,11 +1793,18 @@ The most involved of the three AI services:
    "system," "Pampanga State University," …) that would otherwise dominate
    every cluster's keyword list without actually describing any particular
    *topic*.
-2. **K-Means clustering** groups those vectors into `k` topic clusters, with
-   `k` auto-sized to the corpus (5–8 clusters normally; for a tiny corpus
-   under 5 theses, `k` shrinks to match so every document isn't forced into
-   an oversized bucket).
-3. **Heuristic topic naming** (`_TOPIC_RULES`, lines 82–96) — a hand-built,
+2. **Grouping by meaning** — the theses themselves are grouped by their
+   Sentence-BERT vectors (agglomerative clustering on cosine distance), so
+   two theses land together because they mean similar things, not because
+   they repeat the same words. TF-IDF from step 1 only describes each group
+   with its top keywords. `k` is auto-sized to the corpus (5–8 groups
+   normally; for a tiny corpus under 5 theses, `k` shrinks to match), and
+   the same corpus always gives the same groups.
+   Each thesis also carries technology tags (IoT, AI, NLP…), counted per
+   group; a technology never names a group.
+3. **Group names** come from the members' faculty-confirmed research
+   subjects. Only a group with no reviewed member falls back to
+   **heuristic topic naming** (`_TOPIC_RULES`) — a hand-built,
    ordered table mapping recognizable keyword sets ("recognition, vision,
    cnn" → "Computer Vision") to a human-readable label. The comment
    explicitly says to keep this list "small, deterministic, and easy to

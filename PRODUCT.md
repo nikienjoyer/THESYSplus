@@ -238,7 +238,7 @@ These are fixed and must not be changed by design decisions:
 
 - SBERT model: `sentence-transformers/all-MiniLM-L6-v2` (384-dim, CPU-friendly)
 - Cosine similarity as the ranking metric — no dot-product shortcuts or approximate nearest neighbor at current scale
-- TF-IDF + K-Means for topic clustering — algorithm is not replaceable without new training data
+- Topic groups: agglomerative clustering of the SBERT vectors (cosine), named from faculty-confirmed subjects; TF-IDF supplies each group's keywords
 - Django REST Framework backend — API contract is stable
 - JWT authentication (access + refresh tokens)
 - PostgreSQL — JSONB for embedding vectors (no pgvector dependency at current scale)
