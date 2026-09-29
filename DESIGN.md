@@ -123,7 +123,7 @@ components:
 
 THESYS+ is the digital memory of PampangaStateU's College of Computing Studies. Its visual system should read like a well-run institutional library that happens to have a research-grade AI engine underneath: disciplined, legible, and quietly authoritative. The current implementation is a dual-mode (light/dark) React + Tailwind interface with a consistent card vocabulary and a single institutional ink-blue. It is clean and functional, and its grammar still leans on generic SaaS dashboards in places. This document captures what exists today so future work keeps the parts that serve the product and replaces the parts that signal "template."
 
-The system has two visual personalities depending on theme. Dark mode is the more considered of the two: a deep navy base (`#080d24`) with elevated panels rendered as faint white glass (`rgba(255,255,255,0.03)`), giving a focused, low-glare reading environment. Light mode is safer and flatter: a `slate-50` page with white cards and subtle shadows. Both now come from one semantic token layer in `tokens.css`: a `.dark` class on `<html>` redefines every variable, and the authenticated pages (Repository, Title Similarity, Trend Analysis, Analytics, Profile, Settings, Thesis Detail) read text, border, surface and status colors from token classes instead of per-page `isDark` palettes. The Landing page, the auth pages, the chart internals and some input recipes still use `isDark` ternaries and have not been migrated.
+The system has two visual personalities depending on theme. Dark mode is the more considered of the two: a deep navy base (`#080d24`) with elevated panels rendered as faint white glass (`rgba(255,255,255,0.03)`), giving a focused, low-glare reading environment. Light mode is safer and flatter: a `slate-50` page with white cards and subtle shadows. Both now come from one semantic token layer in `tokens.css`: a `.dark` class on `<html>` redefines every variable, and the authenticated pages (Repository, Title Similarity, Trend Analysis, Analytics, Profile, Settings, Thesis Detail) read text, border, surface and status colors from token classes instead of per-page `isDark` palettes. Text fields share one `.thesys-input` class, and the Landing page has been moved onto the same tokens. The photo-hero overlays on the Landing page, the chart internals, and the remaining auth pages (Reset Password, Setup Account, Verify Email, Request Access) still use `isDark` ternaries and have not been migrated.
 
 What this system explicitly rejects (carried from PRODUCT.md anti-references): generic AI-SaaS landing pages (pulsing badge, giant clamp-scaled name, grid-glow background, hero-metric counters, identical feature-card grids); the Tailwind-starter look (blue-600 + slate-50 + white card + gray-500 muted text as the entire identity); consumer-app gamification; dark-mode-with-purple-gradients developer-tool aesthetics; and dashboard-as-default treatment of every page.
 
@@ -172,7 +172,7 @@ The palette is a disciplined ink-blue on slate and navy neutrals, with the stand
 
 **The Status Quartet Rule.** Emerald = good/safe/done, Amber = caution/pending/middle, Rose = risk/rejected/error, Blue = informational. This mapping is consistent across thesis status, similarity scoring, and trend saturation. Never reassign these meanings. Express them with the `success` / `warning` / `danger` / `info` token classes (`-bg`, `-border`, `-text`), not raw palette shades.
 
-**The Token Source Rule.** `tokens.css` is the canonical palette. `tokens.js` exposes it to Tailwind, and the `--th-prim-*` ramp is the single place to change the brand blue. Do not add an `isDark ? 'text-gray-…' : 'text-gray-…'` pair for text, border, surface or status colors; use the token class. `isDark` remains acceptable for chart geometry and the un-migrated Landing and auth pages.
+**The Token Source Rule.** `tokens.css` is the canonical palette. `tokens.js` exposes it to Tailwind, and the `--th-prim-*` ramp is the single place to change the brand blue. Do not add an `isDark ? 'text-gray-…' : 'text-gray-…'` pair for text, border, surface or status colors; use the token class. `isDark` remains acceptable for chart geometry, the Landing photo hero, and the auth pages not yet migrated.
 
 ## 3. Typography
 
@@ -240,8 +240,8 @@ Corners follow the Tailwind radius scale as overridden in `tailwind.config.js`, 
 - **Anti-pattern present:** the landing-page "Cognitive Capabilities" 2×2 grid of identical icon+heading+text cards.
 
 ### Inputs / Fields
-- **Style:** `rounded-lg`, 1px border, `text-sm`, `px-3/4 py-2.5`. On the app pages the fill and border still come from per-input `isDark` recipes (`bg-white` light / `bg-white/[0.04]` dark), and those recipes are the next thing to move onto tokens.
-- **Focus:** `focus-visible:ring-2 focus-visible:ring-primary`. The border shift is not yet unified: light uses `focus:border-blue-400` with `ring-blue-100`, dark uses `focus:border-blue-500/40`.
+- **Style:** `.thesys-input` supplies the fill (`--color-surface`), 1px border, ink text and muted placeholder for both themes; each field adds its own `rounded-lg`, `text-sm`, `px-3/4 py-2.5`. Add `border-danger` for an error state.
+- **Focus:** Border shifts to the primary blue and a 2px primary ring appears on `:focus-visible`, identical in light and dark.
 - **Read-only:** Muted fill + `cursor-not-allowed` (Settings name/email fields) — but styled too similarly to editable fields to read as locked at a glance.
 - **File inputs:** Tailwind `file:` pseudo-element styling with blue-tinted button.
 
@@ -275,7 +275,7 @@ A custom range input with a live percentage readout and a relevance pill that sh
 ### Do:
 - **Do** keep `focus-visible:ring-2 focus-visible:ring-primary` on every interactive element, including native `<select>` controls and dark-mode inputs.
 - **Do** use the semantic token classes for neutral and status color: `text-ink`, `text-body`, `text-muted`, `text-subtle`, `bg-surface`, `border-border-default`, and `bg-success-bg` / `text-danger-text` style pairs.
-- **Do** fill primary buttons with `bg-primary-solid` and `hover:bg-primary-solid-hover`.
+- **Do** fill primary buttons with `bg-primary-solid` and `hover:bg-primary-solid-hover`, and give every text field the `.thesys-input` class.
 - **Do** preserve the status-quartet color language (emerald/amber/rose/blue) and its consistent meaning across status, scoring, and trends.
 - **Do** keep the dark-mode tonal-layering approach (navy base → glass panel → `#0f1a3a` elevated). It is the strongest part of the current visual identity.
 - **Do** keep the SimilaritySlider, the shimmer skeletons, the soft-loading indicator, and the `.thesys-empty` pattern. These are well-built.
