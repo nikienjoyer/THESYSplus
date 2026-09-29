@@ -246,9 +246,9 @@ Corners follow the Tailwind radius scale as overridden in `tailwind.config.js`, 
 - **File inputs:** Tailwind `file:` pseudo-element styling with blue-tinted button.
 
 ### Navigation (AppNavbar)
-- **Structure:** Sticky top bar, `backdrop-blur-md` over a 75%-opacity background. Three-column CSS grid on desktop (`grid-cols-[1fr_auto_1fr]`): logo+breadcrumb left, centered nav links, actions right. Below `lg`, a separate `flex justify-between` mobile row with a hamburger that opens a portal drawer.
+- **Structure:** Sticky top bar, `backdrop-blur-md` over a 75%-opacity background. The Landing page and every app page render it from one shared class (`NAV_BAR_CLASS`, gutters `px-5 sm:px-8 lg:px-14`), so the logo, links and actions sit at the same coordinates on every route. Three-column CSS grid on desktop (`grid-cols-[1fr_auto_1fr]`): logo+breadcrumb left, centered nav links, actions right. Below `lg`, a separate `flex justify-between` mobile row with a hamburger that opens a portal drawer.
 - **Active state:** Pill background highlight (`nav-active-bg`: white/10 dark, gray-100 light) on the active link; `aria-current="page"` set. A separate `.thesys-nav-link` underline-indicator class exists in CSS but is unused.
-- **Logo:** The approved `thesys-symbol.svg` mark plus the "THESYS+" wordmark, rendered by `ThesysLogo`.
+- **Logo:** The approved `thesys-symbol.svg` mark plus the "THESYS+" wordmark, rendered by `ThesysLogo`. On an always-dark surface (the Landing footer) pass `onDark` so "THE" stays white.
 - **Mobile drawer:** Left-side portal drawer, 72 width, backdrop blur, Escape-to-close, and focus trapped by `useFocusTrap`. Text-only links, no icons.
 - **Avatar dropdown:** shadcn Avatar with initials fallback; dropdown lists Profile / Saved Theses / Settings / Sign Out, with a portal-rendered logout confirmation modal that also traps focus.
 
@@ -280,7 +280,7 @@ A custom range input with a live percentage readout and a relevance pill that sh
 - **Do** keep the dark-mode tonal-layering approach (navy base → glass panel → `#0f1a3a` elevated). It is the strongest part of the current visual identity.
 - **Do** keep the SimilaritySlider, the shimmer skeletons, the soft-loading indicator, and the `.thesys-empty` pattern. These are well-built.
 - **Do** keep the three-column navbar grid and the portal-rendered drawers/modals.
-- **Do** open every authenticated page with `PageShell` + `PageHeader`.
+- **Do** open every authenticated page with `PageShell` + `PageHeader`, and build any top bar from `NAV_BAR_CLASS` so the logo never shifts between routes.
 - **Do** use `<Badge>` (shadcn) as the single canonical chip and migrate raw `<span>` chips to it.
 
 ### Don't:

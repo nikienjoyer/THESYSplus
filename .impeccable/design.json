@@ -356,7 +356,7 @@
       "**Do** keep the dark-mode tonal-layering approach (navy base → glass panel → `#0f1a3a` elevated). It is the strongest part of the current visual identity.",
       "**Do** keep the SimilaritySlider, the shimmer skeletons, the soft-loading indicator, and the `.thesys-empty` pattern. These are well-built.",
       "**Do** keep the three-column navbar grid and the portal-rendered drawers/modals.",
-      "**Do** open every authenticated page with `PageShell` + `PageHeader`.",
+      "**Do** open every authenticated page with `PageShell` + `PageHeader`, and build any top bar from `NAV_BAR_CLASS` so the logo never shifts between routes.",
       "**Do** use `<Badge>` (shadcn) as the single canonical chip and migrate raw `<span>` chips to it."
     ],
     "donts": [
