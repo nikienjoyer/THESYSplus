@@ -46,29 +46,38 @@ This is where the website starts when you open it.
 
 ### frontend/src/App.jsx — "The map of the building" 🗺️
 
-This file decides **which page shows when you visit a web address.**
+This file decides **which page shows when you visit a web address.** The line
+numbers of the old walk-through no longer matter, so here is the map as it is
+today:
 
-- **Lines 1–14 (comment):** Explains the plan: the home page `/` stands alone, all the
-  sign-in-style pages share one frame, and a single "bouncer" guards the private pages.
-- **Lines 16–37:** A big list of `import` lines — "Bring every page and every helper we
-  might need" (LandingPage, SignInPage, RepositoryPage, etc.).
-- **Lines 42–65 `NotFound`:** If someone types a garbage web address, show a friendly
-  **404** page with the logo and a "Back to Home" button. Like a "Wrong door!" sign.
-- **Lines 70–89 `ProtectedRoute`:** A bouncer at the door 🚪. It checks: *Are we still
-  loading?* (show a spinning wheel). *Are you logged in?* If not, send you to the
-  sign-in page. If yes, let you through (`<Outlet />` = "go ahead inside").
-- **Lines 91–130 `App`:** Here's the actual map:
-  - **Line 93 `<BrowserRouter>`:** Turn on the "address bar understands pages" machine.
-  - **Line 98:** `/` → LandingPage (the welcome home page).
-  - **Lines 101–107:** `/sign-in`, `/request-access`, `/forgot-password`,
-    `/reset-password`, `/verify-email` → all share one common frame (`AuthLayout` = same
-    header/background). These are the "before you log in" doors.
-  - **Lines 110–118:** `/repository`, `/title-similarity`, `/trend-analysis`,
-    `/analytics`, `/profile`, `/settings` → all behind the **bouncer**
-    (`ProtectedRoute`). You must be logged in.
-  - **Line 121:** Any unknown address → the 404 `NotFound` page.
-  - **Line 125:** One always-available "Upload Thesis" pop-up window, reachable from
-    anywhere.
+- **The comment at the top** explains the plan: the home page `/` stands
+  alone (it owns its own navbar), all the sign-in-style pages share one frame
+  (`AuthLayout`), and a single "bouncer" guards the private pages.
+- **Pages load on demand.** Only the landing page and the sign-in page come
+  with the first download. Every other page is wrapped in `lazy(() =>
+  import(...))`, so it is fetched the first time someone opens it. A student on
+  a phone downloads only what the page they open needs. While a page is
+  arriving, a `Suspense` fallback (`RouteFallback`) shows a spinner on the same
+  background as the login gate.
+- **`NotFound`:** A friendly **404** with the logo and a "Back to Home" button —
+  a "Wrong door!" sign.
+- **`ProtectedRoute`:** The bouncer 🚪. Still loading? Show a spinner. Not
+  logged in? Send you to `/sign-in?reason=session_expired`. Logged in? Let you
+  through (`<Outlet />` = "go ahead inside").
+- **`App`:**
+  - `<BrowserRouter>` turns on "the address bar understands pages", and
+    `<RouteScrollManager />` (Part 9) remembers where you were scrolled.
+  - `/` → `LandingPage`.
+  - `/sign-in`, `/request-access`, `/forgot-password`, `/reset-password`,
+    `/setup-account`, `/verify-email` share `AuthLayout` (same header and
+    background) — the "before you log in" doors.
+  - Behind the bouncer: `/repository`, `/repository/:id` (a thesis's detail
+    page), `/theses/:id/preview` (the PDF reading room), `/title-similarity`,
+    `/trend-analysis`, `/analytics`, `/profile`, `/settings`.
+  - Any unknown address → `NotFound`.
+  - One always-available "Upload Thesis" pop-up (`UploadThesisModal`), reachable
+    from any navbar button through `UploadModalProvider`, and a `TooltipProvider`
+    so tooltips work everywhere.
 
 ### frontend/src/api/client.js — "The waiter who talks to the kitchen" 🧑‍🍳
 
@@ -103,6 +112,39 @@ backend. This file is the **telephone** between them.
   "refreshing" note so the next person can try.
 - **Line 127:** `export default client;` — Hand this finished messenger to the rest of
   the app to use.
+
+**Added since that first walk-through:**
+- **A tunnel header.** While the backend is reached through a free ngrok
+  tunnel, ngrok shows a "you are about to visit…" warning page unless every
+  request says `ngrok-skip-browser-warning`. The request interceptor adds that
+  header when the site is opened from `thesysplus.vercel.app`, `thesys.plus`
+  or `www.thesys.plus`. Without it, every API call on the new domain would get
+  a web page back instead of data and sign-in would fail with a vague error.
+- **`normalizeBlobErrorBody`:** When the frontend asks for a PDF as a raw
+  "blob" and the kitchen answers with an error, the error arrives as a blob
+  too, hiding the JSON inside. This helper opens the blob and puts the parsed
+  JSON back, so code that reads `error.response.data.error.code` keeps working
+  (for example the "document not available" answer of the download counter).
+
+### frontend/src/api/jobs.js — "Take a number, then wait for it to be called" 🎟️
+
+Uploads and document reading are slow, so the kitchen no longer makes you stand
+at the counter. It hands back a **job number** right away (the
+`processing_jobs` app, Part 18), and this tiny file waits for the order to be
+ready.
+
+- **`waitForJob(jobId, signal, onState)`:** Asks `GET /jobs/<id>/` again and
+  again, about every 1.6 seconds. Each answer's `state` is passed to `onState`
+  so the page can say "queued" or "running". When the state becomes
+  `succeeded` it returns the job's `result`; when it becomes `failed` it throws
+  an error shaped like an ordinary API error (message, HTTP status, data), so
+  the page's existing error handling works unchanged.
+- **It can be cancelled.** The caller passes the signal of an `AbortController`. If the person
+  attaches a different file or leaves the page, the signal is aborted, the
+  wait stops immediately (even mid-sleep), and no stale result can reach a form
+  that has moved on.
+- Used by the upload pop-up and by Title Similarity (through
+  `UploadThesisModal.jsx` and `TitleSimilarityPage.jsx`).
 
 ---
 
@@ -434,6 +476,46 @@ for THESYS+.
 - **Line 702 `<LegalModal>`:** One shared popup component reused for all four
   footer links — only its `type` prop changes which text it shows.
 
+**What changed since this walk-through was written:**
+- **The top bar is now shared.** The navbar (desktop row, mobile row, drawer)
+  uses `NAV_BAR_CLASS` and the nav-link classes exported by `AppNavbar.jsx`, so
+  the logo and buttons sit exactly where they do on the app pages. Its colours
+  come from theme tokens, not hand-written grey pairs.
+- **Trending topics became "topics by meaning".** The preview beside "Why
+  THESYS+" asks `GET /theses/subject-trends/` first (faculty-confirmed
+  subjects) and falls back to `GET /theses/topic-trends/`; its heading switches
+  between "Reviewed subjects preview" and "Exploratory text clusters preview",
+  with a caption that these compare relative counts, not growth over time.
+- **Hero colours flip with the theme.** Dark mode keeps light text over the
+  dark scrim; on desktop in light mode the scrim turns into a white wash and the
+  hero text turns to ink. Those overrides are written as `lg:` classes with
+  `dark:` variants so mobile (which keeps a dark scrim in both themes) is never
+  affected. The hero headline is kept to three lines.
+- **Repository snapshot uses `AnimatedCounter`** so the numbers count up once
+  the public stats arrive.
+- **Sections, drawer and feature tiles use tokens** (`bg-canvas`,
+  `bg-surface-elevated`, the `info` / `success` / `warning` status tokens). The
+  footer stays a fixed dark band in both themes, which is why it passes
+  `onDark` to `ThesysLogo`.
+
+### frontend/src/pages/SignInPage.jsx — "The front door with the doorbell" 🔔
+
+Body content only: the background, header and theme switch come from
+`AuthLayout`, and the actual form is `SignInCard`.
+
+- **`mapErrorMessage`:** Turns the kitchen's error code into a friendly line —
+  `INVALID_CREDENTIALS` becomes "Email or password is incorrect",
+  `INVALID_EMAIL_DOMAIN` asks for the institutional address, anything else
+  shows the server's message or a generic "An error occurred".
+- **`getReasonBanner`:** Reads `?reason=` from the address and shows a coloured
+  banner: an idle timeout or expired session (`info`), or "password set" /
+  "account activated" (`success`). The banner clears itself from the address
+  after five seconds. The banner colours are the shared status tokens
+  (`success` green, `info` blue).
+- **`handleSubmit`:** Calls `signIn(email, password, rememberMe)` from
+  `AuthContext`; on success it sends you to `/`, on failure it shows the mapped
+  message and lets you retry.
+
 ### frontend/src/pages/ForgotPasswordPage.jsx — "I lost my key, kitchen — help!" 🔑
 
 - **Line 18 `INSTITUTIONAL_EMAIL_RE`:** A pattern double-checking, right in the
@@ -616,6 +698,26 @@ pagination.
   vs. an entirely empty repository), or the actual results grid with
   pagination.
 
+**What changed since this walk-through was written:**
+- **Search understands acronyms and exact titles.** The same request now
+  treats "IoT" and "Internet of Things" as one term and finds an exact title or
+  name even when the meaning score is low (explained with `acronyms.py` and
+  `title_match.py` in Part 14).
+- **Clickable keywords.** In `ThesisCard`, the keyword chips are real buttons,
+  *siblings* of the link that opens the thesis (so clicking a keyword filters,
+  it does not open the thesis). They underline on hover and on keyboard focus.
+  A click sets `?keyword=…` and pushes a browser-history entry, so **Back**
+  returns to the list you came from; a text search replaces a keyword view.
+- **Your place is kept.** Search text, filters, page and threshold live in the
+  address bar (`parseYearParam`, `parseProgramParam`, `parsePageParam`,
+  `parseThresholdParam`), so opening a thesis and pressing Back restores the
+  same results.
+- **Faculty review shortcut.** Faculty and administrators can open the list with
+  `?subject_review=pending` to see approved theses still awaiting a confirmed
+  subject.
+- **Filters and buttons use tokens**; dropdown option colours are CSS
+  variables so native `<select>` lists follow the theme.
+
 ### frontend/src/pages/ThesisDetailPage.jsx — "One recipe card, open to read" 📖
 
 The single-thesis view. **This is where the watermarked-preview feature
@@ -641,6 +743,24 @@ lives** — see the recent-changes note below.
   detail — lines that are too wide are tiring to read), keyword chips, then a
   footer row with "Uploaded by … · date," a **Save** toggle button, and the
   **Preview Document** button (with an `Eye` icon) sitting right beside it.
+
+**What changed since this walk-through was written:**
+- **Preview and download are watermarked.** "Preview" opens `PdfPreviewPage`
+  (a page-by-page viewer); "Download" calls
+  `/theses/<id>/download/?disposition=attachment`. Neither path can reach an
+  unstamped file. If the document is missing, `describeDownloadError` shows the
+  same "source document is not available" wording the preview uses.
+- **Research subject panel.** Shows the confirmed primary subject (a link into
+  Trend Analysis) or "Awaiting subject review". Faculty and administrators get a
+  drop-down (`GET /theses/subjects/`) plus up to two suggestions
+  (`GET /theses/<id>/subject-suggestions/`) and confirm with
+  `PUT /theses/<id>/subject/`. Suggestions are tied to the thesis being viewed,
+  so another thesis's suggestions can never flash on screen.
+- **Keywords are clickable** and lead to the Repository filtered by that
+  keyword. The abstract is set in the serif reading face (Source Serif 4) in its
+  own comfortable reading column.
+- **Author names** come from `formatFullAuthorList` (natural order, nothing
+  abbreviated). Saved theses are still kept per user in `localStorage`.
 
 ### frontend/src/pages/PdfPreviewPage.jsx — "The reading room, all to yourself" 🔍
 
@@ -672,6 +792,15 @@ document viewer, not another app screen.
   header and the `<iframe title>` for accessibility) and the PDF bytes
   themselves (the one that actually matters — errors here show a friendly
   "Preview unavailable" message instead of a blank white iframe).
+
+**What changed since this walk-through was written:**
+- **One page at a time.** The viewer no longer loads the whole PDF: it asks
+  `GET /theses/<id>/preview/pages/<page>/` for a single watermarked page image
+  through the same permission gate as everything else, so a 100-page thesis
+  costs one page at a time. `describePreviewError` gives distinct wording for
+  "document not available", "not authorized" and "page not found".
+- The on-screen watermark overlay is theme-independent and hidden from screen
+  readers; the real watermark is burned into the image on the server.
 
 ### frontend/src/pages/TitleSimilarityPage.jsx — "Has anyone cooked this dish before?" 🔎
 
@@ -706,6 +835,28 @@ with existing research, **before** they commit to it.
   on the right — followed by a full-width "Related Existing Studies" grid and
   the client-computed Term Analysis panel underneath.
 
+**What changed since this walk-through was written:**
+- **Two panels behind a segmented control.** "Type a title" and "Upload Title"
+  share one `title` field. In the upload panel the title is extracted
+  automatically (no button), the field appears only after detection, and it
+  stays editable inline.
+- **Uploads go through the job queue.** The file is sent to
+  `/theses/extract-title/`, which answers with a `job_id`, and the page waits
+  with `waitForJob` (Part 1). An `AbortController` cancels the wait when the
+  file is replaced, and a check whose title was edited meanwhile is ignored as
+  stale. The last finished check is kept on the page's history entry, so
+  pressing Back from a thesis shows your result again. The size limit text
+  comes from `lib/upload.js` (25 MB).
+- **A relevance floor.** Below 35 % a comparison is treated as noise. When
+  nothing reaches it the API says `has_meaningful_match: false` and the page
+  shows a "No meaningful match found" card instead of a misleading score. The
+  legend text (85 % / 60 % / 35 %) is generated from constants that mirror the
+  backend.
+- **Exact title matches are surfaced** ahead of the meaning-based ones, even
+  below the floor, without changing the risk level.
+- **Non-thesis files are refused** with a message about proposals, not
+  manuscripts (the document gate).
+
 ### frontend/src/pages/TrendAnalysisPage.jsx — "Which recipes are everyone cooking lately?" 📈
 
 Shows which research topics are oversaturated, actively growing, or barely
@@ -736,6 +887,24 @@ explored — an AI-generated map of the whole repository's research landscape.
   keywords, up to 3 sample titles), and a "How this works" explainer describing
   the meaning-based grouping in one paragraph.
 
+**What changed since this walk-through was written:**
+- **Two views, one page.** When reviewed subjects are enabled the page opens on
+  *Reviewed subjects* (`GET /theses/subject-trends/`, faculty-confirmed
+  research subjects). A toggle (`?view=clusters`) switches to the
+  *exploratory text clusters* (`GET /theses/topic-trends/`, the meaning-based
+  groups). Which one is the default is a server setting.
+- **"Check my proposed topic".** `TopicCheck` posts a title to
+  `/theses/topic-trends/check-title/` and shows whether that topic is
+  saturated, emerging or under-explored, with the count and the rule in words.
+- **Technology tags.** `TechnologyTags` shows which technologies (IoT, AI,
+  NLP…) a group's theses use. Technologies never name a group.
+- **Drill-down.** `?subject=` or `?cluster=` opens `ClusterDetailView`, which
+  loads the group's theses with `GET /theses/?ids=…` (no special endpoint),
+  through `ClusterThesisRow`. The thesis detail page links back here.
+- **Charts follow the theme through CSS variables** (`var(--color-danger)`,
+  `var(--color-border)`), the page header comes from `PageHeader`, and the
+  card grid is evened out so cards in a row share a height.
+
 ### frontend/src/pages/AnalyticsDashboardPage.jsx — "The restaurant's monthly report" 📊
 
 Deliberately **separate** from Trend Analysis: Trend Analysis is AI
@@ -760,6 +929,17 @@ two pages by mistake.
   compact `TrendSummary` (emerging/saturated/underexplored mini-cards) with a
   link through to the full Trend Analysis page for the deeper view.
 
+**What changed since this walk-through was written:**
+- **Counts are animated** with `AnimatedCounter`, and the header comes from
+  `PageHeader`.
+- **Subject summary.** `TrendSummary` shows either the *Reviewed subject
+  summary* ("based on N confirmed subjects among M approved theses") or the
+  *Exploratory cluster summary*, depending on whether reviewed subjects are
+  enabled. Faculty and administrators also see a "Subject review" card with how
+  many approved theses still await a subject, next to the pending-review count.
+- Accent colours and chart series come from CSS variables and the shared chart
+  palette, so they follow the theme.
+
 ### frontend/src/pages/ProfilePage.jsx — "Your table at the restaurant" 🪑
 
 - **Lines 1–16 (comment):** Saved theses live in **user-scoped
@@ -779,6 +959,12 @@ two pages by mistake.
   confirmation modal so a stray click can't wipe the whole list by accident.
 - **`?section=saved`:** A deep link (used by the navbar's profile dropdown)
   that opens straight to the Saved Theses tab instead of Overview.
+
+**What changed since this walk-through was written:**
+- The header is now `PageHeader` ("Profile"). The upload count in the sidebar
+  shows the *total* number of your uploads (from the API) and stays unknown
+  until it has really loaded, so a failed fetch never looks like "zero
+  uploads". Status pills and buttons use the shared tokens.
 
 ### frontend/src/pages/SettingsPage.jsx — "Update your table reservation card" ✏️
 
@@ -803,6 +989,11 @@ two pages by mistake.
   second so the user can see their own confirmation message before landing on
   the updated profile.
 
+**What changed since this walk-through was written:**
+- Read-only fields (name and email) now carry a visible ring so they read as
+  locked, smallest labels are 11 px, and the form fields use `.thesys-input`
+  and the token colours.
+
 ---
 
 ## Part 7 — Frontend shared components (the reusable furniture)
@@ -824,6 +1015,11 @@ two pages by mistake.
 - **Three variants:** `symbol` (mark only), `wordmark` (mark + "THESYS+"
   text, used in navbars), `full` (mark + text + "Pampanga State University ·
   College of Computing Studies," used in a couple of full branding moments).
+- **The wordmark follows the theme.** The "THE" part is drawn in `text-ink`
+  (dark in light mode, white in dark mode) and "SYS+" in the brand blue. On a
+  surface that is dark in *both* themes — the landing page's footer — pass
+  `onDark` and "THE" (and the descriptor line) are forced to white/light grey.
+  Forgetting it would put dark text on a dark footer in light mode.
 
 ### frontend/src/components/brand/AuthBranding.jsx — "The welcome sign above the counter" 🪧
 
@@ -868,32 +1064,59 @@ never has to be rebuilt page by page.
 
 - **`AuthLayout.jsx`** — covered already in the login-flow parts above (shared
   header + background for all `/sign-in`-style pages). Not re-explained here.
-- **`AppNavbar.jsx`** — the real navbar for every signed-in page (Repository,
-  Thesis Detail, Title Similarity, Trend Analysis, Analytics, Profile,
-  Settings). Desktop: logo · centered nav links · Upload button + avatar +
-  theme toggle. Mobile: hamburger + slide-in drawer (rendered via
-  `createPortal` so it always sits on top of everything, regardless of where
-  in the page tree the navbar itself lives). Also exports `AvatarDropdown`
-  separately so `LandingPage` can reuse the exact same profile menu even
-  though it has its own custom navbar. The dropdown's **Sign Out** button
-  doesn't sign out immediately — it opens a confirmation modal first, so a
-  stray click can't accidentally end your session.
+- **`AppNavbar.jsx`** — the real navbar for every signed-in page. Desktop:
+  logo · centered nav links · Upload button + avatar + theme toggle. Mobile:
+  hamburger + slide-in drawer (rendered via `createPortal` so it always sits on
+  top, and locked to the keyboard with `useFocusTrap` so Tab cannot wander
+  behind it). Its **Sign Out** button opens a confirmation modal first, so a
+  stray click cannot end your session.
+  - **One bar for the whole site.** The file exports `NAV_BAR_CLASS`
+    (`px-5 sm:px-8 lg:px-14 py-3`, a subtle bottom border, a translucent
+    blurred canvas background, sticky at the top) plus the nav-link classes
+    `NAV_LINK_BASE`, `NAV_LINK_IDLE`, `NAV_LINK_ACTIVE` and `NAV_LINK_SOON`.
+    `LandingPage` imports these too, so the logo, links and Upload button sit at
+    the exact same coordinates on the landing page and on every app page (the
+    app pages used to have narrower side margins, which made the logo jump
+    when you left the landing page).
+  - It also exports `AvatarDropdown` so `LandingPage` reuses the same profile
+    menu.
+  - Nav links use the token classes (`text-body`, `bg-nav-active-bg`), not
+    hand-written grey pairs.
 - **`PageShell.jsx`** — a tiny wrapper enforcing the *same* horizontal padding
-  and max-width on every authenticated page, so switching tabs never causes
-  the content to visibly shift left/right or change width.
-- **`PageHeader.jsx`** — enforces one consistent H1 style (size, weight,
-  color, spacing) across every page, while still letting each page pass its
-  own custom subtitle content as `children`.
+  and max-width (`max-w-6xl`) on every authenticated page, so switching tabs
+  never shifts the content.
+- **`PageHeader.jsx`** — one H1 style (size, weight, `text-ink`, spacing) for
+  every page, with the subtitle passed as `children`. Every authenticated
+  page now uses it (Repository, Title Similarity, Trend Analysis, Analytics,
+  Profile, Settings); a new page should too.
 - **`MainLayout.jsx`** and **`ThemeToggle.jsx`** —
 
   > ⚠️ **Audit finding — orphaned layout.** `MainLayout.jsx` is not referenced
-  > by any route in `App.jsx` (the actual auth-page wrapper in use is
-  > `AuthLayout`, a different file) — and `ThemeToggle.jsx` is only ever
-  > imported *by* `MainLayout.jsx`, so both are effectively dead code today.
-  > `App.jsx`'s own top comment even still says *"All auth routes remain
-  > nested under MainLayout"* (line 5) — that line is stale; they're actually
-  > nested under `AuthLayout`. Harmless (nothing calls them), but worth
-  > correcting or removing so future readers aren't misled by the comment.
+  > by any route in `App.jsx` (the auth-page wrapper in use is `AuthLayout`) —
+  > and `ThemeToggle.jsx` is only ever imported *by* `MainLayout.jsx`, so both
+  > are effectively dead code today. `App.jsx`'s own top comment even still
+  > says *"All auth routes remain nested under MainLayout"* — that line is
+  > stale. Harmless, but worth correcting or removing.
+
+### frontend/src/components/auth/SetPasswordForm.jsx — "Choose your own lock" 🔒
+
+The "set your password" step of account activation, pulled out into its own
+piece so two pages can use it: `RequestAccessPage` (once its claim poll
+reports the email is verified) and `VerifyEmailPage` (once the emailed link is
+used).
+
+- **The token is a prop, never stored.** `setupToken` is short-lived and
+  single-use, so it lives in the calling page's state and disappears with the
+  tab.
+- **`validateStrength`:** at least 12 characters, at least one letter, at least
+  one digit — checked before anything is sent.
+- **Submit:** `POST /auth/setup-password/` with the token and the new password.
+  On success it calls `onSuccess`; the caller owns the "Account Ready" screen.
+  If the server says the token is no longer valid, the form shows that
+  clearly instead of a vague failure.
+- Two show/hide eye buttons (`EyeIcon`), and an `idPrefix` so two copies on one
+  page never share input ids. Its fields use the shared `.thesys-input` style
+  and the status colour tokens for errors.
 
 ### frontend/src/components/legal/LegalModal.jsx — "The fine print, in a pop-up" 📜
 
@@ -945,6 +1168,23 @@ almost any authenticated page via the shared `useUploadModal()` context (Part
   auto-approved (faculty/admin uploads publish immediately) or sent for
   review (student uploads) — with buttons to view the new thesis, browse the
   repository, or upload another one right away.
+
+**What changed since this walk-through was written:**
+- **It reads the document for you.** After a file is attached, the modal posts
+  it to `/theses/extract-metadata/`, waits for the job, and pre-fills title,
+  abstract, authors, keywords, program and year. Each field carries a
+  confidence hint (`ConfidenceHint`) and stays editable;
+  `suggestAuthorCapitalization` offers a readable capitalization for shouting
+  names. A note explains what the extractor cannot do.
+- **Real progress.** `UploadProgress` shows a determinate bar while bytes are
+  being sent (`axios` `onUploadProgress`) and an indeterminate one while the
+  server works in the background, shown right beside the modal's Upload
+  button.
+- **The submit is a job.** `POST /theses/upload/` answers `202` with a
+  `job_id`; the modal waits with `waitForJob` and then shows the result. Files
+  that are not theses, or that are duplicates, come back as clear messages.
+- Text fields use `.thesys-input`; the scroll of the page behind is locked with
+  `useBodyScrollLock`.
 
 ### frontend/src/components/pdf/WatermarkOverlay.jsx — "The invisible ink stamp" 💧
 
@@ -1007,6 +1247,21 @@ classes everywhere.
   > pattern as `ForgotPasswordForm`/`ResetPasswordForm`/`SsoButton`/
   > `MainLayout` above: safe, unused, and a good candidate to delete in a
   > future cleanup pass.
+
+### frontend/src/components/ui/AnimatedCounter.jsx — "The odometer" 🔢
+
+Counts a number up to its final value on the three animated surfaces (the
+landing page's repository snapshot, and the KPI cards on Analytics and Trend
+Analysis), so the numbers feel computed rather than pasted.
+
+- **Screen readers hear it once.** The digits that tick upward are
+  `aria-hidden`; the final number sits in a visually hidden `<span>`, so
+  assistive technology announces only the settled value.
+- **Reduced motion is respected.** With the operating system's reduced-motion
+  setting on, the final value shows immediately.
+- **It waits for data.** While `value` is `null` (still being fetched) it shows
+  a placeholder (`…`) and starts counting only once a real number arrives.
+- The timing comes from `useAnimatedCounterValue` in `lib/motion.js`.
 
 ### frontend/src/components/shadcn/ — the vendor toolbox
 
@@ -1150,6 +1405,60 @@ Both are tiny (~10-line) hooks that just read their respective context and
 throw a clear error if used outside the matching Provider — the same pattern
 as `useAuth` in Part 2.
 
+### frontend/src/hooks/useBodyScrollLock.js — "Hold the page still while the pop-up is open" 🧷
+
+Setting `overflow: hidden` on the page alone is not enough: some layouts scroll
+on `<html>`, and iPhones ignore it during touch swipes. This hook locks both
+`<html>` and `<body>`, and returns a `ref` for the modal's dark backdrop; a
+non-passive `touchmove` listener on that ref blocks the "page drifts under my
+finger" effect without stopping the modal's own content from scrolling. On
+close or unmount it restores the previous values exactly.
+
+### frontend/src/components/navigation/RouteScrollManager.jsx — "Remember where you were on each page" 📑
+
+The browser router does not restore scroll positions by itself. This invisible
+component remembers `window.scrollY` for every history entry (keyed by
+`location.key`). Moving to a *new* page scrolls to the top; pressing **Back** or
+**Forward** puts you back where you were. Because a page's content often arrives
+late from the API, restoring keeps re-applying the saved position every 100 ms
+for up to 10 seconds, and stops the moment you scroll, touch or press a key.
+Query-string changes and `#anchor` links are left alone. It renders nothing;
+`App.jsx` mounts it once.
+
+### frontend/src/lib/motion.js — "One stopwatch for every animation" ⏱️
+
+The only place JavaScript animation timing is defined. It mirrors the CSS
+tokens (`EASE_OUT` = `cubic-bezier(0, 0, 0.2, 1)`, durations 0.15 / 0.18 /
+0.2 s) and keeps entrance travel to 8 px — no springs, no bounce. It exports
+the shared variants (`fadeUp`, `fadeIn`, `staggerContainer`), the chart
+helpers (`growWidth`, `growHeight`, `drawArc`) and the counter hook
+(`useAnimatedCounterValue`, default 0.7 s). **`useMotionVariants()`** is the
+one call a component makes: it hands back the normal set, or instant no-op
+versions when the person has "reduce motion" turned on, so pages never branch
+on reduced motion themselves. Pages wrap animated parts in
+`<LazyMotion features={domAnimation}>` and use `m`, never `motion`, to keep
+the download small.
+
+### frontend/src/lib/upload.js — "One number for the file-size limit" 📏
+
+Three separate 15 MB constants once lived in three files while the server
+accepted 25 MB. Now `MAX_UPLOAD_BYTES` (25 MB) and `MAX_UPLOAD_MB` are defined
+here, `formatBytes` prints "4.2 MB", and any text that mentions a size must
+derive it from this file. If the backend cap changes, this is the one frontend
+value to change.
+
+### frontend/src/utils/formatters.js — "How names and keywords are written on screen" ✍️
+
+Display-only helpers; they never change stored data. `collapseWhitespace` tidies
+stray or doubled spaces in keywords. `formatScholarAuthor` writes an author
+Google-Scholar style ("Dela Cruz, Juan M." → "JM Dela Cruz"), and
+`formatScholarMetadataLine` builds the compact "authors · program · year" card
+line (capped at a few names). `parseAuthorInput` splits what the upload form
+receives — semicolons first, so "Dela Cruz, Juan M.; Santos, Maria A." keeps
+each name's inner comma, otherwise commas before a capital letter. And
+`formatFullAuthorList` writes the full, natural-order author list for the detail
+page without shortening anyone.
+
 ### frontend/src/utils/appCaches.js — "Wipe the whiteboard before the next customer" 🧽
 
 Several pages (`RepositoryPage`, `TrendAnalysisPage`, `AnalyticsDashboardPage`)
@@ -1192,17 +1501,52 @@ instead of both being applied and the browser picking arbitrarily).
 
 ### frontend/src/styles/tokens.js — the design system's single source of truth
 
-Maps semantic names (`canvas`, `ink`, `muted`, `success-bg`, …) to CSS custom
-properties defined in a separate `tokens.css` file, and feeds `CHART_PALETTE`
-— the exact 8-color sequence used by every inline SVG chart in the app
-(Trend Analysis's doughnut and bar charts, Analytics' bar charts) — from one
-place, so changing the brand's chart colors means editing this one array
-instead of hunting through every chart component. The comment explains the
-underlying trick: because both the light (`:root`) and dark (`.dark`) CSS
-selectors define the *same* variable name with different values, a single
-Tailwind class like `bg-canvas` automatically resolves to the right color in
-whichever theme is active — no `isDark ? '...' : '...'` ternary needed for
-colors that go through this system.
+Maps semantic names (`canvas`, `ink`, `body`, `muted`, `subtle`, `success-bg`,
+`danger-text`, `primary-solid`, …) to CSS custom properties defined in
+`tokens.css`, and hands them to Tailwind, so a class like `text-ink` or
+`bg-surface` exists. The trick: both the light (`:root`) and dark (`.dark`)
+selectors define the *same* variable names with different values, so one class
+resolves to the right colour in whichever theme is active — no
+`isDark ? '...' : '...'` needed for anything that goes through this system.
+The palette is real now (the old "placeholder" wording is gone): the brand
+blue is the institutional ink-blue `#1e40af`, and changing it means editing
+one ramp of variables in `tokens.css`.
+
+It also exports two JavaScript-side helpers:
+- **`CHART_PALETTE`** — the 8-colour sequence every inline SVG chart cycles
+  through (slot 1 is the brand ink-blue), shared by Trend Analysis and
+  Analytics.
+- **`TOKEN_COLORS`** — a few literal hex values (success, warning, danger,
+  primary, each for light and dark) for the rare place a real colour string is
+  needed in JavaScript. Most charts now use CSS variables such as
+  `var(--color-success)` instead, which follow the theme automatically.
+
+### frontend/src/styles/tokens.css and index.css — "The paint cupboard and the house rules" 🎨
+
+- **`tokens.css`** has two tiers. Tier 1 are *primitives* (raw values such as
+  the blue ramp `--th-prim-*`, slate greys, the navy canvas). Tier 2 are
+  *semantic* roles (`--color-canvas`, `--color-text`, `--color-text-body`,
+  `--color-primary`, `--color-primary-solid`, status trios like
+  `--color-danger-bg/-border/-text`) that point at primitives and are redefined
+  under `.dark`. Beside colour it holds the font tokens (`--font-ui` for Inter,
+  `--font-reading` for Source Serif 4), the motion easings and durations, and a
+  z-index scale.
+- **Two blues for two jobs.** `--color-primary` is the blue for *text, links and
+  focus rings*; in dark mode it lightens to `#60a5fa`. `--color-primary-solid`
+  (and its hover) is the blue for *filled buttons*, so a white label is always
+  readable: `#1e40af` in light mode, `#2563eb` in dark.
+- **`index.css`** loads the two self-hosted fonts (Inter Variable and Source
+  Serif 4 Variable), defines the shadcn colour variables, and holds the shared
+  component classes: `.thesys-card` / `.thesys-panel` (the standard bordered
+  surface), `.thesys-card-lift` (rise on hover), **`.thesys-input`** (the one
+  text-field style: surface fill, border, ink text, muted placeholder, blue
+  border and ring on focus — add `border-danger` for an error), `.thesys-skeleton`
+  (the loading shimmer), `.thesys-empty` (empty states), `.thesys-dropdown`, and
+  the enter animations for toasts, overlays, modals and drawers. A few older
+  classes (`.thesys-btn-primary`, `.thesys-nav-link`, `.thesys-chip`) are still
+  defined but no page uses them.
+- **Colours through the system, not around it.** New code should use the
+  token classes; the project's `DESIGN.md` lists them and the rules.
 
 ---
 
