@@ -1448,6 +1448,47 @@ class ThesisTopicTrendsView(APIView):
         return Response(result)
 
 
+class ThesisTopicCheckView(APIView):
+    """POST {title} -> is this proposed topic saturated, emerging or under-explored?
+
+    Counts approved theses related to the title and labels that count with the
+    topic groups' own size rule (see ``check_title_topic``).
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request, *args, **kwargs):
+        title = (request.data.get('title') or '').strip()
+        if len(title) < ThesisValidateTitleView.MIN_LEN:
+            return make_error_response(
+                code='TITLE_TOO_SHORT',
+                message=f'Title must be at least {ThesisValidateTitleView.MIN_LEN} characters.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(title) > ThesisValidateTitleView.MAX_LEN:
+            return make_error_response(
+                code='TITLE_TOO_LONG',
+                message=f'Title must not exceed {ThesisValidateTitleView.MAX_LEN} characters.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .services import cached_topic_trends
+        from .services.topic_analysis import check_title_topic
+
+        sizes = [c['thesis_count'] for c in cached_topic_trends.get_topic_trends_data()['clusters']]
+        approved = (
+            Thesis.objects
+            .filter(status=ThesisStatus.APPROVED)
+            .only('id', 'title', 'year', 'program', 'embedding_vector')
+        )
+        return Response(check_title_topic(
+            title, approved,
+            average_size=sum(sizes) / len(sizes) if sizes else 0.0,
+            grouped_total=sum(sizes),
+        ))
+
+
 class ThesisSubjectTrendsView(APIView):
     """Reviewed subject counts; unreviewed approved theses remain visible elsewhere."""
 

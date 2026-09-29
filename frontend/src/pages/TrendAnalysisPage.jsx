@@ -423,6 +423,115 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
 
 
 // ---------------------------------------------------------------------------
+// Topic check — is a proposed title's topic saturated, emerging or
+// underexplored? POST /theses/topic-trends/check-title/
+// ---------------------------------------------------------------------------
+
+function TopicCheck({ isDark }) {
+  const [title, setTitle] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const trimmed = title.trim();
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (trimmed.length < 5 || loading) return;
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const res = await client.post('/theses/topic-trends/check-title/', { title: trimmed });
+      setResult(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'The topic check could not run. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const styles = result && trendStyles(result.trend, isDark);
+  const muted = isDark ? 'text-gray-400' : 'text-gray-600';
+
+  return (
+    <section className="thesys-panel mb-8" aria-labelledby="topic-check-heading">
+      <h2 id="topic-check-heading" className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        Check your proposed topic
+      </h2>
+      <p className={`text-sm mt-1 mb-4 ${muted}`}>
+        Enter a thesis title to see how many uploaded theses already cover its topic.
+      </p>
+      <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
+        <label htmlFor="topic-check-title" className="sr-only">Proposed thesis title</label>
+        <input
+          id="topic-check-title"
+          type="text"
+          value={title}
+          maxLength={500}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. IoT-based smart irrigation system for rice farmers"
+          className={`flex-1 min-w-0 px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
+            isDark
+              ? 'bg-white/[0.04] border-white/10 text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus-visible:ring-2 focus-visible:ring-blue-400'
+              : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+          }`}
+        />
+        <button
+          type="submit"
+          disabled={trimmed.length < 5 || loading}
+          className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          {loading ? 'Analyzing…' : 'Analyze topic'}
+        </button>
+      </form>
+
+      <div aria-live="polite">
+        {error && (
+          <p className={`text-sm mt-4 ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{error}</p>
+        )}
+        {result && (
+          <div className={`mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+            <Badge
+              variant="outline"
+              className={`gap-1 text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${styles.chip}`}
+            >
+              <span aria-hidden="true">{styles.emoji}</span>
+              {styles.label}
+            </Badge>
+            <p className={`text-sm mt-3 max-w-prose ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              {result.explanation}
+            </p>
+            {result.related.length > 0 && (
+              <>
+                <h3 className={`text-xs font-semibold uppercase tracking-wider mt-5 mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Most related theses
+                </h3>
+                <ul className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-100'}`}>
+                  {result.related.map((t) => (
+                    <li key={t.id}>
+                      <Link
+                        to={`/repository/${t.id}`}
+                        className={`flex items-baseline justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
+                      >
+                        <span className={`text-sm min-w-0 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                          {t.title}
+                          <span className={`block text-xs mt-0.5 ${muted}`}>{t.year} · {t.program}</span>
+                        </span>
+                        <span className={`text-xs tabular-nums flex-shrink-0 ${muted}`}>
+                          {Math.round(t.similarity * 100)}% similar
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Cluster drill-down — one panel of thesis rows for a single cluster
 // ---------------------------------------------------------------------------
 
@@ -816,6 +925,8 @@ export default function TrendAnalysisPage() {
             </Link>
           </nav>
         )}
+
+        {showOverviewChrome && <TopicCheck isDark={isDark} />}
 
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (

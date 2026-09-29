@@ -40,6 +40,7 @@ This service is read-only — it never mutates any Thesis row.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -290,6 +291,53 @@ def _classify_trend(thesis_count: int, average_size: float, total_theses: int) -
     if thesis_count <= average_size * TREND_UNDEREXPLORED_FACTOR:
         return CLASS_UNDEREXPLORED
     return CLASS_EMERGING
+
+
+def _trend_cutoffs(average_size: float, total_theses: int) -> tuple[int, int]:
+    """(saturated_at, underexplored_at): the integer edges of ``_classify_trend``."""
+    if total_theses < TREND_DYNAMIC_MIN_CORPUS:
+        return TREND_SATURATED_MIN, TREND_EMERGING_MIN - 1
+    return (math.ceil(average_size * TREND_SATURATED_FACTOR),
+            math.floor(average_size * TREND_UNDEREXPLORED_FACTOR))
+
+
+def check_title_topic(title: str, theses, *, average_size: float, grouped_total: int) -> dict:
+    """Label a proposed title by how many approved theses are related to it.
+
+    Related = composite-vector cosine >= the Title Similarity relevance floor.
+    The count goes through the same size rule as the topic groups, so a title
+    and a group are never judged by different standards.
+    """
+    from .semantic_search import rank_theses
+    from .title_similarity import THRESHOLD_MEANINGFUL
+
+    theses = list(theses)
+    # 4-dp compare, as in classify_title: float32 lands 0.35 at 0.3499999.
+    related = [s for s in rank_theses(title, theses)
+               if round(s.score, 4) >= THRESHOLD_MEANINGFUL]
+    count, total = len(related), len(theses)
+    saturated_at, underexplored_at = _trend_cutoffs(average_size, grouped_total)
+    fewer = 'none are' if underexplored_at == 0 else f'{underexplored_at} or fewer'
+    explanation = (
+        f'{count} out of {total} uploaded theses {"is" if count == 1 else "are"} '
+        f'related to this title. Topics with {saturated_at} or more related '
+        f'theses count as Saturated; {fewer} as Underexplored.'
+    )
+    return {
+        'title': title,
+        'trend': _classify_trend(count, average_size, grouped_total),
+        'related_count': count,
+        'total': total,
+        'average_group_size': round(average_size, 2),
+        'saturated_at': saturated_at,
+        'underexplored_at': underexplored_at,
+        'explanation': explanation,
+        'related': [
+            {'id': str(s.thesis.id), 'title': s.thesis.title, 'year': s.thesis.year,
+             'program': s.thesis.program, 'similarity': round(s.score, 4)}
+            for s in related[:5]
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
