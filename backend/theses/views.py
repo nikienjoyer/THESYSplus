@@ -1396,7 +1396,7 @@ class ThesisValidateTitleView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# GET /theses/topic-trends/  — Phase 3 TF-IDF + K-Means topic analysis
+# GET /theses/topic-trends/  — Phase 3 meaning-based topic groups
 # ---------------------------------------------------------------------------
 
 class ThesisTopicTrendsView(APIView):
@@ -1404,14 +1404,15 @@ class ThesisTopicTrendsView(APIView):
 
     Pipeline (Chapter 1–3):
       1. Materialise approved theses.
-      2. TF-IDF vectorise (title + abstract + keywords). The stored
-         extracted_text is excluded — it is dominated by cover-page and
-         approval-sheet boilerplate that every manuscript shares.
-      3. K-Means cluster the vectors (auto-k in [5, 8], targeting ~6
-         theses per cluster).
-      4. Surface top-K TF-IDF keywords per cluster.
-      5. Map cluster size → trend (SATURATED / EMERGING / UNDEREXPLORED).
-      6. Apply heuristic naming so each cluster gets a human-readable label.
+      2. Group the stored Sentence-BERT vectors by agglomerative
+         clustering on cosine distance (auto-k in [5, 8], targeting ~6
+         theses per group).
+      3. TF-IDF (title + abstract + keywords; extracted_text excluded as
+         cover-page boilerplate) surfaces each group's top keywords.
+      4. Map group size → trend (SATURATED / EMERGING / UNDEREXPLORED).
+      5. Name each group after its members' confirmed primary subjects,
+         falling back to the keyword naming table, and count each group's
+         technology tags.
 
     Read-only — never mutates Thesis rows.
     """
@@ -1867,7 +1868,7 @@ class ThesisAnalyticsView(APIView):
 
     Returns pure ORM aggregations over the Thesis table — no ML,
     no AI inference. Designed to complement (not duplicate) the
-    TF-IDF + K-Means topic trend analysis endpoint.
+    meaning-based topic trend analysis endpoint.
 
     Role visibility:
     - All authenticated users: thesis counts + distributions

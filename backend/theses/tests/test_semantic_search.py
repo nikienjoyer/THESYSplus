@@ -794,3 +794,22 @@ class TestGlossaryTermRescue:
     def test_generic_word_rescues_nothing(self, client, faculty_user, corpus):
         results = self._search(client, faculty_user, 'system')
         assert not any(r['term_match'] for r in results.values())
+
+
+class TestUnitVector:
+    """unit_vector: the one validity check shared by topic grouping and
+    subject suggestions."""
+
+    def test_normalises_a_usable_vector(self):
+        from theses.services.semantic_search import unit_vector
+        vector = unit_vector([3.0, 4.0] + [0.0] * 382)
+        assert vector is not None
+        assert float((vector ** 2).sum()) == pytest.approx(1.0)
+        assert float(vector[0]) == pytest.approx(0.6)
+
+    @pytest.mark.parametrize('raw', [
+        None, [], [1.0] * 10, [0.0] * 384, [float('nan')] + [0.0] * 383, 'not a vector',
+    ])
+    def test_unusable_input_returns_none(self, raw):
+        from theses.services.semantic_search import unit_vector
+        assert unit_vector(raw) is None

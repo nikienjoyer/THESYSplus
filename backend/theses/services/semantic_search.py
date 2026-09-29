@@ -82,6 +82,27 @@ def _get_model():
 # Public helpers
 # ---------------------------------------------------------------------------
 
+def unit_vector(raw):
+    """``raw`` as a unit-length float32 vector, or ``None`` when unusable.
+
+    Unusable means missing, not ``EMBEDDING_DIM`` long, non-numeric,
+    non-finite, or (near) zero. Shared by topic grouping and subject
+    suggestions so both accept exactly the same stored vectors.
+    """
+    import numpy as np
+
+    if raw is None:
+        return None
+    try:
+        vector = np.asarray(raw, dtype=np.float32)
+    except (TypeError, ValueError):
+        return None
+    if vector.shape != (EMBEDDING_DIM,) or not np.isfinite(vector).all():
+        return None
+    norm = float(np.linalg.norm(vector))
+    return vector / norm if norm > 1e-6 else None
+
+
 def embed_text(text: str) -> List[float]:
     """Return an L2-normalised SBERT embedding for ``text`` as a list of floats.
 

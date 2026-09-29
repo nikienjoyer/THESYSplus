@@ -107,3 +107,23 @@ class TestSubjectSuggestionsEndpoint:
         make_thesis(_vec(1.0), 'EDU')
         pending = make_thesis(_vec(1.0), status=ThesisStatus.PENDING_REVIEW)
         assert self._get(client, faculty, pending).json() == {'suggestions': []}
+
+    def test_administrators_get_suggestions(self, client, make_thesis):
+        admin = User.objects.create_user(
+            email='suggest-admin@pampangastateu.edu.ph', first_name='A', last_name='D',
+            role=Role.ADMINISTRATOR, password='Test12345!Test',
+        )
+        make_thesis(_vec(1.0), 'EDU')
+        response = self._get(client, admin, make_thesis(_vec(0.9, 0.1)))
+        assert response.status_code == 200
+        assert [s['code'] for s in response.json()['suggestions']] == ['EDU']
+
+    def test_unknown_and_malformed_ids_are_not_found(self, client, faculty):
+        from auth_service.services import issue_token_pair
+        token = issue_token_pair(faculty, request=None, remember_me=False).access_token
+        for thesis_id in ('00000000-0000-0000-0000-000000000000', 'not-a-uuid'):
+            response = client.get(
+                reverse('thesis-subject-suggestions', kwargs={'id': thesis_id}),
+                HTTP_AUTHORIZATION=f'Bearer {token}',
+            )
+            assert response.status_code == 404, thesis_id

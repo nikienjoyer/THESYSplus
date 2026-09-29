@@ -386,12 +386,11 @@ def get_topic_trends_queryset():
 
     Both ``ThesisTopicTrendsView`` and ``ThesisAnalyticsView`` must feed
     ``analyze_topics()`` with the *exact* same rows in the *exact* same
-    order — K-Means clustering (even with a fixed ``random_state``) is
-    sensitive to input row order, so two independently-built querysets
-    over the identical underlying data can silently produce different
-    cluster compositions, and therefore different SATURATED / EMERGING /
-    UNDEREXPLORED counts on the two pages. Routing both views through
-    this one helper eliminates that drift by construction.
+    order. The groups themselves do not depend on row order, but group
+    numbering does (``cluster_id`` and the "(Cluster N)" qualifier), and the
+    two pages must also agree on which rows exist so their SATURATED /
+    EMERGING / UNDEREXPLORED counts match. Routing both views through this
+    one helper eliminates that drift by construction.
 
     Ordered by ``created_at`` with ``id`` as a tie-break, since
     ``created_at`` alone is not guaranteed unique (e.g. bulk-seeded rows
@@ -456,7 +455,7 @@ def _compose_thesis_text(thesis) -> str:
 
 
 def _choose_k(n_documents: int) -> int:
-    """Auto-size k for the K-Means run, targeting ~6 theses per cluster.
+    """Auto-size the number of groups, targeting ~6 theses per group.
 
     For tiny corpora (< K_MIN) we use n_documents itself so every doc
     is essentially its own cluster — this is intentional: it lets the
@@ -493,28 +492,19 @@ def _document_vector(thesis, text: str):
     from the same title/abstract/keywords text TF-IDF sees.
     """
     import numpy as np
-    from .semantic_search import EMBEDDING_DIM, embed_text
+    from .semantic_search import embed_text, unit_vector
 
-    raw = getattr(thesis, 'embedding_vector', None)
-    if raw:
-        try:
-            vector = np.asarray(raw, dtype=np.float32)
-            norm = float(np.linalg.norm(vector))
-            if vector.shape == (EMBEDDING_DIM,) and np.isfinite(vector).all() and norm > 1e-6:
-                return vector / norm
-        except (TypeError, ValueError):
-            pass
+    stored = unit_vector(getattr(thesis, 'embedding_vector', None))
+    if stored is not None:
+        return stored
     vector = np.asarray(embed_text(text), dtype=np.float32)
     return vector / max(float(np.linalg.norm(vector)), 1e-12)
 
 
 def _group_by_meaning(vectors, k: int):
-    """Deterministic grouping of unit vectors by cosine distance."""
-    import numpy as np
+    """Deterministic grouping of unit vectors by cosine distance (``k`` >= 2)."""
     from sklearn.cluster import AgglomerativeClustering
 
-    if k <= 1:
-        return np.zeros(len(vectors), dtype=int)
     return AgglomerativeClustering(n_clusters=k, metric='cosine', linkage='average').fit_predict(vectors)
 
 
@@ -551,14 +541,22 @@ def analyze_topics(
 
     # ── Materialise corpus and per-doc metadata ────────────────────────
     theses = list(queryset)
-    kept: List = []
+    vectors: List = []
     documents: List[str] = []
     metadata: List[_DocMeta] = []
     for t in theses:
         text = _compose_thesis_text(t)
         if not text.strip():
             continue
-        kept.append(t)
+        # A thesis with no stored vector that cannot be embedded now (model
+        # unavailable) is left out of these exploratory groups with a
+        # warning, rather than failing the whole page.
+        try:
+            vector = _document_vector(t, text)
+        except Exception as exc:  # noqa: BLE001 - any embedding failure
+            logger.warning('Topic grouping left out thesis %s: no vector (%s)', t.id, exc)
+            continue
+        vectors.append(vector)
         documents.append(text)
         metadata.append(_DocMeta(
             id=str(t.id),
@@ -647,8 +645,7 @@ def analyze_topics(
     if chosen_k == 1:
         labels = np.zeros(n_docs, dtype=int)
     else:
-        vectors = np.vstack([_document_vector(t, doc) for t, doc in zip(kept, documents)])
-        labels = _group_by_meaning(vectors, chosen_k)
+        labels = _group_by_meaning(np.vstack(vectors), chosen_k)
 
     # ── Build per-cluster summaries ────────────────────────────────────
     clusters: List[TopicCluster] = []

@@ -15,23 +15,6 @@ from typing import List
 SUGGESTION_LIMIT = 2
 
 
-def _unit(raw):
-    """Unit-length float vector, or ``None`` when unusable."""
-    import numpy as np
-    from .semantic_search import EMBEDDING_DIM
-
-    if raw is None:
-        return None
-    try:
-        vector = np.asarray(raw, dtype=np.float32)
-    except (TypeError, ValueError):
-        return None
-    if vector.shape != (EMBEDDING_DIM,) or not np.isfinite(vector).all():
-        return None
-    norm = float(np.linalg.norm(vector))
-    return vector / norm if norm > 1e-6 else None
-
-
 def suggest_subjects(thesis, *, limit: int = SUGGESTION_LIMIT) -> List[dict]:
     """Up to ``limit`` subjects as ``{'code', 'name', 'score'}``, best first.
 
@@ -41,7 +24,9 @@ def suggest_subjects(thesis, *, limit: int = SUGGESTION_LIMIT) -> List[dict]:
     """
     from theses.models import Thesis, ThesisStatus
 
-    target = _unit(getattr(thesis, 'embedding_vector', None))
+    from .semantic_search import unit_vector
+
+    target = unit_vector(getattr(thesis, 'embedding_vector', None))
     if target is None:
         return []
 
@@ -56,7 +41,7 @@ def suggest_subjects(thesis, *, limit: int = SUGGESTION_LIMIT) -> List[dict]:
     totals: dict = {}
     names: dict = {}
     for row in reviewed:
-        vector = _unit(row.embedding_vector)
+        vector = unit_vector(row.embedding_vector)
         if vector is None:
             continue
         code = row.primary_subject_id
@@ -65,7 +50,7 @@ def suggest_subjects(thesis, *, limit: int = SUGGESTION_LIMIT) -> List[dict]:
 
     suggestions = []
     for code, total in totals.items():
-        centroid = _unit(total)
+        centroid = unit_vector(total)
         if centroid is None:
             continue
         suggestions.append({'code': code, 'name': names[code], 'score': round(float(centroid @ target), 4)})

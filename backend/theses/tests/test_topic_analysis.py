@@ -1295,3 +1295,18 @@ class TestMeaningBasedGrouping:
         topics = sorted(c.topic for c in analyze_topics(docs, k=2).clusters)
         assert len(set(topics)) == 2
         assert all(t.startswith('Academic services and research (Cluster ') for t in topics)
+
+    def test_thesis_that_cannot_be_embedded_is_left_out_not_an_error(self):
+        # No stored vector and the model is unavailable: the exploratory view
+        # must still load, without that one thesis, instead of returning 500.
+        from unittest.mock import patch
+        a = _doc('Irrigation Sensor Network', _unit(1.0))
+        b = _doc('Irrigation Sensor Gateway', _unit(0.9, 0.1))
+        c = _doc('Thesis Repository Search', _unit(0.0, 1.0))
+        broken = _doc('Unembedded Thesis Draft', None)
+        with patch('theses.services.semantic_search.embed_text', side_effect=RuntimeError('model unavailable')):
+            result = analyze_topics([a, b, c, broken], k=2)
+        assert result.status == 'ok'
+        grouped = {tid for cl in result.clusters for tid in cl.thesis_ids}
+        assert grouped == {str(a.id), str(b.id), str(c.id)}
+        assert result.total_theses == 3

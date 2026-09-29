@@ -23,7 +23,7 @@ def _cache_key(theses):
     digest.update(_ALGORITHM_FINGERPRINT.encode('ascii'))
     for thesis in theses:
         # Include every field the analysis reads or returns. The queryset's
-        # stable order is significant to K-Means and is preserved here.
+        # stable order decides group numbering and is preserved here.
         row = (
             str(thesis.id), thesis.title, thesis.abstract, thesis.keywords,
             thesis.program, thesis.year, thesis.status,
