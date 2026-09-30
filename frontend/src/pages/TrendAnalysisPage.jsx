@@ -484,21 +484,28 @@ function TopicCheck({ isDark }) {
             {result.related.length > 0 && (
               <>
                 <h3 className={`text-xs font-semibold uppercase tracking-wider mt-5 mb-2 text-muted`}>
-                  Most related theses
+                  Closest theses
                 </h3>
                 <ul className={`divide-y divide-border-subtle`}>
                   {result.related.map((t) => (
                     <li key={t.id}>
                       <Link
                         to={`/repository/${t.id}`}
-                        className={`flex items-baseline justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
+                        className={`flex items-start justify-between gap-4 py-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isDark ? 'hover:text-white' : 'hover:text-blue-700'}`}
                       >
                         <span className={`text-sm min-w-0 text-ink`}>
                           {t.title}
                           <span className={`block text-xs mt-0.5 ${muted}`}>{t.year} · {t.program}</span>
                         </span>
-                        <span className={`text-xs tabular-nums flex-shrink-0 ${muted}`}>
-                          {Math.round(t.similarity * 100)}% similar
+                        <span className="flex items-center gap-1.5 flex-shrink-0">
+                          {t.title_match && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-warning-bg text-warning-text border-warning-border">
+                              Exact title match
+                            </span>
+                          )}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap tabular-nums bg-info-bg text-info-text border-info-border">
+                            {(t.similarity * 100).toFixed(1)}% match
+                          </span>
                         </span>
                       </Link>
                     </li>
@@ -895,7 +902,7 @@ export default function TrendAnalysisPage() {
           </nav>
         )}
 
-        {showOverviewChrome && <TopicCheck isDark={isDark} />}
+        {showOverviewChrome && !reviewed && <TopicCheck isDark={isDark} />}
 
         {/* ── Loading / Error ─────────────────────────────────────── */}
         {loading ? (

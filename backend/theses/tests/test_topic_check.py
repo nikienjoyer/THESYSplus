@@ -18,13 +18,13 @@ from theses.services.topic_analysis import check_title_topic
 CANDIDATE = [1.0] + [0.0] * 383
 
 
-def _thesis_at(score: float, n: int):
+def _thesis_at(score: float, n: int, title: str = ''):
     """A corpus row whose stored vector has cosine ``score`` with the candidate."""
     vector = [0.0] * 384
     vector[0] = score
     vector[1] = (1.0 - score * score) ** 0.5
     return SimpleNamespace(
-        id=f'id-{n}', title=f'Thesis {n}', year=2024, program='BSIT',
+        id=f'id-{n}', title=title or f'Thesis {n}', year=2024, program='BSIT',
         embedding_vector=vector,
     )
 
@@ -34,10 +34,10 @@ def _corpus(related: int, total: int):
             + [_thesis_at(0.10, i) for i in range(related, total)])
 
 
-def _check(corpus, *, average_size=6.5, grouped_total=None):
+def _check(corpus, *, average_size=6.5, grouped_total=None, title='Proposed Thesis Title'):
     with patch('theses.services.semantic_search.embed_text', return_value=CANDIDATE):
         return check_title_topic(
-            'Proposed Thesis Title', corpus,
+            title, corpus,
             average_size=average_size,
             grouped_total=len(corpus) if grouped_total is None else grouped_total,
         )
@@ -60,14 +60,15 @@ def test_label_follows_group_size_rule(related, trend):
 def test_cutoffs_and_explanation():
     result = _check(_corpus(5, 52))
     assert (result['saturated_at'], result['underexplored_at']) == (10, 3)
-    assert result['explanation'].startswith('5 out of 52 uploaded theses are related to this title.')
+    assert result['explanation'].startswith('5 out of 52 uploaded theses are related to this title')
+    assert 'at least 35% similar' in result['explanation']
     assert '10 or more' in result['explanation']
     assert '3 or fewer' in result['explanation']
 
 
 def test_singular_wording():
     assert _check(_corpus(1, 52))['explanation'].startswith(
-        '1 out of 52 uploaded theses is related to this title.')
+        '1 out of 52 uploaded theses is related to this title')
 
 
 def test_floor_is_inclusive():
@@ -86,7 +87,34 @@ def test_related_list_is_top_five_by_score():
     corpus = [_thesis_at(0.40 + i * 0.05, i) for i in range(8)]
     related = _check(corpus)['related']
     assert [r['title'] for r in related] == ['Thesis 7', 'Thesis 6', 'Thesis 5', 'Thesis 4', 'Thesis 3']
-    assert set(related[0]) == {'id', 'title', 'year', 'program', 'similarity'}
+    assert set(related[0]) == {'id', 'title', 'year', 'program', 'similarity', 'title_match'}
+
+
+def test_closest_theses_shown_below_the_cutoff_but_not_counted():
+    result = _check([_thesis_at(0.20, 0), _thesis_at(0.08, 1)] + [_thesis_at(0.02, i) for i in range(2, 20)])
+    assert result['related_count'] == 0
+    assert [r['title'] for r in result['related'][:2]] == ['Thesis 0', 'Thesis 1']
+    assert result['related'][0]['similarity'] == pytest.approx(0.20, abs=1e-4)
+
+
+def test_exact_name_counts_and_comes_first_even_below_cutoff():
+    corpus = [
+        _thesis_at(0.60, 0),
+        _thesis_at(0.08, 1, 'Thesix: Centralized Web-Based Capstone Repository'),
+    ] + _corpus(0, 20)[2:]
+    result = _check(corpus, title='THESIX')
+    assert result['related_count'] == 2
+    assert result['related'][0]['title'].startswith('Thesix')
+    assert result['related'][0]['title_match'] is True
+    assert result['related'][1]['title_match'] is False
+
+
+def test_name_match_that_is_also_similar_is_listed_once():
+    corpus = [_thesis_at(0.70, 0, 'Thesix: Centralized Web-Based Capstone Repository')] + _corpus(0, 20)[1:]
+    result = _check(corpus, title='THESIX')
+    assert result['related_count'] == 1
+    assert [r['title'] for r in result['related']].count(
+        'Thesix: Centralized Web-Based Capstone Repository') == 1
 
 
 # ---------------------------------------------------------------------------
