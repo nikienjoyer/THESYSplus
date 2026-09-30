@@ -2,9 +2,9 @@
  * LandingPage — THESYS+ public landing page.
  *
  * Layout:
- *   Sticky Navbar · Hero (full-bleed CCS building photo dark island) ·
- *   Repository Snapshot · Feature Showcase (4-col) ·
- *   [Trending Topics Preview + Why THESYS+] side-by-side · Dark Footer
+ *   Sticky Navbar · Hero (full-bleed CCS building photo) ·
+ *   Repository snapshot · [Research tools + Research subjects] side-by-side ·
+ *   Dark Footer. Only the hero animates.
  *
  * Privacy: logged-out users see aggregate-only data. No thesis titles,
  * abstracts, authors, or documents are exposed.
@@ -25,18 +25,16 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { LazyMotion, domAnimation, m } from 'framer-motion';
 import {
-  Sun, Moon, Search, ShieldCheck, TrendingUp, BarChart3,
-  ArrowRight, BookOpen, GraduationCap, LayoutDashboard,
+  Sun, Moon, Search, ShieldCheck, TrendingUp, BarChart3, ArrowRight,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
-import { AvatarDropdown, NAV_BAR_CLASS, NAV_LINK_BASE, NAV_LINK_IDLE, NAV_LINK_SOON } from '../components/layout/AppNavbar';
+import { AvatarDropdown, NAV_BAR_CLASS, NAV_LINK_ACTIVE, NAV_LINK_BASE, NAV_LINK_IDLE, NAV_LINK_SOON } from '../components/layout/AppNavbar';
 import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
-import AnimatedCounter from '../components/ui/AnimatedCounter';
 import { useMotionVariants } from '../lib/motion';
 
 const CORE_NAV = [
@@ -68,39 +66,34 @@ const HERO_SCRIM_MOBILE =
 const HERO_SCRIM_DESKTOP_LIGHT =
   'linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 32%, rgba(255,255,255,0.62) 58%, rgba(255,255,255,0.12) 74%, transparent 88%)';
 
-// Feature cards — "Learn more" only links to pages that actually exist.
+// One container for every band below the hero, so all left edges line up.
+const CONTAINER = 'max-w-6xl mx-auto px-5 sm:px-8 lg:px-14';
+
+// Tool list — titles match the nav labels exactly, and each links to its page.
 const FEATURES = [
   {
     icon: Search,
-    iconBg: 'bg-info-bg', iconColor: 'text-info-text',
-    title: 'Semantic Search',
-    desc:  'Find relevant theses by meaning, not just keywords using SBERT embeddings.',
+    title: 'Repository',
+    desc:  'Find related theses by meaning, not just matching keywords, using SBERT sentence embeddings.',
     to:    '/repository',
-    linkLabel: 'Open Repository',
   },
   {
     icon: ShieldCheck,
-    iconBg: 'bg-info-bg', iconColor: 'text-info-text',
-    title: 'Title Similarity Validation',
-    desc:  'Check the originality of your proposed title using SBERT and cosine similarity.',
+    title: 'Title Similarity',
+    desc:  'See how close your proposed title is to existing theses before you commit to it, so your topic starts out original.',
     to:    '/title-similarity',
-    linkLabel: 'Validate a title',
   },
   {
     icon: TrendingUp,
-    iconBg: 'bg-success-bg', iconColor: 'text-success-text',
     title: 'Trend Analysis',
-    desc:  'Compare research areas by thesis count, with reviewed subjects and exploratory text clusters clearly identified.',
+    desc:  'See which research subjects are saturated, emerging, or underexplored, based on how many theses each has.',
     to:    '/trend-analysis',
-    linkLabel: 'View trends',
   },
   {
     icon: BarChart3,
-    iconBg: 'bg-warning-bg', iconColor: 'text-warning-text',
-    title: 'Analytics Dashboard',
-    desc:  'Visualize repository insights, search behavior, and research trends over time.',
+    title: 'Analytics',
+    desc:  'Thesis counts by program and by year, plus the most common keywords.',
     to:    '/analytics',
-    linkLabel: 'Open Analytics',
   },
 ];
 
@@ -193,7 +186,7 @@ export default function LandingPage() {
     return map[trend] || map.EMERGING;
   };
 
-  const trendList = topics?.slice(0, 4) || [];
+  const trendList = topics?.slice(0, 6) || [];
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas transition-colors duration-300">
@@ -241,7 +234,8 @@ export default function LandingPage() {
               <li key={label}>
                 <Link to={to} onClick={implemented ? undefined : (e) => e.preventDefault()}
                   aria-disabled={!implemented}
-                  className={`${NAV_LINK_BASE} ${implemented ? NAV_LINK_IDLE : NAV_LINK_SOON}`}>
+                  aria-current={to === '/' ? 'page' : undefined}
+                  className={`${NAV_LINK_BASE} ${!implemented ? NAV_LINK_SOON : to === '/' ? NAV_LINK_ACTIVE : NAV_LINK_IDLE}`}>
                   {label}
                 </Link>
               </li>
@@ -289,10 +283,13 @@ export default function LandingPage() {
                   <li key={label}>
                     <Link to={to} onClick={(e) => { if (!implemented) e.preventDefault(); else setMobileMenuOpen(false); }}
                       aria-disabled={!implemented}
+                      aria-current={to === '/' ? 'page' : undefined}
                       className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                         !implemented
                           ? 'text-subtle cursor-default'
-                          : 'text-body hover:bg-nav-hover-bg hover:text-ink'
+                          : to === '/'
+                            ? NAV_LINK_ACTIVE
+                            : 'text-body hover:bg-nav-hover-bg hover:text-ink'
                       }`}>
                       {label}
                     </Link>
@@ -408,15 +405,15 @@ export default function LandingPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search topics or authors..."
+                  placeholder="Search titles, topics, or authors…"
                   className={`flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
-                  aria-label="Search thesis topics, keywords, or authors"
+                  aria-label="Search titles, topics, or authors"
                 />
               </div>
               <button type="submit"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-primary-solid-hover transition-all duration-150 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                Search Semantically
+                Search Theses
               </button>
             </m.form>
 
@@ -432,234 +429,105 @@ export default function LandingPage() {
         </section>
         </LazyMotion>
 
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            REPOSITORY SNAPSHOT — enough bottom padding to seal the fold
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <section className="bg-surface-elevated">
-          <div className="max-w-7xl mx-auto px-8 sm:px-12 lg:px-16 py-10 pb-16">
-            <h2 className={`text-center text-base font-semibold tracking-wide mb-6 text-body`}>
+        {/* Repository snapshot — the values are the focus, each with a short
+            label under it. The count comes from the public stats endpoint;
+            the rest are the corpus bounds. Aggregate only for logged-out
+            visitors. flex-col-reverse keeps dt before dd in the markup while
+            the value shows first. */}
+        <section className="bg-surface-elevated border-b border-border-default">
+          <div className={`${CONTAINER} py-10`}>
+            <h2 className="text-center text-base font-semibold tracking-wide text-body">
               Repository Snapshot
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x
-              divide-gray-200 dark:divide-white/[0.06]">
+            <dl className="mt-6 grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border-default">
+              {[
+                { label: 'Undergraduate Theses Indexed', value: thesisCount ?? '—' },
+                { label: 'Corpus Coverage',              value: '2021–2025' },
+                { label: 'Programs',                     value: 'BSIS • BSIT • BSCS' },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex flex-col-reverse items-center gap-1.5 px-6 py-5 text-center">
+                  <dt className="text-sm font-semibold text-body">{label}</dt>
+                  <dd className="text-3xl font-bold leading-none tracking-tight whitespace-nowrap tabular-nums text-primary">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
 
-              {/* Card 1 — thesis count */}
-              <div className="flex items-center gap-4 px-6 py-5">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-bg`}>
-                  <BookOpen className={`w-5 h-5 text-primary`} aria-hidden="true" />
-                </div>
-                <div>
-                  <div className={`text-2xl font-bold leading-none text-primary`}>
-                    <AnimatedCounter value={thesisCount} />
-                  </div>
-                  <div className={`text-xs font-semibold mt-0.5 text-body`}>
-                    Undergraduate Theses Indexed
-                  </div>
-                  <div className={`text-xs mt-0.5 text-muted`}>
-                    Approved and ready for semantic search
-                  </div>
-                </div>
-              </div>
+        {/* Research tools + research subjects. The subject list is the one
+            piece of live evidence a logged-out visitor can see. */}
+        <section className="bg-canvas">
+          <div className={`${CONTAINER} py-14 grid gap-12 lg:grid-cols-2 lg:gap-16`}>
 
-              {/* Card 2 — corpus coverage */}
-              <div className="flex items-center gap-4 px-6 py-5">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-bg`}>
-                  <GraduationCap className={`w-5 h-5 text-primary`} aria-hidden="true" />
-                </div>
-                <div>
-                  <div className={`text-2xl font-bold leading-none text-primary`}>
-                    2021 – 2025
-                  </div>
-                  <div className={`text-xs font-semibold mt-0.5 text-body`}>
-                    Corpus Coverage
-                  </div>
-                  <div className={`text-xs mt-0.5 text-muted`}>
-                    Theses from SY 2021 to SY 2025
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3 — research domains */}
-              <div className="flex items-center gap-4 px-6 py-5">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-bg`}>
-                  <LayoutDashboard className={`w-5 h-5 text-primary`} aria-hidden="true" />
-                </div>
-                <div>
-                  <div className={`text-2xl font-bold leading-none text-primary`}>
-                    BSIS • BSIT • BSCS
-                  </div>
-                  <div className={`text-xs font-semibold mt-0.5 text-body`}>
-                    Research Domains
-                  </div>
-                  <div className={`text-xs mt-0.5 text-muted`}>
-                    Computing programs covered
-                  </div>
-                </div>
-              </div>
-
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Research tools</h2>
+              <p className="mt-1 text-[15px] text-body">
+                For the CCS undergraduate thesis lifecycle, from choosing a topic to finding related work.
+              </p>
+              <ul className="mt-6 divide-y divide-border-default border-y border-border-default">
+                {FEATURES.map(({ icon: Icon, title, desc, to }) => (
+                  <li key={to}>
+                    <Link to={to}
+                      className="group flex gap-4 py-4 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <Icon className="mt-0.5 w-5 h-5 flex-shrink-0 text-primary" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1 text-[15px] font-semibold text-ink group-hover:text-primary transition-colors">
+                          {title}
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+                        </span>
+                        <span className="mt-1 block text-[15px] leading-relaxed text-body">{desc}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
+
+            <div>
+              <h2 className="text-lg font-semibold text-ink">
+                {reviewedSubjectsEnabled ? 'Research subjects' : 'Topic groups'}
+              </h2>
+              <p className="mt-1 text-[15px] text-body">
+                {reviewedSubjectsEnabled
+                  ? 'Confirmed primary subjects among approved theses. Labels compare relative counts, not growth over time.'
+                  : 'Groups of theses with similar meaning. Labels compare relative counts, not growth over time.'}
+              </p>
+              <ul className="mt-6 divide-y divide-border-default border-y border-border-default">
+                {trendList.length === 0 && (
+                  <li className="py-4 text-[15px] text-body">
+                    {isAuthenticated ? 'Current topic results are unavailable.' : 'Sign in to explore current topic groups.'}
+                  </li>
+                )}
+                {trendList.map((t) => {
+                  const chip = trendChip(t.trend);
+                  return (
+                    <li key={t.topic} className="flex items-center justify-between gap-3 py-3">
+                      <span className="text-[15px] truncate text-ink" title={t.topic}>{t.topic}</span>
+                      <span className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-sm font-semibold tabular-nums text-muted">{t.count}</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold border ${chip.cls}`}>
+                          {chip.label}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Link to="/trend-analysis"
+                className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
+                View all trends <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </Link>
+            </div>
+
           </div>
         </section>
       </main>
 
-      <LazyMotion features={domAnimation}>
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          FEATURE SHOWCASE — begins below first fold (scroll-reveal point)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <section className={`px-5 sm:px-8 lg:px-14 pt-12 pb-12 border-t bg-canvas border-border-default`}>
-        <div className="max-w-6xl mx-auto">
-          <h2 className={`text-center text-base font-semibold tracking-wide mb-8 text-body`}>
-            Research tools built for CCS
-          </h2>
-          <m.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={staggerContainer}
-          >
-            {FEATURES.map(({ icon: Icon, iconBg, iconColor, title, desc, to, linkLabel }) => (
-              <m.div key={title} variants={fadeUp} className="flex flex-col gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-                  <Icon className={`w-5 h-5 ${iconColor}`} aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-semibold mb-1 text-ink`}>{title}</h3>
-                  <p className={`text-xs leading-relaxed text-body`}>{desc}</p>
-                </div>
-                <Link to={to}
-                  className={`inline-flex items-center gap-1 text-xs font-semibold mt-auto text-primary hover:opacity-80`}>
-                  {linkLabel} <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                </Link>
-              </m.div>
-            ))}
-          </m.div>
-        </div>
-      </section>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          TRENDING TOPICS PREVIEW + WHY THESYS+ — side by side
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <section className={`px-5 sm:px-8 lg:px-14 py-10 border-t border-border-subtle bg-canvas`}>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
-
-          {/* LEFT — Trending Topics Preview */}
-          <div>
-            <h2 className={`text-base font-bold mb-1 text-ink`}>
-              {reviewedSubjectsEnabled ? 'Reviewed subjects preview' : 'Exploratory text clusters preview'}
-            </h2>
-            <p className={`text-xs mb-5 text-muted`}>
-              {reviewedSubjectsEnabled
-                ? 'Confirmed primary subjects among approved theses. Labels compare relative counts, not growth over time.'
-                : 'Groups of theses with similar meaning. Labels compare relative counts, not growth over time.'}
-            </p>
-
-            <m.div
-              className="divide-y border-y divide-border-default border-border-default"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-80px' }}
-              variants={staggerContainer}
-            >
-              {trendList.length === 0 && (
-                <p className={`text-sm text-body`}>
-                  {isAuthenticated ? 'Current topic results are unavailable.' : 'Sign in to explore current text clusters.'}
-                </p>
-              )}
-              {trendList.map((t) => {
-                const chip = trendChip(t.trend);
-                return (
-                  <m.div key={t.topic} variants={fadeUp}
-                    className="flex items-center justify-between gap-3 py-2.5">
-                    <span className={`text-sm truncate text-ink`} title={t.topic}>
-                      {t.topic}
-                    </span>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-xs font-semibold text-muted`}>{t.count}</span>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${chip.cls}`}>
-                        {chip.label}
-                      </span>
-                    </div>
-                  </m.div>
-                );
-              })}
-            </m.div>
-
-            <Link to="/trend-analysis"
-              className={`inline-flex items-center gap-1.5 mt-5 text-xs font-semibold text-primary hover:opacity-80`}>
-              View all trends <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </Link>
-          </div>
-
-          {/* RIGHT — Why THESYS+ (lighter stacked layout, no card containers) */}
-          <div>
-            <h2 className={`text-base font-bold mb-1 text-ink`}>
-              Why THESYS+
-            </h2>
-            <p className={`text-xs mb-6 text-muted`}>
-              Built to support the CCS undergraduate thesis lifecycle.
-            </p>
-
-            <m.div
-              className="space-y-6"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-80px' }}
-              variants={staggerContainer}
-            >
-              <m.div variants={fadeUp} className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-bg`}>
-                  <ShieldCheck className={`w-5 h-5 text-primary`} aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-semibold mb-0.5 text-ink`}>Prevent Topic Duplication</h3>
-                  <p className={`text-xs leading-relaxed text-body`}>
-                    Validate thesis titles early to avoid duplication and ensure research originality.
-                  </p>
-                </div>
-              </m.div>
-
-              <m.div variants={fadeUp} className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-bg`}>
-                  <Search className={`w-5 h-5 text-primary`} aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-semibold mb-0.5 text-ink`}>Improve Discoverability</h3>
-                  <p className={`text-xs leading-relaxed text-body`}>
-                    Make completed CCS theses findable by meaning, not just by exact keywords.
-                  </p>
-                </div>
-              </m.div>
-
-              <m.div variants={fadeUp} className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-success-bg`}>
-                  <TrendingUp className={`w-5 h-5 text-success`} aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-semibold mb-0.5 text-ink`}>Reveal Research Trends</h3>
-                  <p className={`text-xs leading-relaxed text-body`}>
-                    {reviewedSubjectsEnabled
-                      ? 'Compare relative thesis counts in reviewed subjects, with exploratory text clusters available separately.'
-                      : 'Explore AI-generated text clusters while subject assignments are being prepared.'}
-                  </p>
-                </div>
-              </m.div>
-            </m.div>
-          </div>
-
-        </div>
-      </section>
-      </LazyMotion>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          FOOTER — dark band with institutional links
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* Footer — dark band with institutional links */}
       <footer className={`border-t ${isDark ? 'border-white/[0.06] bg-[#060b1e]' : 'border-gray-800 bg-[#0f172a]'}`}>
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 lg:px-14 py-6">
-          {/* Desktop: 4-column flex row | Mobile: stacked */}
+        <div className={`${CONTAINER} py-6`}>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 sm:gap-4">
 
-            {/* Col 1 — logo + institution */}
             <div className="flex flex-col gap-1 min-w-0">
               <ThesysLogo variant="wordmark" size={26} onDark />
               <p className="text-xs text-gray-300 mt-1">Pampanga State University</p>
@@ -667,14 +535,14 @@ export default function LandingPage() {
               <p className="text-xs text-gray-400 mt-1">© 2026 THESYS+. All rights reserved.</p>
             </div>
 
-            {/* Col 2 — page links */}
+            {/* Resources — 2×2: About / Terms on the first row, Privacy / Help on the second */}
             <nav aria-label="Footer navigation">
               <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Resources</p>
-              <ul className="flex flex-col gap-1.5">
+              <ul className="grid w-fit grid-cols-[auto_auto] gap-x-10 gap-y-1.5">
                 {[
                   { label: 'About',   onClick: () => setLegalModal('about') },
-                  { label: 'Privacy', onClick: () => setLegalModal('privacy') },
                   { label: 'Terms',   onClick: () => setLegalModal('terms') },
+                  { label: 'Privacy', onClick: () => setLegalModal('privacy') },
                   { label: 'Help',    onClick: () => setLegalModal('help') },
                 ].map(({ label, onClick }) => (
                   <li key={label}>
@@ -687,7 +555,6 @@ export default function LandingPage() {
               </ul>
             </nav>
 
-            {/* Col 3 — institutional links (NEW) */}
             <nav aria-label="Institutional links">
               <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Institutional Links</p>
               <ul className="flex flex-col gap-1.5">
@@ -715,21 +582,6 @@ export default function LandingPage() {
                 </li>
               </ul>
             </nav>
-
-            {/* Col 4 — social icons (only verified destinations) */}
-            <div className="flex items-center gap-3 sm:self-end">
-              <a
-                href="https://web.facebook.com/dhvsu.ccssc"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Visit CCS Facebook page (opens in new tab)"
-                className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center hover:bg-white/[0.12] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-              >
-                <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
-                </svg>
-              </a>
-            </div>
 
           </div>
         </div>

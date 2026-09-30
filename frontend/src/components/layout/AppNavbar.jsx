@@ -194,7 +194,7 @@ export function AvatarDropdown({ user, onSignOut }) {
 
 // Single source for the bar itself, so the landing page and every app page put
 // the logo, links and actions at the same coordinates.
-export const NAV_BAR_CLASS = 'px-5 sm:px-8 lg:px-14 py-3 border-b border-[var(--color-border-subtle)] bg-canvas/75 backdrop-blur-md sticky top-0 z-30';
+export const NAV_BAR_CLASS = 'px-5 sm:px-8 lg:px-14 py-3 border-b border-[var(--color-border-subtle)] bg-canvas sticky top-0 z-30';
 export const NAV_LINK_BASE = 'relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 export const NAV_LINK_IDLE = 'text-body hover:text-ink hover:bg-nav-hover-bg';
 export const NAV_LINK_ACTIVE = 'bg-nav-active-bg text-nav-active-text';
