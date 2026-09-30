@@ -267,3 +267,29 @@ class TestOCRIntegrationPerformance:
         # Should complete within timeout (10 seconds)
         assert elapsed_time < 10.0
         assert result.success or result.error is not None  # Either success or graceful failure
+
+
+def test_reads_white_text_on_a_light_blue_band(tmp_path, ocr_extractor):
+    """The older DHVSU ID prints the program in white on a light-blue band.
+
+    Tesseract reads nothing from that band in the colour image, so the program
+    never reached the field extractor. The red channel turns the blue dark and
+    keeps the white bright, and the extractor OCRs that as a second pass.
+    """
+    font = ImageFont.truetype('arialbd.ttf', 44)
+    img = Image.new('RGB', (900, 420), 'white')
+    draw = ImageDraw.Draw(img)
+    draw.text((60, 40), 'JERRY VIC P. TORRES', fill='black', font=font)
+    draw.rectangle((0, 140, 900, 300), fill=(173, 216, 230))
+    draw.text((60, 160), 'BACHELOR OF SCIENCE IN', fill='white', font=font)
+    draw.text((60, 225), 'Information Systems', fill='white', font=font)
+    path = tmp_path / 'dhvsu_id.png'
+    img.save(path)
+
+    result = ocr_extractor.extract(str(path))
+
+    assert result.success
+    assert 'TORRES' in result.raw_text.upper()
+    assert 'INFORMATION SYSTEMS' in result.raw_text.upper()
+    # Lines both passes read are not repeated.
+    assert result.raw_text.upper().count('TORRES') == 1

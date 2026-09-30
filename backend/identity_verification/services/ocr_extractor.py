@@ -16,7 +16,7 @@ from typing import BinaryIO
 
 import pytesseract
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageOps
 from common.performance import timed
 
 
@@ -176,6 +176,7 @@ class OCRExtractor:
         else:
             overall_confidence = 0.0
         
+        raw_text = raw_text + self._red_channel_extra_lines(image, raw_text)
         image.close()
         
         return OCRResult(
@@ -185,6 +186,22 @@ class OCRExtractor:
             error=None,
         )
     
+    def _red_channel_extra_lines(self, image: Image.Image, first_pass: str) -> str:
+        """OCR the red channel and return only lines the first pass missed.
+
+        The older DHVSU ID prints the program in white on a light-blue band,
+        which Tesseract reads as nothing in the colour photo. In the red
+        channel the blue turns dark while the white stays bright. Confidence is
+        still taken from the first pass only, so the decision thresholds are
+        unchanged.
+        """
+        red = ImageOps.autocontrast(image.convert('RGB').split()[0], cutoff=2)
+        text = pytesseract.image_to_string(red, timeout=self.timeout_seconds)
+        seen = {line.strip() for line in first_pass.splitlines()}
+        extra = [line.strip() for line in text.splitlines()
+                 if line.strip() and line.strip() not in seen]
+        return '\n' + '\n'.join(extra) if extra else ''
+
     def _extract_from_pdf(self, pdf_path: str) -> OCRResult:
         """Extract text from PDF file (first page only).
         
