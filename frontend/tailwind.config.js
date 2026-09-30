@@ -93,7 +93,7 @@ export default {
       // Matches --ease-* CSS custom properties in tokens.css.
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
-        'out':    'cubic-bezier(0, 0, 0.2, 1)',
+        'out':    'var(--ease-out)',
         'in':     'cubic-bezier(0.4, 0, 1, 1)',
       },
       // ── THESYS+ duration scale (Phase 1.4)
@@ -130,10 +130,10 @@ export default {
         },
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
+        'accordion-down': 'accordion-down 0.2s var(--ease-out)',
+        'accordion-up': 'accordion-up 0.2s var(--ease-out)',
         'shimmer': 'shimmer 1.8s linear infinite',
-        'fade-in': 'fade-in 0.2s ease-out forwards',
+        'fade-in': 'fade-in 0.2s var(--ease-out) forwards',
       },
     },
   },

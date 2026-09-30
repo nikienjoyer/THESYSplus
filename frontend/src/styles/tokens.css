@@ -303,7 +303,7 @@
 
   /* ── Easing scale ─────────────────────────────────────────────────── */
   --ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);      /* Standard state transitions */
-  --ease-out:      cubic-bezier(0, 0, 0.2, 1);         /* Entrances, hover reveals */
+  --ease-out:      cubic-bezier(0.23, 1, 0.32, 1);     /* Entrances, hover reveals — strong ease-out: most of the travel lands in the first frames */
   --ease-in:       cubic-bezier(0.4, 0, 1, 1);         /* Exits */
 
   /* ── Duration scale ───────────────────────────────────────────────── */

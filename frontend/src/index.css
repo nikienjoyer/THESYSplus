@@ -415,7 +415,7 @@
     border-width: 1px;
     background-color: var(--color-surface-elevated);
     border-color: var(--color-border);
-    animation: fade-in 0.15s ease-out forwards;
+    animation: fade-in 0.15s var(--ease-out) forwards;
     transform-origin: top right;
   }
   :root .thesys-dropdown {
@@ -564,9 +564,9 @@
   animation: thesys-progress-sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-.thesys-overlay-enter { animation: thesys-fade-in 200ms cubic-bezier(0, 0, 0.2, 1); }
-.thesys-modal-enter   { animation: thesys-modal-in 200ms cubic-bezier(0, 0, 0.2, 1); }
-.thesys-drawer-enter  { animation: thesys-drawer-in 200ms cubic-bezier(0, 0, 0.2, 1); }
+.thesys-overlay-enter { animation: thesys-fade-in 200ms var(--ease-out); }
+.thesys-modal-enter   { animation: thesys-modal-in 200ms var(--ease-out); }
+.thesys-drawer-enter  { animation: thesys-drawer-in 200ms var(--ease-out); }
 
 @media (prefers-reduced-motion: reduce) {
   .thesys-overlay-enter,

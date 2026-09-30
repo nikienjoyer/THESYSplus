@@ -7,7 +7,7 @@
  * hardcoding durations/eases, so the motion language stays anchored to the
  * existing CSS tokens in `styles/tokens.css`:
  *
- *   --ease-out:      cubic-bezier(0, 0, 0.2, 1)   → EASE_OUT below
+ *   --ease-out:      cubic-bezier(0.23, 1, 0.32, 1) → EASE_OUT below
  *   --duration-normal:  150ms                     → DURATION.normal
  *   --duration-surface: 180ms                     → DURATION.surface
  *   --duration-enter:   200ms                     → DURATION.enter
@@ -29,7 +29,7 @@ import { animate, useMotionValue, useReducedMotion, useTransform } from 'framer-
 
 // ── Easing ──────────────────────────────────────────────────────────────
 // Matches --ease-out in tokens.css exactly.
-export const EASE_OUT = [0, 0, 0.2, 1];
+export const EASE_OUT = [0.23, 1, 0.32, 1];
 
 // ── Durations (seconds — Framer Motion works in seconds, not ms) ────────
 export const DURATION = {
