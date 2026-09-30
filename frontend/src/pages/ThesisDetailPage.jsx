@@ -169,6 +169,44 @@ export default function ThesisDetailPage() {
     }
   };
 
+  // Approve / reject a pending thesis. Administrators only (the endpoint
+  // refuses everyone else); the uploader is emailed the decision.
+  const canReviewThesis = user?.role === 'administrator';
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  const submitReview = async (decision) => {
+    if (reviewing) return;
+    if (decision === 'reject' && !rejectReason.trim()) {
+      setReviewError('Give the student a reason for the rejection.');
+      return;
+    }
+    setReviewing(true);
+    setReviewError('');
+    try {
+      const res = await client.post(`/theses/${id}/review/`, {
+        decision,
+        reason: decision === 'reject' ? rejectReason.trim() : '',
+      });
+      setThesis(res.data);
+      setRejecting(false);
+      toast.success(decision === 'approve'
+        ? 'Thesis approved. The student has been emailed.'
+        : 'Thesis rejected. The student has been emailed your reason.');
+      if (res.data.embedding_repair_failed) {
+        toast.error('Approved, but this thesis could not be indexed for semantic search. Check the server logs.');
+      }
+    } catch (err) {
+      setReviewError(err?.response?.status === 409
+        ? 'This thesis was already reviewed. Reload the page to see its current status.'
+        : err?.response?.data?.error?.message || 'The decision could not be saved. Please try again.');
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const handlePreview = () => {
     navigate(`/theses/${id}/preview`);
   };
@@ -342,6 +380,66 @@ export default function ThesisDetailPage() {
               <div className={`text-sm mb-4 text-body`}>
                 <strong>Adviser:</strong> {thesis.adviser}
               </div>
+            )}
+
+            {/* Review — administrators decide on a pending thesis here. */}
+            {canReviewThesis && thesis.status === 'pending_review' && (
+              <section aria-labelledby="thesis-review-heading"
+                className="mt-5 rounded-lg border border-warning-border bg-warning-bg p-4">
+                <h2 id="thesis-review-heading" className="text-sm font-semibold text-warning-text">
+                  Awaiting your review
+                </h2>
+                <p className="mt-1 text-sm text-body">
+                  Approving publishes this thesis to the repository. Either way, the student is emailed the decision.
+                </p>
+                {rejecting && (
+                  <div className="mt-3">
+                    <label htmlFor="reject-reason" className="block text-sm font-medium text-ink">
+                      Reason for the student
+                    </label>
+                    <textarea id="reject-reason" rows={3} value={rejectReason}
+                      onChange={(e) => { setRejectReason(e.target.value); setReviewError(''); }}
+                      className="mt-1.5 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      placeholder="Chapter 3 is missing its methodology section." />
+                  </div>
+                )}
+                {reviewError && <p role="alert" className="mt-2 text-sm text-danger-text">{reviewError}</p>}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {rejecting ? (
+                    <>
+                      <button type="button" onClick={() => submitReview('reject')} disabled={reviewing}
+                        className="min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-semibold border border-danger-border text-danger-text hover:bg-danger-bg disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        {reviewing ? 'Rejecting…' : 'Confirm rejection'}
+                      </button>
+                      <button type="button" onClick={() => { setRejecting(false); setReviewError(''); }} disabled={reviewing}
+                        className="min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-semibold border border-border-strong text-body hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => submitReview('approve')} disabled={reviewing}
+                        className="min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-semibold bg-primary-solid text-white hover:bg-primary-solid-hover disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                        {reviewing ? 'Approving…' : 'Approve'}
+                      </button>
+                      <button type="button" onClick={() => setRejecting(true)} disabled={reviewing}
+                        className="min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-semibold border border-danger-border text-danger-text hover:bg-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Rejection reason — only the uploader and staff can open a
+                rejected thesis, so this is who sees it. */}
+            {thesis.status === 'rejected' && thesis.rejection_reason && (
+              <section aria-labelledby="rejection-heading"
+                className="mt-5 rounded-lg border border-danger-border bg-danger-bg p-4">
+                <h2 id="rejection-heading" className="text-sm font-semibold text-danger-text">Not approved</h2>
+                <p className="mt-1 text-sm text-ink whitespace-pre-line">{thesis.rejection_reason}</p>
+              </section>
             )}
 
             {/* Actions. Phones: a bar fixed to the bottom of the screen, so

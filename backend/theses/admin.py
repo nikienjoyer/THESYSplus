@@ -26,13 +26,10 @@ from django.contrib.admin.views.main import ChangeList
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.text import capfirst
 
-from common import audit_logger
-
-from .models import EmbeddingStatus, ResearchSubject, Thesis, ThesisStatus
+from .models import ResearchSubject, Thesis, ThesisStatus
 from .services.redundancy import (
     LABEL_CLEAN,
     LABEL_HIGH,
@@ -43,6 +40,7 @@ from .services.redundancy import (
     advisory_for,
     analyze_titles,
 )
+from .services.review import EVENT_FOR_STATUS, record_transition, stamp_reviewer
 
 logger = logging.getLogger(__name__)
 
@@ -92,15 +90,8 @@ _REASON_TEXT = {
 }
 _REASON_DEFAULT = 'The title embedding could not be read.'
 
-# Destination status → audit event type. All three are 22 characters, well
-# inside AuditLog.event_type's 64-character limit.
-_EVENT_FOR_STATUS = {
-    ThesisStatus.APPROVED: 'thesis.review.approved',
-    ThesisStatus.REJECTED: 'thesis.review.rejected',
-    ThesisStatus.PENDING_REVIEW: 'thesis.review.reopened',
-}
-
-_TERMINAL_STATUSES = (ThesisStatus.APPROVED, ThesisStatus.REJECTED)
+# Destination status → audit event type, shared with the review API.
+_EVENT_FOR_STATUS = EVENT_FOR_STATUS
 
 
 def _format_percent(score: float) -> str:
@@ -509,43 +500,6 @@ class ThesisAdmin(admin.ModelAdmin):
             logger.warning('Redundancy analysis failed for thesis %s: %s', obj.id, exc)
             return None
 
-    def _retry_embedding_if_needed(self, request, thesis) -> None:
-        """Repair a missing embedding on a thesis that has just been approved.
-
-        Extracted from the removed ``approve_theses`` bulk action. Without
-        this, a thesis whose SBERT encode failed at upload can be approved and
-        then sit in the repository permanently invisible to semantic search
-        and title similarity, with nothing surfacing the problem.
-
-        Best-effort by design: a failure here never rolls back the approval.
-        The review decision and the embedding are independent concerns — but
-        the reviewer is told, on the page, when the thesis is not searchable.
-        """
-        if thesis.embedding_status == EmbeddingStatus.READY:
-            return
-
-        from .services.semantic_search import (
-            generate_thesis_embedding,
-            generate_title_embedding,
-        )
-
-        try:
-            generate_thesis_embedding(thesis)
-            generate_title_embedding(thesis)
-            self.message_user(
-                request,
-                'Embedding regenerated for this thesis.',
-                level=messages.INFO,
-            )
-        except Exception as exc:
-            logger.warning('Embedding retry failed for thesis %s: %s', thesis.id, exc)
-            self.message_user(
-                request,
-                'This thesis could not be embedded — semantic search and '
-                'redundancy analysis will not cover it. Check server logs.',
-                level=messages.WARNING,
-            )
-
     # ── Save path ───────────────────────────────────────────────────────
 
     def save_model(self, request, obj, form, change):
@@ -556,6 +510,9 @@ class ThesisAdmin(admin.ModelAdmin):
         values captured when the page was rendered, so a concurrent reviewer's
         change makes them stale in both directions — they can report a
         transition that did not happen, or miss one that did.
+
+        Provenance, embedding repair, the audit row and the uploader's email
+        come from ``services.review``, which the review API uses too.
         """
         previous_status = None
         previous_title = None
@@ -570,18 +527,8 @@ class ThesisAdmin(admin.ModelAdmin):
                 previous_status = previous['status']
                 previous_title = previous['title']
 
-        new_status = obj.status
-        is_transition = previous_status != new_status
-
-        # Two rules generate the whole transition matrix: a terminal status
-        # stamps the reviewer and timestamp; returning to pending clears both.
-        if is_transition:
-            if new_status in _TERMINAL_STATUSES:
-                obj.reviewed_by = request.user
-                obj.reviewed_at = timezone.now()
-            elif new_status == ThesisStatus.PENDING_REVIEW:
-                obj.reviewed_by = None
-                obj.reviewed_at = None
+        is_transition = previous_status != obj.status
+        stamp_reviewer(obj, previous_status, request.user)
 
         super().save_model(request, obj, form, change)
 
@@ -602,33 +549,20 @@ class ThesisAdmin(admin.ModelAdmin):
             # provenance to touch.
             return
 
-        if new_status == ThesisStatus.APPROVED:
-            self._retry_embedding_if_needed(request, obj)
-
-        metadata = {
-            'thesis_id': str(obj.id),
-            'title': (obj.title or '')[:200],
-            'previous_status': previous_status,
-            'new_status': new_status,
-            'program': obj.program,
-            'year': obj.year,
-            'created': not change,
-        }
-        if new_status == ThesisStatus.REJECTED:
-            metadata['rejection_reason'] = (obj.rejection_reason or '')[:500]
-
         # After the save, never before: a failed write must not leave an
-        # "approved" row in the audit trail. No try/except needed —
-        # audit_logger.write swallows and logs its own failures, so a log
-        # outage degrades to a missing audit row rather than a broken review.
-        audit_logger.write(
-            _EVENT_FOR_STATUS.get(new_status, 'thesis.review.reopened'),
-            actor=request.user,
-            target=obj.uploaded_by,
-            success=True,
-            metadata=metadata,
-            request=request,
+        # "approved" row in the audit trail.
+        embedded = record_transition(
+            obj, previous_status, actor=request.user, request=request, created=not change,
         )
+        if embedded is True:
+            self.message_user(request, 'Embedding regenerated for this thesis.', level=messages.INFO)
+        elif embedded is False:
+            self.message_user(
+                request,
+                'This thesis could not be embedded — semantic search and '
+                'redundancy analysis will not cover it. Check server logs.',
+                level=messages.WARNING,
+            )
 
     # ── Delete path ─────────────────────────────────────────────────────
 

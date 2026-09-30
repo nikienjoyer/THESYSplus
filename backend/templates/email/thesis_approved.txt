@@ -1,0 +1,13 @@
+Hi {{ first_name }},
+
+Your thesis has been approved and is now in the THESYS+ repository:
+
+{{ title }}
+
+View it here:
+{{ thesis_url }}
+
+— THESYS+
+   Pampanga State University, College of Computing Studies
+
+This is an automated message. Please do not reply to this email.

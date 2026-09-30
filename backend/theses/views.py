@@ -530,6 +530,59 @@ class ThesisSubjectReviewView(APIView):
         return Response(ThesisDetailSerializer(thesis).data)
 
 
+class ThesisReviewView(APIView):
+    """Approve or reject a pending thesis: ``{"decision": "approve" | "reject", "reason": "..."}``.
+
+    Administrators only. A rejection needs a reason, because the uploader is
+    emailed it. Changing a decision already made stays in the Django admin.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id, *args, **kwargs):
+        from .services.review import ThesisNotPending, review_pending_thesis
+
+        if getattr(request.user, 'role', None) != Role.ADMINISTRATOR:
+            return make_error_response(
+                code='FORBIDDEN', message='Only administrators may approve or reject theses.',
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data if isinstance(request.data, dict) else {}
+        decision = data.get('decision')
+        reason = data.get('reason')
+        reason = reason.strip() if isinstance(reason, str) else ''
+        if decision not in ('approve', 'reject'):
+            return make_error_response(
+                code='INVALID_DECISION', message='Choose approve or reject.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if decision == 'reject' and not reason:
+            return make_error_response(
+                code='REASON_REQUIRED', message='Give the student a reason for the rejection.',
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            uid = uuid.UUID(str(id))
+        except (ValueError, TypeError):
+            raise NotFound(detail='Thesis not found.')
+        try:
+            thesis, embedded = review_pending_thesis(
+                uid, decision=decision, reason=reason, actor=request.user, request=request,
+            )
+        except Thesis.DoesNotExist:
+            raise NotFound(detail='Thesis not found.')
+        except ThesisNotPending:
+            return make_error_response(
+                code='THESIS_NOT_PENDING', message='This thesis was already reviewed.',
+                status=status.HTTP_409_CONFLICT,
+            )
+        thesis = Thesis.objects.select_related('primary_subject', 'subject_reviewed_by', 'uploaded_by').get(pk=uid)
+        data = ThesisDetailSerializer(thesis).data
+        # False only when approval could not repair a missing embedding.
+        data['embedding_repair_failed'] = embedded is False
+        return Response(data)
+
+
 class ThesisSubjectSuggestionsView(APIView):
     """Two likely primary subjects for an approved thesis.
 

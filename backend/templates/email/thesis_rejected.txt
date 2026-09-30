@@ -1,0 +1,18 @@
+Hi {{ first_name }},
+
+Your thesis was reviewed and was not approved for the THESYS+ repository:
+
+{{ title }}
+
+Reason from the administrator:
+{{ reason }}
+
+You can see this reason on your thesis page:
+{{ thesis_url }}
+
+After addressing the reason above, you may upload a revised version.
+
+— THESYS+
+   Pampanga State University, College of Computing Studies
+
+This is an automated message. Please do not reply to this email.

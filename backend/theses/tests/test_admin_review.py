@@ -822,3 +822,44 @@ class TestChangeFormRendering:
 
         assert 'Theses' in body
         assert 'Thesiss' not in body
+
+
+# ---------------------------------------------------------------------------
+# Uploader notification (shared with the review API via services.review)
+# ---------------------------------------------------------------------------
+
+class TestDecisionEmail:
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        outbox = []
+
+        class _Backend:
+            def send(self, to, subject, template_name, context):
+                outbox.append((to, template_name, context))
+                return True
+
+        monkeypatch.setattr('theses.services.review.default_email_backend', lambda: _Backend())
+        return outbox
+
+    def test_admin_approval_emails_the_uploader(self, model_admin, rf_request, make_thesis, student, sent):
+        thesis = make_thesis('Emailed On Approval')
+        thesis.status = ThesisStatus.APPROVED
+        save_via_admin(model_admin, rf_request(), thesis)
+
+        assert [(to, template) for to, template, _ in sent] == [(student.email, 'thesis_approved')]
+
+    def test_admin_rejection_emails_the_reason(self, model_admin, rf_request, make_thesis, sent):
+        thesis = make_thesis('Emailed On Rejection')
+        thesis.status = ThesisStatus.REJECTED
+        thesis.rejection_reason = 'Missing chapter 3.'
+        save_via_admin(model_admin, rf_request(), thesis)
+
+        assert sent[0][1] == 'thesis_rejected'
+        assert sent[0][2]['reason'] == 'Missing chapter 3.'
+
+    def test_edits_without_a_decision_send_nothing(self, model_admin, rf_request, make_thesis, sent):
+        thesis = make_thesis('Just A Typo Fix')
+        thesis.adviser = 'Prof. Santos'
+        save_via_admin(model_admin, rf_request(), thesis)
+
+        assert sent == []
