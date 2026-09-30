@@ -428,19 +428,21 @@ export default function TitleSimilarityPage() {
   // input with no document behind it, so that path stays available.
   const blockedByRejectedDocument = mode === 'upload' && documentRejected;
 
-  // Panel crossfade + small horizontal offset, gated by reduced motion.
+  // Panel enter: fade + small horizontal offset, gated by reduced motion.
   // DURATION.normal (150ms) — comfortably under the ~180ms ceiling for this
   // class of transition (tokens.css --duration-enter is the 200ms hard cap).
   const panelVariants = reduceMotion
     ? {
-        initial: { opacity: 1, x: 0 },
-        animate: { opacity: 1, x: 0, transition: { duration: 0 } },
-        exit:    { opacity: 1, x: 0, transition: { duration: 0 } },
+        initial: { opacity: 1, transform: 'translateX(0px)' },
+        animate: { opacity: 1, transform: 'translateX(0px)', transition: { duration: 0 } },
+        exit:    { opacity: 1, transform: 'translateX(0px)', transition: { duration: 0 } },
       }
     : {
-        initial: { opacity: 0, x: 8 },
-        animate: { opacity: 1, x: 0, transition: { duration: DURATION.normal, ease: EASE_OUT } },
-        exit:    { opacity: 0, x: -8, transition: { duration: DURATION.normal, ease: EASE_OUT } },
+        initial: { opacity: 0, transform: 'translateX(8px)' },
+        animate: { opacity: 1, transform: 'translateX(0px)', transition: { duration: DURATION.normal, ease: EASE_OUT } },
+        // Outgoing panel leaves instantly: with mode="wait" an animated exit
+        // would hold the new panel back and double the switch time.
+        exit:    { opacity: 0, transition: { duration: 0 } },
       };
 
   const titleInputCls = `w-full px-4 py-3 rounded-lg border text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
