@@ -16,14 +16,19 @@ live encode on the render path.
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
+from django.core.files.storage import default_storage
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.text import capfirst
 
 from common import audit_logger
 
@@ -134,6 +139,52 @@ class _RedundancyChangeList(ChangeList):
         # per-instance attributes are not.
         for obj in self.result_list:
             setattr(obj, _RESULT_ATTR, results.get(obj.id))
+
+
+# Per-thesis caches written by the viewer, each under ``<prefix>/<thesis id>/``.
+_THESIS_CACHES = (
+    ('watermarked copies', 'theses/_watermarked'),
+    ('preview page images', 'theses/_preview_pages'),
+    ('converted preview PDFs', 'theses/_preview_sources'),
+)
+
+
+def _stored_files(directory: str) -> list[str]:
+    try:
+        dirs, files = default_storage.listdir(directory)
+    except FileNotFoundError:
+        return []
+    return [f'{directory}/{name}' for name in sorted(files)] + [
+        path for sub in sorted(dirs) for path in _stored_files(f'{directory}/{sub}')
+    ]
+
+
+def _thesis_files(thesis) -> list[tuple[str, list[str]]]:
+    """Stored files that belong only to ``thesis``, grouped by kind.
+
+    Django deletes the row but never the files it points at. The upload is
+    skipped if another row still references the same stored name.
+    """
+    groups = []
+    upload = thesis.uploaded_file.name
+    if (upload and default_storage.exists(upload)
+            and not Thesis.objects.filter(uploaded_file=upload).exclude(pk=thesis.pk).exists()):
+        groups.append(('uploaded files', [upload]))
+    for label, prefix in _THESIS_CACHES:
+        names = _stored_files(f'{prefix}/{thesis.id}')
+        if names:
+            groups.append((label, names))
+    return groups
+
+
+def _remove_thesis_files(thesis_id, names: list[str]) -> None:
+    for name in names:
+        default_storage.delete(name)
+    for _, prefix in _THESIS_CACHES:
+        # Local storage leaves the emptied per-thesis folder behind; object
+        # storage has no folders (``path`` raises NotImplementedError).
+        with suppress(OSError, NotImplementedError):
+            Path(default_storage.path(f'{prefix}/{thesis_id}')).rmdir()
 
 
 @admin.register(Thesis)
@@ -578,3 +629,22 @@ class ThesisAdmin(admin.ModelAdmin):
             metadata=metadata,
             request=request,
         )
+
+    # ── Delete path ─────────────────────────────────────────────────────
+
+    def get_deleted_objects(self, objs, request):
+        """Also list the stored files ``delete_model`` removes."""
+        to_delete, model_count, perms_needed, protected = super().get_deleted_objects(objs, request)
+        for obj in objs:
+            for label, names in _thesis_files(obj):
+                to_delete += [capfirst(label), names]
+                model_count[label] = model_count.get(label, 0) + len(names)
+        return to_delete, model_count, perms_needed, protected
+
+    def delete_model(self, request, obj):
+        thesis_id = obj.id
+        names = [name for _, group in _thesis_files(obj) for name in group]
+        super().delete_model(request, obj)
+        # The admin delete view runs in a transaction; files go only after
+        # the row is really gone.
+        transaction.on_commit(lambda: _remove_thesis_files(thesis_id, names))

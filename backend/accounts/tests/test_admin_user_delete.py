@@ -67,3 +67,43 @@ def test_admin_delete_removes_verification(
         # Another user's verification is untouched.
         assert AccessRequest.objects.filter(pk=other_req.pk).exists()
         assert other_folder.exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('bulk', [False, True])
+def test_delete_confirmation_lists_verification(client, tmp_path, bulk):
+    """The "Are you sure?" page names every extra thing the delete removes."""
+    root = tmp_path / 'private_media' / 'verification_docs'
+    with override_settings(PRIVATE_STORAGE_ROOT=tmp_path / 'private_media',
+                           MEDIA_ROOT=tmp_path / 'media'):
+        user, req, folder = _student_with_verification(root, 'gone@example.test')
+        _student_with_verification(root, 'stays@example.test')
+        admin_user = User.objects.create_superuser(
+            email='root@example.test', first_name='Ad', last_name='Min',
+            password='Test12345!Test',
+        )
+        client.force_login(admin_user)
+
+        if bulk:
+            response = client.post(reverse('admin:accounts_user_changelist'), {
+                'action': 'delete_selected', '_selected_action': [str(user.pk)],
+            })
+        else:
+            response = client.get(reverse('admin:accounts_user_delete', args=(user.pk,)))
+        assert response.status_code == 200
+
+        # Access request and verification admins forbid direct deletes; that
+        # must not turn this page into "you lack permission".
+        assert not response.context['perms_lacking']
+        counts = dict(response.context['model_count'])
+        assert counts['access requests'] == 1
+        assert counts['verification documents'] == 1
+        assert counts['verification results'] == 1
+        assert counts['ID files'] == 1
+        body = response.content.decode()
+        assert 'gone@example.test' in body
+        assert f'verification_docs/{req.pk}/abc.jpeg' in body
+        assert 'stays@example.test' not in body
+        # Showing the page deletes nothing.
+        assert AccessRequest.objects.filter(pk=req.pk).exists()
+        assert folder.exists()
