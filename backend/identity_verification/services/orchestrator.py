@@ -7,6 +7,7 @@ Per Requirements 7.1, 13.2, 13.6, 17.1, 17.2.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime
 from typing import Optional
 
@@ -18,7 +19,7 @@ from ..services.ocr_extractor import OCRExtractor
 from ..services.field_extractor import FieldExtractor
 from ..services.decision_engine import DecisionEngine
 from ..services import audit
-from ..validators.rule_validator import RuleValidator
+from ..validators.rule_validator import RuleValidator, name_matches
 
 
 class VerificationOrchestrator:
@@ -113,7 +114,27 @@ class VerificationOrchestrator:
                 ocr_result=ocr_result,
                 rule_result=rule_result,
             )
-            
+
+            # The document must belong to the applicant. A mismatch never
+            # auto-approves (no verification email goes out); an administrator
+            # decides instead. A rejection stays a rejection.
+            if decision.status != 'rejected' and not name_matches(
+                access_request.first_name, access_request.last_name, ocr_result.raw_text,
+            ):
+                decision = replace(
+                    decision,
+                    status='pending_manual_review',
+                    reason=(
+                        'name_mismatch' if decision.status == 'auto_approved'
+                        else decision.reason
+                    ),
+                    flagged_reasons=[
+                        *decision.flagged_reasons,
+                        'Name on document does not match the registered name '
+                        f'({access_request.first_name} {access_request.last_name})',
+                    ],
+                )
+
             # Step 7: Write VerificationResult
             verification_result.status = decision.status
             verification_result.extracted_fields = self._serialize_extracted_fields(extracted_fields)

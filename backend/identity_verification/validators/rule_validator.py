@@ -6,6 +6,8 @@ Per Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass
 from typing import List
 
@@ -40,6 +42,28 @@ class RuleResult:
     """
     passed: bool
     failures: List[RuleFailure]
+
+
+def _name_words(text: str) -> list[str]:
+    """Case-, accent- and punctuation-blind words ("Peña" -> "pena")."""
+    folded = unicodedata.normalize('NFKD', text or '').encode('ascii', 'ignore').decode()
+    return re.sub(r'[^a-z0-9]+', ' ', folded.casefold()).split()
+
+
+def name_matches(first_name: str, last_name: str, ocr_text: str) -> bool:
+    """True when the registered name appears on the document.
+
+    Checked against the raw OCR text, not the extracted ``full_name``, which
+    often picks the wrong line on a COR. Every word of the last name must
+    appear, plus at least one word of the first name (OCR may misread or drop
+    a second given name). Whole words only; single letters (initials) ignored.
+    """
+    on_document = set(_name_words(ocr_text))
+    last = [w for w in _name_words(last_name) if len(w) > 1]
+    first = [w for w in _name_words(first_name) if len(w) > 1]
+    return bool(last and first) and all(w in on_document for w in last) and any(
+        w in on_document for w in first
+    )
 
 
 class RuleValidator:

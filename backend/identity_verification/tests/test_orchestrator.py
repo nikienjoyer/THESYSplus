@@ -118,7 +118,7 @@ Student No: 2021-12345""",
         mock_extract.return_value = OCRResult(
             raw_text="""PAMPANGA STATE UNIVERSITY
 CCS
-Name: SANTOS, MARIA
+Name: DELA CRUZ, JUAN
 Program: BS COMPUTER SCIENCE""",
             overall_confidence=75.0,
             success=True,
@@ -276,7 +276,7 @@ Program: BS COMPUTER SCIENCE""",
         mock_extract.return_value = OCRResult(
             raw_text="""PAMPANGA STATE UNIVERSITY
 COLLEGE OF ENGINEERING
-Name: VILLANUEVA, ROSA
+Name: DELA CRUZ, JUAN
 Program: BS INFORMATION TECHNOLOGY""",
             overall_confidence=88.0,
             success=True,
@@ -459,3 +459,79 @@ Student No: 2022-67890""",
         result.refresh_from_db()
         assert isinstance(result.extracted_fields, dict)
         assert result.extracted_fields['program'] == 'BS Information Technology'
+
+
+VALID_PSU_DOCUMENT = """PAMPANGA STATE UNIVERSITY
+Name: {name}
+BACHELOR OF SCIENCE IN INFORMATION SYSTEMS"""
+
+
+@pytest.mark.django_db
+class TestVerificationOrchestratorNameMatch:
+    """The registered name must appear on the document (applicant: Juan Dela Cruz)."""
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_someone_elses_document_goes_to_manual_review(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        """The reported case: a valid COR, but it belongs to someone else."""
+        mock_extract.return_value = OCRResult(
+            raw_text=VALID_PSU_DOCUMENT.format(name='QUIZON, VALERIE DAPHNE DAVID'),
+            overall_confidence=89.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'pending_manual_review'
+        assert result.decision_reason == 'name_mismatch'
+        assert result.flagged_reasons == [
+            'Name on document does not match the registered name (Juan Dela Cruz)',
+        ]
+        access_request.refresh_from_db()
+        assert access_request.status == 'pending'
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_own_document_is_still_auto_approved(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        mock_extract.return_value = OCRResult(
+            raw_text=VALID_PSU_DOCUMENT.format(name='DELA CRUZ, JUAN MIGUEL'),
+            overall_confidence=89.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'auto_approved'
+        assert result.decision_reason == 'high_confidence'
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_mismatch_is_flagged_on_an_existing_manual_review(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        mock_extract.return_value = OCRResult(
+            raw_text=VALID_PSU_DOCUMENT.format(name='QUIZON, VALERIE'),
+            overall_confidence=65.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'pending_manual_review'
+        assert result.decision_reason == 'ocr_medium_confidence'
+        assert result.flagged_reasons[-1] == (
+            'Name on document does not match the registered name (Juan Dela Cruz)'
+        )
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_rejection_is_not_softened_by_a_name_mismatch(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        mock_extract.return_value = OCRResult(
+            raw_text='UNIVERSITY OF THE PHILIPPINES\nName: TAN, MIGUEL\nProgram: BS COMPUTER SCIENCE',
+            overall_confidence=90.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'rejected'
+        access_request.refresh_from_db()
+        assert access_request.status == 'denied'

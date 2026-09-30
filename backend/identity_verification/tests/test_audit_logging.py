@@ -199,7 +199,7 @@ class TestOrchestratorAuditIntegration:
         mock_ocr_extractor = MagicMock()
         mock_ocr_result = OCRResult(
             success=True,
-            raw_text='Pampanga State University\nCollege of Computing Studies\nBS Information System',
+            raw_text='Pampanga State University\nCollege of Computing Studies\nDELA CRUZ, JUAN\nBS Information System',
             overall_confidence=85.0,
             error=None,
         )
