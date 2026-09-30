@@ -18,7 +18,7 @@ KURT ROSS E. GONZAGA
 BACHELOR OF SCIENCE IN
 Information Systems
 
-2023313528
+2023100001
 
 peli 'cong: .
 
@@ -44,7 +44,7 @@ school_name:     None                 ❌ MISSING
 college:         None                 ⚠️  Expected (not on document)
 program:         "BS Information System"  ✅ CORRECT
 program_raw:     "Information Systems"    ✅ CORRECT
-student_number:  "2023313528"            ✅ CORRECT
+student_number:  "2023100001"            ✅ CORRECT
 ```
 
 **Issues**:
@@ -61,7 +61,7 @@ school_name:     "Pampanga State University" ✅ CORRECT (fixed)
 college:         None                        ⚠️  Expected (inferred by RuleValidator)
 program:         "BS Information System"     ✅ CORRECT (preserved)
 program_raw:     "Information Systems"       ✅ CORRECT (preserved)
-student_number:  "2023313528"               ✅ CORRECT (preserved)
+student_number:  "2023100001"               ✅ CORRECT (preserved)
 ```
 
 **Improvements**:
@@ -176,13 +176,13 @@ OLD EXTRACTED FIELDS:
   full_name:       Main Campus ❌
   school_name:     None ❌
   program:         BS Information System ✅
-  student_number:  2023313528 ✅
+  student_number:  2023100001 ✅
 
 NEW EXTRACTED FIELDS:
   full_name:       Kurt Ross E. Gonzaga ✅
   school_name:     Pampanga State University ✅
   program:         BS Information System ✅
-  student_number:  2023313528 ✅
+  student_number:  2023100001 ✅
 
 ✅ SUCCESS: No regressions detected
 ```
@@ -227,7 +227,7 @@ After extraction, the RuleValidator will:
 2. ✅ Validate program: "BS Information System" (valid CCS program)
 3. ✅ Infer college: CCS (from valid program)
 4. ✅ Validate full_name: "Kurt Ross E. Gonzaga" (present)
-5. ✅ Validate student_number: "2023313528" (present)
+5. ✅ Validate student_number: "2023100001" (present)
 
 **Expected Decision**: `auto_approved` or `pending_manual_review` (depending on OCR confidence threshold)
 
@@ -242,7 +242,7 @@ After extraction, the RuleValidator will:
 | college | None | None (inferred by validator) | ✅ OK |
 | program | "BS Information System" | "BS Information System" | ✅ Preserved |
 | program_raw | "Information Systems" | "Information Systems" | ✅ Preserved |
-| student_number | "2023313528" | "2023313528" | ✅ Preserved |
+| student_number | "2023100001" | "2023100001" | ✅ Preserved |
 
 **Summary**:
 - 2 fields fixed (full_name, school_name)
@@ -308,7 +308,7 @@ MASTER OF SCIENCE
 | **full_name** | ✅ Fixed (was "Main Campus", now "Kurt Ross E. Gonzaga") |
 | **school_name** | ✅ Fixed (was None, now "Pampanga State University") |
 | **program** | ✅ Preserved ("BS Information System") |
-| **student_number** | ✅ Preserved ("2023313528") |
+| **student_number** | ✅ Preserved ("2023100001") |
 | **Tests** | ✅ All 53 tests passing |
 | **Regressions** | ✅ None detected |
 

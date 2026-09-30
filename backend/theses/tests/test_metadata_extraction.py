@@ -95,7 +95,7 @@ Santos, Maria L.
 # title was the whole contact block welded onto the end of the title:
 #
 #   'ARADA: AN ANDROID ONLINE MARKET ... IN PAMPANGA Aguilar, Janwalf S.
-#    2018003310@dhvsu.edu.ph 09397429130 Alfonso, Nicholas D. Jr. ...'
+#    2018000001@dhvsu.edu.ph 09170000001 Alfonso, Nicholas D. Jr. ...'
 #
 # Structurally: no "by" marker anywhere, so _AUTHOR_MARKER never fires; the
 # author block sits directly against the title with no intervening blank; and
@@ -109,8 +109,8 @@ STATISTICS FOR SELECTED LOCAL FARMERS
 GONZAGA, KURT ROSS E.
 AGUILAR, JANWALF S.
 kurt.gonzaga@dhvsu.edu.ph
-09397429130
-09502764793
+09170000001
+09170000002
 
 A Capstone Project
 Presented to the Faculty of
@@ -121,7 +121,7 @@ Presented to the Faculty of
 ARADA_SINGLE_LINE = (
     'ARADA: AN ANDROID ONLINE MARKET WITH SUPPLY-DEMAND STATISTICS FOR '
     'SELECTED LOCAL FARMERS GONZAGA, KURT ROSS E. kurt.gonzaga@dhvsu.edu.ph '
-    '09397429130 AGUILAR, JANWALF S. 09502764793'
+    '09170000001 AGUILAR, JANWALF S. 09170000002'
 )
 
 # Surnames that must never appear in a returned title.
@@ -175,19 +175,19 @@ class TestTitleCarriesNoPII:
     @pytest.mark.parametrize('line', [
         'kurt.gonzaga@dhvsu.edu.ph',
         'GONZAGA, KURT ROSS E. kurt.gonzaga@dhvsu.edu.ph',
-        '2018003310@dhvsu.edu.ph',
+        '2018000001@dhvsu.edu.ph',
         'first.last+tag@sub.example.co.uk',
     ])
     def test_email_regex_matches_real_shapes(self, line):
         assert _EMAIL.search(line)
 
     @pytest.mark.parametrize('line', [
-        '09397429130',
-        '+639397429130',
+        '09170000001',
+        '+639170000001',
         '0939-742-9130',
-        '+63 939 742 9130',
-        'Contact 09502764793 for details',
-        '2018003310',            # student number — PII too
+        '+63 917 000 0001',
+        'Contact 09170000002 for details',
+        '2018000001',            # student number — PII too
     ])
     def test_phone_regex_matches_real_shapes(self, line):
         assert _PHONE.search(line)
@@ -369,9 +369,9 @@ class TestAuthorsSurviveContactDetails:
 
     @pytest.mark.parametrize('line', [
         'kurt.gonzaga@dhvsu.edu.ph',
-        '2018003310@dhvsu.edu.ph',
-        '09397429130',
-        '+63 939 742 9130',
+        '2018000001@dhvsu.edu.ph',
+        '09170000001',
+        '+63 917 000 0001',
     ])
     def test_contact_line_is_never_a_person_name(self, line):
         """Regression lock on behaviour that is already correct.
@@ -416,8 +416,8 @@ class TestAuthorsSurviveContactDetails:
             'AN ANDROID ONLINE MARKET FOR LOCAL FARMERS\n'
             '\n'
             'by:\n'
-            'GONZAGA, KURT ROSS E. 09397429130\n'
-            'AGUILAR, JANWALF S. 09502764793\n'
+            'GONZAGA, KURT ROSS E. 09170000001\n'
+            'AGUILAR, JANWALF S. 09170000002\n'
         )
         authors, _ = detect_authors(text)
 
@@ -449,7 +449,7 @@ class TestAuthorsSurviveContactDetails:
         ),
         (
             'A TITLE FOR THE WORK\n\nby:\n'
-            'GONZAGA, KURT ROSS E. 09397429130\n'
+            'GONZAGA, KURT ROSS E. 09170000001\n'
         ),
     ])
     def test_contact_details_are_never_stored_in_an_author_value(self, text):

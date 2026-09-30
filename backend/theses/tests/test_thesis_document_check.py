@@ -59,7 +59,7 @@ FILLER = (
 COR_TEXT = """\
 PAMPANGA STATE UNIVERSITY
 CERTIFICATE OF REGISTRATION
-Student No.: 2023313546   Name: SALONGA, ROMEL S.
+Student No.: 2023100002   Name: SALONGA, ROMEL S.
 Bachelor of Science in Information Systems 4th Year SCHEDULE / ROOMSECTIONLec
 U N I TSUBJECT TITLECODE Lab Credit 303Data Mining and Business
 IntelligenceISDBI 413 BSIS 4-A 303Strategy Management and AcquisitionISSMA 414

@@ -74,7 +74,7 @@ def _bearer(user):
 COR_LINES = [
     'PAMPANGA STATE UNIVERSITY',
     'CERTIFICATE OF REGISTRATION',
-    'Student No.: 2023313546   Name: SALONGA, ROMEL S.',
+    'Student No.: 2023100002   Name: SALONGA, ROMEL S.',
     'Bachelor of Science in Information Systems 4th Year SCHEDULE / ROOM',
     'SECTION Lec U N I T SUBJECT TITLE CODE Lab Credit',
     '303 Data Mining and Business Intelligence ISDBI 413 BSIS 4-A',

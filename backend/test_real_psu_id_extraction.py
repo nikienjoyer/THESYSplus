@@ -35,7 +35,7 @@ def test_real_psu_id():
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
     """
     
     print("OCR Text:")

@@ -94,7 +94,7 @@ python test_real_psu_id_extraction.py
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
 ```
 
 **Extracted Fields**:
@@ -105,7 +105,7 @@ ExtractedFields(
     college=None,  # Not on student ID
     program='BS Information System',  # Normalized
     program_raw='Information Systems',
-    student_number='2023313528'
+    student_number='2023100001'
 )
 ```
 
@@ -189,7 +189,7 @@ ExtractedFields(
 ### 4. Student Number Fallback
 - Detects: 8-10 consecutive digits
 - Excludes: Phone numbers (09, +63), years (19xx, 20xx)
-- Example: "2023313528" → "2023313528"
+- Example: "2023100001" → "2023100001"
 
 ---
 
@@ -237,7 +237,7 @@ ExtractedFields(
   - Full Name: Kurt Ross E. Gonzaga
   - School: Pampanga State University
   - Program: BS Information System
-  - Student Number: 2023313528
+  - Student Number: 2023100001
 - ✅ Decision: `auto_approved` or `pending_manual_review`
 - ❌ NOT `incomplete_extraction`
 

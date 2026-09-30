@@ -23,7 +23,7 @@ class TestFallbackSchoolName:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS E. GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         result = field_extractor.extract(text)
         assert result.school_name == "Pampanga State University"
@@ -61,7 +61,7 @@ class TestFallbackProgram:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS E. GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         result = field_extractor.extract(text)
         assert result.program_raw == "Information Systems"
@@ -113,7 +113,7 @@ class TestFallbackFullName:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         result = field_extractor.extract(text)
         assert result.full_name == "Kurt Ross Gonzaga"
@@ -124,7 +124,7 @@ class TestFallbackFullName:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS E. GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         result = field_extractor.extract(text)
         assert result.full_name == "Kurt Ross E. Gonzaga"
@@ -174,10 +174,10 @@ class TestFallbackStudentNumber:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS E. GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         result = field_extractor.extract(text)
-        assert result.student_number == "2023313528"
+        assert result.student_number == "2023100001"
     
     def test_fallback_nine_digit_number(self, field_extractor):
         """Extract 9-digit student number."""
@@ -224,7 +224,7 @@ class TestFallbackIntegration:
         DON HONORIO VENTURA STATE UNIVERSITY
         KURT ROSS E. GONZAGA
         Information Systems
-        2023313528
+        2023100001
         """
         
         result = field_extractor.extract(text)
@@ -234,7 +234,7 @@ class TestFallbackIntegration:
         assert result.full_name == "Kurt Ross E. Gonzaga"
         assert result.program_raw == "Information Systems"
         assert result.program == "BS Information System"  # Normalized
-        assert result.student_number == "2023313528"
+        assert result.student_number == "2023100001"
         # College may be None (not on student ID)
     
     def test_dhvsu_student_id_variant(self, field_extractor):

@@ -188,10 +188,10 @@ _EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+')
 
 # Two alternatives:
 #   1. A Philippine mobile number, with or without country code and with
-#      optional spacing or dashes between groups: 09397429130, +63 939 742
+#      optional spacing or dashes between groups: 09170000001, +63 917 000
 #      9130, 0939-742-9130.
 #   2. Any bare run of 7 or more digits. This is the catch-all, and it also
-#      covers student numbers (2018003310), which are PII in their own right.
+#      covers student numbers (2018000001), which are PII in their own right.
 #
 # The floor is SEVEN deliberately. A year (2026), an ISO reference (9001), a
 # section number and a page number are all four digits or fewer, so they

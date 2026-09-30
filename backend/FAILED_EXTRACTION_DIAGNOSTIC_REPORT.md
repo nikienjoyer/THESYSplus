@@ -69,7 +69,7 @@ ExtractedFields(
    - No recognizable program keywords
 
 3. **Student Number**:
-   - Expected: 8-10 consecutive digits (e.g., "2023313528")
+   - Expected: 8-10 consecutive digits (e.g., "2023100001")
    - Found: "2S" (only 2 characters, mixed with letters)
    - No valid number sequence
 
@@ -121,7 +121,7 @@ Based on the fragments:
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
 ```
 
 ### Actual OCR Text (from failed request)

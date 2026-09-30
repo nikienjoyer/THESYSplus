@@ -107,7 +107,7 @@ python test_real_psu_id_extraction.py
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
 ```
 
 ### Extracted Fields
@@ -118,7 +118,7 @@ ExtractedFields(
     college=None,  # Not on student ID
     program='BS Information System',  # Normalized
     program_raw='Information Systems',
-    student_number='2023313528'
+    student_number='2023100001'
 )
 ```
 
@@ -138,7 +138,7 @@ RuleResult(
    - Full name: Kurt Ross E. Gonzaga
    - School: Pampanga State University (DHVSU mapped)
    - Program: BS Information System (normalized)
-   - Student number: 2023313528
+   - Student number: 2023100001
    - College: None (expected for student ID)
 3. ✅ **College Inference**: CCS inferred from valid program
 4. ✅ **Rule Validation**: PASS (all rules satisfied)
@@ -293,7 +293,7 @@ assert result.passed  # ✅ PASS (no change)
   - Full Name: Kurt Ross E. Gonzaga
   - School: Pampanga State University
   - Program: BS Information System
-  - Student Number: 2023313528
+  - Student Number: 2023100001
   - College: None (not on student ID)
 - ✅ Validation: PASS (college inferred from program)
 - ✅ Decision: `auto_approved` or `pending_manual_review`

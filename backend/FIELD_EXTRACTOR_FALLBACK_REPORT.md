@@ -8,7 +8,7 @@ Real PSU student IDs are readable (OCR confidence ~94%) but field extraction was
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
 ```
 
 **Issue:** No explicit labels like `Name:`, `Program:`, `Student No:` — all fields were null, resulting in `incomplete_extraction` decision instead of proper validation.
@@ -63,7 +63,7 @@ Extracts long digit sequences:
 - Excludes phone numbers (starts with 09, +63)
 - Excludes year-like patterns (19xx, 20xx in isolation)
 
-**Example:** `2023313528` → `2023313528`
+**Example:** `2023100001` → `2023100001`
 
 ### Extraction Flow
 1. Try labeled patterns first (preserves existing behavior)
@@ -116,7 +116,7 @@ OK
 DON HONORIO VENTURA STATE UNIVERSITY
 KURT ROSS E. GONZAGA
 Information Systems
-2023313528
+2023100001
 ```
 
 ### Extracted Fields (After Enhancement)
@@ -127,7 +127,7 @@ ExtractedFields(
     college=None,  # Not on student ID
     program='BS Information System',  # Normalized
     program_raw='Information Systems',
-    student_number='2023313528'
+    student_number='2023100001'
 )
 ```
 
