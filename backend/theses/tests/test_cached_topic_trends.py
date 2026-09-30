@@ -17,6 +17,8 @@ def _row(**changes):
         primary_subject_id=None, subject_reviewed_at=None, technology_tags=[],
     )
     base.update(changes)
+    if base['primary_subject_id'] and 'primary_subject' not in base:
+        base['primary_subject'] = SimpleNamespace(name='Education and Learning')
     return SimpleNamespace(**base)
 
 
@@ -32,3 +34,11 @@ def test_same_rows_same_key():
 ])
 def test_key_changes_when_a_grouping_input_changes(field, value):
     assert _cache_key([_row(**{field: value})]) != _cache_key([_row()])
+
+
+def test_key_changes_when_a_subject_is_renamed():
+    # Group labels are built from subject names, so a rename must not serve
+    # the old labels from cache.
+    old = _row(primary_subject_id='EDU', primary_subject=SimpleNamespace(name='Education and learning'))
+    new = _row(primary_subject_id='EDU', primary_subject=SimpleNamespace(name='Education and Learning'))
+    assert _cache_key([old]) != _cache_key([new])

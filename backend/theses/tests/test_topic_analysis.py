@@ -475,7 +475,7 @@ class TestGetTopicTrendsQueryset:
 
         with django_assert_num_queries(1):
             row = get_topic_trends_queryset().get(pk=thesis.pk)
-            assert row.primary_subject.name == 'Agriculture and growing systems'
+            assert row.primary_subject.name == 'Agriculture and Growing Systems'
             assert row.subject_reviewed_at is not None
             assert row.technology_tags == ['IoT']
             assert len(row.embedding_vector) == 384

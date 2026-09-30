@@ -29,7 +29,9 @@ def _cache_key(theses):
             thesis.program, thesis.year, thesis.status,
             # Grouping inputs: vectors (regenerated vectors get a new
             # timestamp), reviewed subjects (group names), technology tags.
+            # The subject name is keyed too: renaming a subject relabels groups.
             thesis.embedding_generated_at, thesis.primary_subject_id,
+            thesis.primary_subject.name if thesis.primary_subject_id else None,
             thesis.subject_reviewed_at, thesis.technology_tags,
         )
         encoded = json.dumps(row, ensure_ascii=False, default=str, separators=(',', ':')).encode('utf-8')
