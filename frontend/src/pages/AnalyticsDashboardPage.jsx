@@ -71,7 +71,7 @@ const PALETTE = CHART_PALETTE;
 // ---------------------------------------------------------------------------
 
 function HBarChart({ data, keyField, valueField, maxBars = 10 }) {
-  const { staggerContainer, growWidth } = useMotionVariants();
+  const { staggerContainer, growX } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const items = data.slice(0, maxBars);
   const maxVal = Math.max(...items.map((d) => d[valueField]), 1);
@@ -98,8 +98,8 @@ function HBarChart({ data, keyField, valueField, maxBars = 10 }) {
             <div className={`flex-1 h-3 rounded-full overflow-hidden bg-surface-secondary`}>
               <m.div
                 className="h-full"
-                variants={growWidth(pct)}
-                style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
+                variants={growX}
+                style={{ width: `${pct}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
               />
             </div>
             <span className={`text-xs tabular-nums w-6 text-right flex-shrink-0 font-semibold text-body`}>
@@ -113,7 +113,7 @@ function HBarChart({ data, keyField, valueField, maxBars = 10 }) {
 }
 
 function YearBarChart({ data }) {
-  const { staggerContainer, growHeight } = useMotionVariants();
+  const { staggerContainer, growY } = useMotionVariants();
   if (!data || data.length === 0) return null;
   const maxVal = Math.max(...data.map((d) => d.count), 1);
   const summary = data.map((d) => `${d.year}: ${d.count}`).join(', ');
@@ -137,8 +137,8 @@ function YearBarChart({ data }) {
             <div className="flex-1 w-full flex items-end">
               <m.div
                 className="w-full rounded-t-sm"
-                variants={growHeight(heightPct)}
-                style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
+                variants={growY}
+                style={{ height: `${heightPct}%`, backgroundColor: PALETTE[idx % PALETTE.length] }}
                 title={`${d.year}: ${d.count}`}
               />
             </div>

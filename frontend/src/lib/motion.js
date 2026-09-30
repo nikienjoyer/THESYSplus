@@ -85,32 +85,30 @@ export const staggerContainer = {
 };
 
 // ── Bar-chart grow-in variants ───────────────────────────────────────────
-// Used by HBarChart / YearBarChart / CountsBarChart to sweep a bar out from
-// zero to its computed length. `pct` is a 0-100 number (already computed
-// by the caller); these return a variant object with an explicit final
-// percentage baked in, so each bar in a `.map()` gets its own variant.
+// Used by HBarChart / YearBarChart / CountsBarChart. The caller sets the
+// bar's final width/height statically and these sweep it out from its
+// start edge with a transform — GPU-only, no layout recalculation per frame
+// (animating width/height would reflow the chart on every frame).
 
-/** Grow a bar's `width` from 0 to `${pct}%`. */
-export function growWidth(pct) {
-  return {
-    hidden:  { width: 0 },
-    visible: {
-      width: `${pct}%`,
-      transition: { duration: DURATION.enter, ease: EASE_OUT },
-    },
-  };
-}
+/** Grow a horizontal bar out from its left edge. */
+export const growX = {
+  hidden:  { transform: 'scaleX(0)', transformOrigin: 'left' },
+  visible: {
+    transform: 'scaleX(1)',
+    transformOrigin: 'left',
+    transition: { duration: DURATION.enter, ease: EASE_OUT },
+  },
+};
 
-/** Grow a bar's `height` from 0 to `${pct}%` (vertical bar charts). */
-export function growHeight(pct) {
-  return {
-    hidden:  { height: 0 },
-    visible: {
-      height: `${pct}%`,
-      transition: { duration: DURATION.enter, ease: EASE_OUT },
-    },
-  };
-}
+/** Grow a vertical bar up from its bottom edge. */
+export const growY = {
+  hidden:  { transform: 'scaleY(0)', transformOrigin: 'bottom' },
+  visible: {
+    transform: 'scaleY(1)',
+    transformOrigin: 'bottom',
+    transition: { duration: DURATION.enter, ease: EASE_OUT },
+  },
+};
 
 // ── Doughnut arc draw-in ─────────────────────────────────────────────────
 // Animates an SVG circle's stroke-dasharray "dash" length from 0 up to its
@@ -141,13 +139,10 @@ const INSTANT_CONTAINER = {
   visible: { transition: { staggerChildren: 0, delayChildren: 0 } },
 };
 
-function instantGrowWidth(pct) {
-  return { hidden: { width: `${pct}%` }, visible: { width: `${pct}%`, transition: { duration: 0 } } };
-}
-
-function instantGrowHeight(pct) {
-  return { hidden: { height: `${pct}%` }, visible: { height: `${pct}%`, transition: { duration: 0 } } };
-}
+const INSTANT_GROW = {
+  hidden:  { transform: 'none' },
+  visible: { transform: 'none', transition: { duration: 0 } },
+};
 
 function instantDrawArc(finalDash, circumference) {
   const dashArray = `${finalDash} ${circumference - finalDash}`;
@@ -220,8 +215,8 @@ export function useMotionVariants() {
       fadeUp: INSTANT,
       fadeIn: INSTANT,
       staggerContainer: INSTANT_CONTAINER,
-      growWidth: instantGrowWidth,
-      growHeight: instantGrowHeight,
+      growX: INSTANT_GROW,
+      growY: INSTANT_GROW,
       drawArc: instantDrawArc,
     };
   }
@@ -231,8 +226,8 @@ export function useMotionVariants() {
     fadeUp,
     fadeIn,
     staggerContainer,
-    growWidth,
-    growHeight,
+    growX,
+    growY,
     drawArc,
   };
 }

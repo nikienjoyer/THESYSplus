@@ -244,7 +244,7 @@ function DoughnutChart({ segments }) {
 // ---------------------------------------------------------------------------
 
 function CountsBarChart({ clusters }) {
-  const { staggerContainer, growWidth } = useMotionVariants();
+  const { staggerContainer, growX } = useMotionVariants();
   if (clusters.length === 0) return null;
   const max = Math.max(...clusters.map((c) => c.thesis_count), 1);
   const summary = clusters.map((c) => `${c.topic} ${c.thesis_count}`).join(', ');
@@ -274,8 +274,8 @@ function CountsBarChart({ clusters }) {
             >
               <m.div
                 className="h-full"
-                variants={growWidth(pct)}
-                style={{ backgroundColor: color }}
+                variants={growX}
+                style={{ width: `${pct}%`, backgroundColor: color }}
               />
             </div>
             <span

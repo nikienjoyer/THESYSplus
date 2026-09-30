@@ -155,8 +155,8 @@ function UploadProgress({ phase, percent, canDismiss }) {
       >
         {determinate ? (
           <div
-            className={`h-full rounded-full transition-[width] duration-300 ease-out ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
-            style={{ width: `${pct}%` }}
+            className={`h-full origin-left transition-transform duration-300 ease-out ${done ? 'bg-emerald-500' : 'bg-blue-500'}`}
+            style={{ transform: `scaleX(${pct / 100})` }}
           />
         ) : (
           <div className="thesys-progress-indeterminate absolute inset-y-0 left-0 w-2/5 rounded-full bg-blue-500" />
