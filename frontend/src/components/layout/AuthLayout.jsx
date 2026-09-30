@@ -28,7 +28,7 @@ export default function AuthLayout() {
   const isDark = theme === 'dark';
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col transition-colors duration-300">
+    <div className="min-h-dvh bg-canvas flex flex-col transition-colors duration-300">
 
       {/* ── Background layer (fixed, non-interactive) ──────────────── */}
       <div

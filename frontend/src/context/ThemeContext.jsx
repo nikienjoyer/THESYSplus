@@ -36,6 +36,9 @@ export function ThemeProvider({ children }) {
     } else {
       root.classList.remove('dark');
     }
+    // Phone status bar / browser chrome follows the in-app theme, not the OS.
+    const canvas = getComputedStyle(root).getPropertyValue('--color-canvas').trim();
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas);
     localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 

@@ -95,6 +95,30 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* ── Touch baseline — feel native on phones ─────────────────────────── */
+  html {
+    -webkit-tap-highlight-color: transparent; /* no grey flash on tap */
+    -webkit-text-size-adjust: 100%;           /* no font inflation in landscape */
+  }
+  /* No 300ms double-tap wait; long-press doesn't select control labels.
+     Content text stays selectable. */
+  button, a, [role='button'], [role='tab'], summary, label {
+    touch-action: manipulation;
+  }
+  button, [role='button'], [role='tab'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* iOS Safari zooms into any field under 16px and never zooms back out.
+   !important because text-sm/text-xs utilities (a class) outrank a tag
+   selector; only applies to touch screens, desktop keeps the compact sizes. */
+@media (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 
@@ -160,16 +184,19 @@
   .thesys-card-lift {
     cursor: pointer;
   }
-  :root .thesys-card-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
-    border-color: var(--color-border-strong);
-  }
-  .dark .thesys-card-lift:hover {
-    transform: translateY(-2px);
-    background-color: rgba(255 255 255 / 0.055);
-    border-color: var(--color-border-strong);
-    box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.4);
+  /* Gated to real hover devices: a tap on a phone would leave it lifted. */
+  @media (hover: hover) and (pointer: fine) {
+    :root .thesys-card-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+      border-color: var(--color-border-strong);
+    }
+    .dark .thesys-card-lift:hover {
+      transform: translateY(-2px);
+      background-color: rgba(255 255 255 / 0.055);
+      border-color: var(--color-border-strong);
+      box-shadow: 0 4px 20px -4px rgb(0 0 0 / 0.4);
+    }
   }
 
   /* ── .thesys-panel — alias with 1.25rem default padding ──────────── */
@@ -418,9 +445,14 @@
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.similarity-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(59, 130, 246, 0.25);
+@media (hover: hover) and (pointer: fine) {
+  .similarity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(59, 130, 246, 0.25);
+  }
+  .similarity-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+  }
 }
 .similarity-slider::-webkit-slider-thumb:active {
   transform: scale(1.3);
@@ -437,9 +469,6 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.12s ease;
-}
-.similarity-slider::-moz-range-thumb:hover {
-  transform: scale(1.2);
 }
 .similarity-slider::-moz-range-track {
   border: none;

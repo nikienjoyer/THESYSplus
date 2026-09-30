@@ -48,7 +48,7 @@ const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 // ---------------------------------------------------------------------------
 function NotFound() {
   return (
-    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-4 text-center transition-colors duration-300">
+    <div className="min-h-dvh bg-canvas flex flex-col items-center justify-center px-4 text-center transition-colors duration-300">
       <div className="mb-6">
         <ThesysLogo variant="symbol" size={64} />
       </div>
@@ -86,7 +86,7 @@ function ProtectedRoute() {
 
   if (isInitializing || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
+      <div className="min-h-dvh bg-canvas flex items-center justify-center">
         <Spinner />
       </div>
     );
@@ -99,7 +99,7 @@ function ProtectedRoute() {
 // Shown while a lazily loaded page downloads — same surface as the auth gate.
 function RouteFallback() {
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center">
+    <div className="min-h-dvh bg-canvas flex items-center justify-center">
       <Spinner />
     </div>
   );

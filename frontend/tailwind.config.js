@@ -7,6 +7,9 @@ export default {
     './src/**/*.{js,jsx}',
   ],
   darkMode: 'class',
+  // hover: utilities only apply on devices that can really hover, so a tap
+  // on a phone doesn't leave the hover state stuck on.
+  future: { hoverOnlyWhenSupported: true },
   theme: {
     extend: {
       // ── THESYS+ semantic design tokens (Phase 1.1)
