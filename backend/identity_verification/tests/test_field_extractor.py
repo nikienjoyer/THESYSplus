@@ -211,7 +211,16 @@ class TestFieldExtractorStudentNumber:
         text = "Student Number: 2021 12345\nName: Juan"
         result = field_extractor.extract(text)
         assert result.student_number == "202112345"  # Normalized (spaces removed)
-    
+
+    @pytest.mark.parametrize('text, expected', [
+        ("Student No: 2023123456\nName: Juan", "2023123456"),
+        ("Student No: 2023-123456\nName: Juan", "2023-123456"),
+        ("ID: 2023 123456\nName: Juan", "2023123456"),
+    ])
+    def test_extract_ten_digit_student_number(self, field_extractor, text, expected):
+        """PSU student numbers have ten digits; none may be dropped."""
+        assert field_extractor.extract(text).student_number == expected
+
     def test_extract_student_number_missing(self, field_extractor):
         """Handle missing student number."""
         text = "Name: Juan Cruz\nProgram: BSIT"

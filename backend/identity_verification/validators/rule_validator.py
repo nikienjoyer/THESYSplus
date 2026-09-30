@@ -69,9 +69,10 @@ def name_matches(first_name: str, last_name: str, ocr_text: str) -> bool:
 def student_number_matches(email: str, ocr_text: str) -> bool:
     """True when the student number before the ``@`` appears on the document.
 
-    Checked against the raw OCR text, not the extracted ``student_number``,
-    which keeps at most nine digits. Whole number only; a space or hyphen
-    between digits is allowed ("2023-313521").
+    Checked against the raw OCR text rather than the extracted
+    ``student_number``, which relies on a label and can miss or cut the
+    number. Whole number only; a space or hyphen between digits is allowed
+    ("2023-313521").
     """
     number = (email or '').split('@')[0]
     if not re.fullmatch(r'[0-9]+', number):

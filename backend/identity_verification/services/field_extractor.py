@@ -200,12 +200,13 @@ class FieldExtractor:
         """Extract student ID number from OCR text.
         
         Patterns:
-        - "Student No: 2021-12345"
+        - "Student No: 2021-12345" / "Student No: 2023-313521"
         - "ID: 202112345"
         - "Student Number: 2021-12345"
         """
         patterns = [
-            r'(?:Student\s+)?(?:No|Number|ID)\s*[:\-]\s*(\d{4}[\-\s]?\d{4,5})',
+            # PSU numbers are 4 + 6 digits ("2023-313521"); older ones 4 + 4-5.
+            r'(?:Student\s+)?(?:No|Number|ID)\s*[:\-]\s*(\d{4}[\-\s]?\d{4,6})',
             r'(?:Student\s+)?(?:No|Number|ID)\s*[:\-]\s*(\d{8,10})',
         ]
         
