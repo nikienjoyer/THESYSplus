@@ -479,7 +479,7 @@ class TestVerificationOrchestratorNameMatch:
     ):
         """The reported case: a valid COR, but it belongs to someone else."""
         mock_extract.return_value = OCRResult(
-            raw_text=VALID_PSU_DOCUMENT.format(name='QUIZON, VALERIE DAPHNE DAVID'),
+            raw_text=VALID_PSU_DOCUMENT.format(name='AQUINO, LIZA MARIE PEREZ'),
             overall_confidence=89.0, success=True, error=None,
         )
 
@@ -512,7 +512,7 @@ class TestVerificationOrchestratorNameMatch:
         self, mock_extract, orchestrator, access_request, verification_document,
     ):
         mock_extract.return_value = OCRResult(
-            raw_text=VALID_PSU_DOCUMENT.format(name='QUIZON, VALERIE'),
+            raw_text=VALID_PSU_DOCUMENT.format(name='AQUINO, LIZA'),
             overall_confidence=65.0, success=True, error=None,
         )
 
@@ -590,8 +590,8 @@ class TestVerificationOrchestratorStudentNumber:
     def test_ten_digit_number_is_read_from_the_full_text(
         self, mock_extract, orchestrator, access_request, verification_document,
     ):
-        """PSU numbers have ten digits; the extracted field keeps at most nine,
-        so the check must read the OCR text itself."""
+        """PSU numbers have ten digits, and the check reads them from the OCR
+        text itself, not from the label-based extracted field."""
         access_request.email = '2023123456@pampangastateu.edu.ph'
         access_request.save(update_fields=['email'])
         mock_extract.return_value = OCRResult(
