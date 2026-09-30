@@ -500,7 +500,7 @@ function TopicCheck({ isDark }) {
                         <span className="flex items-center gap-1.5 flex-shrink-0">
                           {t.title_match && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-warning-bg text-warning-text border-warning-border">
-                              Exact title match
+                              Title/name match
                             </span>
                           )}
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap tabular-nums bg-info-bg text-info-text border-info-border">

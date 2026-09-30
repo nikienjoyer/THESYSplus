@@ -408,7 +408,7 @@ export default function LandingPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for thesis topics, keywords, or authors..."
+                  placeholder="Search topics or authors..."
                   className={`flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
                   aria-label="Search thesis topics, keywords, or authors"
                 />

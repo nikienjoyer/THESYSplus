@@ -586,7 +586,7 @@ export default function RepositoryPage() {
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3">
               <input
                 type="text"
-                placeholder="Search title, abstract, authors, keywords..."
+                placeholder="Search by topic, title, keyword, or author..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${

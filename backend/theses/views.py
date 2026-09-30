@@ -382,12 +382,16 @@ class ThesisListView(APIView):
                     if is_about_term(q, head=head, full_text=text):
                         term_ids.add(thesis_id)
 
+        # Author rescue: names carry no meaning for the model, so a query
+        # naming an author ("Dela Cruz", "Juan Dela Cruz") returns their theses.
+        from .services.title_match import is_author_match
+
         boosted = []
         for s in scored:
             s.thesis.title_match = matcher.matches(s.thesis.title)
             s.thesis.term_match = not s.thesis.title_match and s.thesis.id in term_ids
             effective_score = s.score
-            if s.thesis.title_match or s.thesis.term_match:
+            if s.thesis.title_match or s.thesis.term_match or is_author_match(q, s.thesis.authors):
                 effective_score = max(effective_score, min_score)
             if effective_score >= min_score:
                 boosted.append(s)

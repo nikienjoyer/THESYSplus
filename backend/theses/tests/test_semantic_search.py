@@ -796,6 +796,30 @@ class TestGlossaryTermRescue:
         assert not any(r['term_match'] for r in results.values())
 
 
+@pytest.mark.django_db
+class TestAuthorRescue:
+    """An author-name search returns that author's theses even at the
+    strictest slider: names carry no meaning for the model."""
+
+    @pytest.fixture
+    def corpus(self, make_thesis):
+        thesis = make_thesis('Hotel Booking System', 'Room reservations for hotels.')
+        thesis.authors = ['Dela Cruz, Juan', 'Santos, Maria']
+        thesis.save(update_fields=['authors'])
+        make_thesis('Smart Irrigation Monitor', 'Monitors soil moisture for farms.')
+
+    @pytest.mark.parametrize('q', ['dela cruz', 'Juan Dela Cruz', 'Dela Cruz, Juan', 'SANTOS'])
+    def test_author_name_is_rescued(self, client, faculty_user, corpus, q):
+        results = TestGlossaryTermRescue._search(client, faculty_user, q)
+        assert set(results) == {'Hotel Booking System'}
+
+    def test_partial_name_is_not_rescued(self, client, faculty_user, corpus):
+        assert TestGlossaryTermRescue._search(client, faculty_user, 'sant') == {}
+
+    def test_words_split_across_authors_do_not_match(self, client, faculty_user, corpus):
+        assert TestGlossaryTermRescue._search(client, faculty_user, 'Juan Santos') == {}
+
+
 class TestUnitVector:
     """unit_vector: the one validity check shared by topic grouping and
     subject suggestions."""

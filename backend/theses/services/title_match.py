@@ -129,3 +129,16 @@ def build_title_matcher(query: str, corpus_titles: Optional[CorpusTitles] = None
 def is_title_match(query: str, title: str, corpus_titles: Optional[CorpusTitles] = None) -> bool:
     """One-off convenience wrapper; prefer ``build_title_matcher`` in loops."""
     return TitleMatcher(query, corpus_titles).matches(title)
+
+
+_WORD_RE = re.compile(r'\w+')
+
+
+def is_author_match(query: str, authors) -> bool:
+    """True when every word of ``query`` is a whole word of one author's name,
+    in any order: "Juan Dela Cruz" matches "Dela Cruz, Juan"; "sant" does not."""
+    words = set(_WORD_RE.findall(normalize_title(query)))
+    if len(''.join(words)) < MIN_SINGLE_WORD_LENGTH:
+        return False
+    return any(words <= set(_WORD_RE.findall(normalize_title(a)))
+               for a in authors or [] if isinstance(a, str))
