@@ -117,6 +117,25 @@ def test_name_match_that_is_also_similar_is_listed_once():
         'Thesix: Centralized Web-Based Capstone Repository') == 1
 
 
+def test_exact_name_hides_below_cutoff_filler():
+    corpus = [
+        _thesis_at(0.08, 0, 'Thesix: Centralized Web-Based Capstone Repository'),
+        _thesis_at(0.17, 1), _thesis_at(0.15, 2),
+    ] + [_thesis_at(0.02, i) for i in range(3, 20)]
+    related = _check(corpus, title='THESIX')['related']
+    assert [r['title'] for r in related] == ['Thesix: Centralized Web-Based Capstone Repository']
+
+
+def test_exact_name_keeps_theses_that_count_as_related():
+    corpus = [
+        _thesis_at(0.08, 0, 'Thesix: Centralized Web-Based Capstone Repository'),
+        _thesis_at(0.50, 1), _thesis_at(0.17, 2),
+    ] + [_thesis_at(0.02, i) for i in range(3, 20)]
+    related = _check(corpus, title='THESIX')['related']
+    assert [r['title'] for r in related] == [
+        'Thesix: Centralized Web-Based Capstone Repository', 'Thesis 1']
+
+
 # ---------------------------------------------------------------------------
 # POST /api/v1/theses/topic-trends/check-title/
 # ---------------------------------------------------------------------------

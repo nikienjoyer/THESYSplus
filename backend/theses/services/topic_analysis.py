@@ -321,7 +321,12 @@ def check_title_topic(title: str, theses, *, average_size: float, grouped_total:
     named_ids = {id(s) for s in named}
     others = [s for s in ranked if id(s) not in named_ids]
     # 4-dp compare, as in classify_title: float32 lands 0.35 at 0.3499999.
-    count = len(named) + sum(round(s.score, 4) >= THRESHOLD_MEANINGFUL for s in others)
+    counted = [s for s in others if round(s.score, 4) >= THRESHOLD_MEANINGFUL]
+    count = len(named) + len(counted)
+    # A name match is what the user was looking for: list it and the theses
+    # that count as related, not below-cutoff filler. No name match: show the
+    # closest theses whatever their score, so "nothing close" is visible too.
+    shown = (named + counted) if named else others
     total = len(theses)
     saturated_at, underexplored_at = _trend_cutoffs(average_size, grouped_total)
     fewer = 'none are' if underexplored_at == 0 else f'{underexplored_at} or fewer'
@@ -344,7 +349,7 @@ def check_title_topic(title: str, theses, *, average_size: float, grouped_total:
             {'id': str(s.thesis.id), 'title': s.thesis.title, 'year': s.thesis.year,
              'program': s.thesis.program, 'similarity': round(s.score, 4),
              'title_match': id(s) in named_ids}
-            for s in (named + others)[:5]
+            for s in shown[:5]
         ],
     }
 
