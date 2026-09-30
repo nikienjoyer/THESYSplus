@@ -4,13 +4,18 @@
  */
 
 import { createPortal } from 'react-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import useBodyScrollLock from '../../hooks/useBodyScrollLock';
+import usePresence from '../../hooks/usePresence';
 
 export default function LegalModal({ isOpen, onClose, type }) {
   const panelRef = useFocusTrap(isOpen);
   const backdropRef = useBodyScrollLock(isOpen);
+  const [mounted, closing] = usePresence(isOpen);
+  // Callers clear `type` on close; keep showing the last one while it exits.
+  const [shownType, setShownType] = useState(type);
+  if (type && type !== shownType) setShownType(type);
   // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -19,12 +24,12 @@ export default function LegalModal({ isOpen, onClose, type }) {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
-  const content = getContent(type);
+  const content = getContent(type || shownType);
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div data-closing={closing || undefined} className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop — sole element behind the panel, so clicks/taps anywhere
           outside the panel land on it directly (no sibling overlay stealing
           the hit-test), and useBodyScrollLock's touchmove guard actually

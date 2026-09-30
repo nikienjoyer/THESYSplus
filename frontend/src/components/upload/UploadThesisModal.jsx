@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock, Info, Sparkles, X } from 'lucide-react';
 import client from '../../api/client';
@@ -27,6 +28,7 @@ import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import Spinner from '../ui/Spinner';
 import FileDropzone from '../ui/FileDropzone';
 import { MAX_UPLOAD_MB } from '../../lib/upload';
+import { useMotionVariants } from '../../lib/motion';
 
 const PROGRAMS = [
   'BS Information System',
@@ -237,6 +239,7 @@ function UploadThesisModalContent() {
   const statusSlotRef = useRef(null);
   // Mounted only while open (see the shell above), so both are always active.
   const panelRef = useFocusTrap(true);
+  const { fadeUp, staggerContainer, reduceMotion } = useMotionVariants();
   const backdropRef = useBodyScrollLock(true);
 
   const markTouched = (field) => { touchedRef.current.add(field); };
@@ -709,7 +712,9 @@ function UploadThesisModalContent() {
       >
         {success ? (
           /* ── Success state ── */
-          <div className="p-6 sm:p-8 text-center">
+          /* Rare, high-emotion moment: the one place a spring is earned. */
+          <LazyMotion features={domAnimation}>
+          <m.div className="p-6 sm:p-8 text-center" initial="hidden" animate="visible" variants={staggerContainer}>
             <button
               type="button"
               onClick={requestClose}
@@ -718,22 +723,26 @@ function UploadThesisModalContent() {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className={`w-16 h-16 flex items-center justify-center rounded-full mx-auto mb-3 ${
+            <m.div
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', duration: 0.5, bounce: 0.2 }}
+              className={`w-16 h-16 flex items-center justify-center rounded-full mx-auto mb-3 ${
               success.status === 'approved' ? 'bg-success-bg' : 'bg-warning-bg'
             }`}>
               {success.status === 'approved'
                 ? <CheckCircle2 className="w-8 h-8 text-emerald-500" aria-hidden="true" />
                 : <Clock className="w-8 h-8 text-amber-500" aria-hidden="true" />}
-            </div>
-            <h2 id="upload-modal-title" className={`text-2xl font-bold mb-2 text-ink`}>
+            </m.div>
+            <m.h2 variants={fadeUp} id="upload-modal-title" className={`text-2xl font-bold mb-2 text-ink`}>
               {success.status === 'approved' ? 'Thesis Approved & Published' : 'Submitted for Review'}
-            </h2>
-            <p className={`text-sm mb-6 text-body`}>
+            </m.h2>
+            <m.p variants={fadeUp} className={`text-sm mb-6 text-body`}>
               {success.status === 'approved'
                 ? 'Your thesis is now live in the repository.'
                 : 'Your thesis has been submitted and is awaiting faculty review.'}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            </m.p>
+            <m.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 type="button"
                 onClick={() => goAndClose(`/repository/${success.id}`)}
@@ -755,8 +764,9 @@ function UploadThesisModalContent() {
               >
                 Upload Another Thesis
               </button>
-            </div>
-          </div>
+            </m.div>
+          </m.div>
+          </LazyMotion>
         ) : (
           /* ── Form state ── */
           <div className="custom-modal-scroll max-h-[88vh] overflow-y-auto p-4 sm:p-8">
@@ -1041,9 +1051,9 @@ function UploadThesisModalContent() {
             aria-modal="true"
             aria-labelledby="upload-confirm-title"
             aria-describedby="upload-confirm-body"
-            className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-canvas/85 backdrop-blur-sm p-4 sm:p-6"
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-canvas/85 backdrop-blur-sm p-4 sm:p-6 thesys-overlay-enter"
           >
-            <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-surface-elevated p-5 sm:p-6 shadow-2xl">
+            <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-surface-elevated p-5 sm:p-6 shadow-2xl thesys-modal-enter">
               <h3 id="upload-confirm-title" className="text-lg font-bold text-ink">
                 Upload this thesis?
               </h3>

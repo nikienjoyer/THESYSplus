@@ -117,12 +117,14 @@ export const growY = {
 // the ring. `circumference` is passed through so the "gap" portion of the
 // dasharray (circumference - dash) is always geometrically correct, even
 // mid-animation.
-export function drawArc(finalDash, circumference) {
+// `delay` lives inside the variant: a `transition` prop on the element is
+// overridden by the variant's own transition, so it would be ignored.
+export function drawArc(finalDash, circumference, delay = 0) {
   return {
     hidden:  { strokeDasharray: `0 ${circumference}` },
     visible: {
       strokeDasharray: `${finalDash} ${circumference - finalDash}`,
-      transition: { duration: DURATION.enter, ease: EASE_OUT },
+      transition: { duration: DURATION.enter, ease: EASE_OUT, delay },
     },
   };
 }
@@ -163,7 +165,7 @@ export const DEFAULT_COUNTER_DURATION = 0.7; // seconds — deliberate, not slow
  * Callers own their own markup/accessibility treatment; this hook only
  * returns `{ hasNumericValue, displayValue }`.
  */
-export function useAnimatedCounterValue(value, duration = DEFAULT_COUNTER_DURATION) {
+export function useAnimatedCounterValue(value, duration = DEFAULT_COUNTER_DURATION, delay = 0) {
   const reduceMotion = useReducedMotion();
   const hasNumericValue = typeof value === 'number' && Number.isFinite(value);
 
@@ -188,6 +190,7 @@ export function useAnimatedCounterValue(value, duration = DEFAULT_COUNTER_DURATI
 
     const controls = animate(motionValue, value, {
       duration,
+      delay,
       ease: EASE_OUT,
     });
     return () => controls.stop();
@@ -195,7 +198,7 @@ export function useAnimatedCounterValue(value, duration = DEFAULT_COUNTER_DURATI
     // on every mount/data refresh (approved decision: replay on revisit,
     // no first-arrival gating).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, hasNumericValue, reduceMotion, duration]);
+  }, [value, hasNumericValue, reduceMotion, duration, delay]);
 
   return { hasNumericValue, displayValue };
 }

@@ -32,6 +32,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
 import { useUploadModal } from '../../hooks/useUploadModal';
 import useFocusTrap from '../../hooks/useFocusTrap';
+import usePresence from '../../hooks/usePresence';
 import { Avatar, AvatarImage, AvatarFallback } from '../shadcn/avatar';
 import ThesysLogo from '../brand/ThesysLogo';
 
@@ -60,6 +61,7 @@ export function AvatarDropdown({ user, onSignOut }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropRef = useRef(null);
   const logoutModalRef = useFocusTrap(showLogoutModal);
+  const [logoutMounted, logoutClosing] = usePresence(showLogoutModal);
 
   useEffect(() => {
     function handleClick(e) {
@@ -137,8 +139,9 @@ export function AvatarDropdown({ user, onSignOut }) {
       </div>
 
       {/* ── Logout confirmation modal ─────────────────────────────────────── */}
-      {showLogoutModal && createPortal(
+      {logoutMounted && createPortal(
         <div
+          data-closing={logoutClosing || undefined}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
@@ -208,6 +211,7 @@ export default function AppNavbar({ activePage = '' }) {
   const isDark = theme === 'dark';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const drawerRef = useFocusTrap(mobileMenuOpen);
+  const [menuMounted, menuClosing] = usePresence(mobileMenuOpen, 200);
 
   const handleSignOut = async () => {
     await signOut();
@@ -311,8 +315,9 @@ export default function AppNavbar({ activePage = '' }) {
       </nav>
 
       {/* ── Mobile drawer (portal) ─────────────────────────────────────── */}
-      {mobileMenuOpen && createPortal(
+      {menuMounted && createPortal(
         <div
+          data-closing={menuClosing || undefined}
           className="fixed inset-0 z-[9999] lg:hidden"
           role="dialog"
           aria-modal="true"

@@ -460,8 +460,8 @@ export default function ProfilePage() {
 
                     {/* Confirmation modal */}
                     {showClearConfirm && (
-                      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                        <div className={`rounded-xl border p-6 max-w-sm w-full bg-surface-elevated border-border-default`}>
+                      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm thesys-overlay-enter">
+                        <div className={`rounded-xl border p-6 max-w-sm w-full bg-surface-elevated border-border-default thesys-modal-enter`}>
                           <h3 className={`text-lg font-bold mb-2 text-ink`}>
                             Clear all saved theses?
                           </h3>

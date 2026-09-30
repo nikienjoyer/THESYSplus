@@ -20,6 +20,7 @@ import ToastViewport from '../components/ui/Toast';
 
 const AUTO_DISMISS_MS = 4000;
 const MAX_TOASTS = 3;
+const EXIT_MS = 150; // matches .thesys-toast-enter[data-leaving] in index.css
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ToastContext = createContext(undefined);
@@ -31,12 +32,14 @@ export function ToastProvider({ children }) {
   const timers = useRef(new Map());
 
   const dismiss = useCallback((id) => {
-    setToasts((cur) => cur.filter((t) => t.id !== id));
     const tm = timers.current.get(id);
     if (tm) {
       clearTimeout(tm);
       timers.current.delete(id);
     }
+    // Mark it leaving so the exit transition plays, then unmount.
+    setToasts((cur) => cur.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(() => setToasts((cur) => cur.filter((t) => t.id !== id)), EXIT_MS);
   }, []);
 
   const push = useCallback((type, message) => {

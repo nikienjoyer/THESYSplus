@@ -49,6 +49,7 @@ function ToastItem({ toast, onDismiss }) {
     <div
       role={meta.role}
       aria-live={meta.live}
+      data-leaving={toast.leaving || undefined}
       className="thesys-toast-enter pointer-events-auto w-full sm:w-80 flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] shadow-2xl px-4 py-3 overflow-hidden"
       style={{ borderLeftWidth: '3px', borderLeftColor: meta.accent }}
     >

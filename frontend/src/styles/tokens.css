@@ -305,6 +305,7 @@
   --ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);      /* Standard state transitions */
   --ease-out:      cubic-bezier(0.23, 1, 0.32, 1);     /* Entrances, hover reveals — strong ease-out: most of the travel lands in the first frames */
   --ease-in:       cubic-bezier(0.4, 0, 1, 1);         /* Exits */
+  --ease-drawer:   cubic-bezier(0.32, 0.72, 0, 1);    /* Drawers — iOS-like sheet curve */
 
   /* ── Duration scale ───────────────────────────────────────────────── */
   --duration-fast:    120ms;  /* Chip / badge opacity transitions */

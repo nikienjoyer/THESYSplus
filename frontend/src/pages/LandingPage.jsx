@@ -35,6 +35,7 @@ import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
+import usePresence from '../hooks/usePresence';
 import { useMotionVariants } from '../lib/motion';
 
 const CORE_NAV = [
@@ -111,6 +112,7 @@ export default function LandingPage() {
   const [heroImgFailed, setHeroImgFailed] = useState(false);
   const isDark = theme === 'dark';
   const drawerRef = useFocusTrap(mobileMenuOpen);
+  const [menuMounted, menuClosing] = usePresence(mobileMenuOpen, 200);
   const { fadeUp, staggerContainer } = useMotionVariants();
 
   // ── Hero text + chrome classes ─────────────────────────────────────────
@@ -264,8 +266,8 @@ export default function LandingPage() {
       </nav>
 
       {/* Mobile drawer */}
-      {mobileMenuOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+      {menuMounted && createPortal(
+        <div data-closing={menuClosing || undefined} className="fixed inset-0 z-[9999] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm thesys-overlay-enter" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
           <div ref={drawerRef} className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] shadow-2xl thesys-drawer-enter bg-surface-elevated border-r border-border-default">
             <div className={`flex items-center justify-between px-5 py-4 border-b border-border-default`}>

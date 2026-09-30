@@ -142,13 +142,18 @@ function buildDoughnutSegments(clusters, isDark, maxSlices = MAX_DOUGHNUT_SLICES
 // ---------------------------------------------------------------------------
 
 function DoughnutChart({ segments }) {
-  const { fadeIn, drawArc } = useMotionVariants();
+  const { fadeIn, drawArc, reduceMotion } = useMotionVariants();
+  const centerDelay = segments.length * 0.06 + 0.1;
+  // Delay goes inside the variant (a transition prop would be overridden).
+  const centerFadeIn = reduceMotion
+    ? fadeIn
+    : { ...fadeIn, visible: { ...fadeIn.visible, transition: { ...fadeIn.visible.transition, delay: centerDelay } } };
   const total = segments.reduce((sum, s) => sum + s.thesis_count, 0);
   // Drives the center total count-up. The SVG <text> node can't host
   // AnimatedCounter's <span> markup, so we consume the shared tween hook
   // directly and render a plain text node (aria-hidden — the surrounding
   // <svg role="img"> already carries the full accessible summary).
-  const { hasNumericValue, displayValue } = useAnimatedCounterValue(total, 0.5);
+  const { hasNumericValue, displayValue } = useAnimatedCounterValue(total, 0.5, reduceMotion ? 0 : centerDelay);
   const centerCountDisplay = hasNumericValue ? displayValue : total;
   if (total === 0) return null;
 
@@ -202,8 +207,7 @@ function DoughnutChart({ segments }) {
               strokeLinecap="butt"
               initial="hidden"
               animate="visible"
-              transition={{ delay: idx * 0.06 }}
-              variants={drawArc(dash, circumference)}
+              variants={drawArc(dash, circumference, idx * 0.06)}
             >
               <title>{`${s.topic} — ${s.thesis_count} thes${s.thesis_count === 1 ? 'is' : 'es'}`}</title>
             </m.circle>
@@ -214,8 +218,7 @@ function DoughnutChart({ segments }) {
           transform="rotate(90, 80, 80)"
           initial="hidden"
           animate="visible"
-          transition={{ delay: segments.length * 0.06 + 0.1 }}
-          variants={fadeIn}
+          variants={centerFadeIn}
         >
           <text
             x="80" y="74" textAnchor="middle"

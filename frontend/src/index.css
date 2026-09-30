@@ -415,8 +415,8 @@
     border-width: 1px;
     background-color: var(--color-surface-elevated);
     border-color: var(--color-border);
-    animation: fade-in 0.15s var(--ease-out) forwards;
-    transform-origin: top right;
+    animation: thesys-dropdown-in 150ms var(--ease-out);
+    transform-origin: top right; /* grows from the avatar trigger */
   }
   :root .thesys-dropdown {
     box-shadow: 0 8px 30px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.08);
@@ -522,6 +522,13 @@
 .thesys-toast-enter {
   transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
 }
+/* Exit the way it came in: back up and out. ToastContext unmounts after 150ms,
+   and a transition (not keyframes) lets a dismiss interrupt the entrance. */
+.thesys-toast-enter[data-leaving] {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition-duration: 150ms;
+}
 @starting-style {
   .thesys-toast-enter {
     opacity: 0;
@@ -551,6 +558,27 @@
   from { opacity: 0; transform: translateX(-100%); }
   to   { opacity: 1; transform: translateX(0); }
 }
+@keyframes thesys-dropdown-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+/* Referenced by .thesys-skeleton. Declared here because Tailwind only emits
+   config keyframes when an animate-* utility uses them. */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Exit motion ──────────────────────────────────────────────────────────
+   Overlays leave the way they entered. usePresence keeps them mounted and
+   sets data-closing for the exit's length (150ms modal, 200ms drawer). */
+@keyframes thesys-fade-out  { to { opacity: 0; } }
+@keyframes thesys-modal-out { to { opacity: 0; transform: scale(0.95); } }
+@keyframes thesys-drawer-out { to { transform: translateX(-100%); } }
+[data-closing] { pointer-events: none; }
+[data-closing] .thesys-overlay-enter { animation: thesys-fade-out 150ms var(--ease-out) forwards; }
+[data-closing] .thesys-modal-enter   { animation: thesys-modal-out 150ms var(--ease-out) forwards; }
+[data-closing] .thesys-drawer-enter  { animation: thesys-drawer-out 200ms var(--ease-drawer) forwards; }
 
 /* Indeterminate progress — a segment sweeping across its track, for work
    with no measurable percentage (server-side processing). Transform only.
@@ -574,8 +602,15 @@
   .thesys-drawer-enter,
   .thesys-toast-enter,
   .thesys-progress-indeterminate,
-  .thesys-skeleton {
+  .thesys-skeleton,
+  [data-closing] .thesys-overlay-enter,
+  [data-closing] .thesys-modal-enter,
+  [data-closing] .thesys-drawer-enter {
     animation: none;
+  }
+  /* Dropdown keeps a plain fade — no scale */
+  .thesys-dropdown {
+    animation: thesys-fade-in 150ms var(--ease-out);
   }
   /* Drop the hover lift for motion-sensitive users; keep the shadow/border cue */
   .thesys-card-lift:hover {
