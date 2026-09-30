@@ -533,3 +533,100 @@ class TestVerifyEmailIsNowAReceipt:
         user = User.objects.get(email='claimant@pampangastateu.edu.ph')
         assert user.is_active
         assert not user.password
+
+
+# ---------------------------------------------------------------------------
+# Manual review: the submitting tab learns the administrator's decision
+# ---------------------------------------------------------------------------
+
+def _under_manual_review(client):
+    """A submitted request whose document the pipeline sent to an admin."""
+    from identity_verification.models import VerificationDocument
+
+    _, body = _submit(client)
+    req = AccessRequest.objects.get()
+    VerificationDocument.objects.create(
+        access_request=req, file_path='/x/id.jpg', mime_type='image/jpeg',
+        sha256='b' * 64, size_bytes=10,
+    )
+    return req, body['claim']
+
+
+def _expire(req):
+    req.claim_expires_at = timezone.now() - _dt.timedelta(seconds=1)
+    req.save(update_fields=['claim_expires_at'])
+
+
+@pytest.fixture
+def reviewer(db):
+    return User.objects.create_superuser(
+        email='reviewer@pampangastateu.edu.ph', first_name='Re', last_name='Viewer',
+        password=STRONG_PASSWORD,
+    )
+
+
+@pytest.mark.django_db
+class TestManualReviewOutcome:
+    def test_waiting_is_reported_even_after_the_claim_window(self, client):
+        """Reviews take longer than 30 minutes; the tab must keep waiting."""
+        req, claim = _under_manual_review(client)
+        assert _status(client, claim).json() == {'status': 'pending_manual_review'}
+
+        _expire(req)
+
+        assert _status(client, claim).json() == {'status': 'pending_manual_review'}
+
+    @pytest.mark.parametrize('expired', [False, True])
+    def test_admin_rejection_is_reported(self, client, reviewer, expired):
+        from access_requests.services import deny_request
+
+        req, claim = _under_manual_review(client)
+        deny_request(req, reviewer=reviewer, reason='The ID belongs to someone else.')
+        if expired:
+            _expire(req)
+
+        assert _status(client, claim).json() == {'status': 'rejected', 'reviewed': True}
+
+    def test_admin_approval_inside_the_window_continues_to_set_password(self, client, reviewer):
+        from access_requests.services import approve_request
+
+        req, claim = _under_manual_review(client)
+        approve_request(req, reviewer=reviewer)
+
+        payload = _status(client, claim).json()
+
+        assert payload['status'] == 'verified'
+        assert payload['setup_token']
+
+    def test_admin_approval_after_the_window_reports_without_a_token(self, client, reviewer):
+        """The expired claim still must not mint credentials — the approval
+        email carries the set-password link instead."""
+        from access_requests.services import approve_request
+        from password_reset.models import PasswordResetToken
+
+        req, claim = _under_manual_review(client)
+        approve_request(req, reviewer=reviewer)
+        _expire(req)
+        before = PasswordResetToken.objects.count()
+
+        assert _status(client, claim).json() == {'status': 'approved'}
+        assert PasswordResetToken.objects.count() == before
+
+    def test_approved_and_already_signed_up_after_the_window(self, client, reviewer):
+        from access_requests.services import approve_request
+
+        req, claim = _under_manual_review(client)
+        approve_request(req, reviewer=reviewer)
+        _expire(req)
+        user = User.objects.get(email=req.email)
+        user.set_password(STRONG_PASSWORD)
+        user.save()
+
+        assert _status(client, claim).json() == {'status': 'already_active'}
+
+    def test_automatic_rejection_is_not_marked_reviewed(self, client):
+        req, claim = _under_manual_review(client)
+        req.status = 'denied'
+        req.save(update_fields=['status'])
+
+        assert _status(client, claim).json() == {'status': 'rejected'}

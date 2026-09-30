@@ -535,6 +535,11 @@ class RequestAccessStatusView(APIView):
         {"status": "verified", "setup_token": "..."}   verified, password unset
         {"status": "already_active"}                   password already set
         {"status": "expired"}                          claim window closed
+        {"status": "pending_manual_review"}            an admin has not decided yet
+        {"status": "rejected", "reviewed": true}       an admin rejected it
+        {"status": "approved"}                         an admin approved it after
+                                                       the window; the set-password
+                                                       link is in the approval email
         404                                            unknown / malformed claim
     """
 
@@ -561,8 +566,13 @@ class RequestAccessStatusView(APIView):
 
         if req.claim_is_expired():
             # No token is minted on this branch — an expired claim must not be
-            # able to produce password-setup credentials.
-            return Response({'status': 'expired'}, status=status.HTTP_200_OK)
+            # able to produce password-setup credentials. A manual review does
+            # still report where it stands: reviews outlast the claim window,
+            # and the submitting tab would otherwise wait on nothing.
+            return Response(
+                self._manual_review_outcome(req) or {'status': 'expired'},
+                status=status.HTTP_200_OK,
+            )
 
         if req.status == 'processing':
             return Response({'status': 'processing'}, status=status.HTTP_200_OK)
@@ -577,7 +587,10 @@ class RequestAccessStatusView(APIView):
                 return Response({'status': 'pending_manual_review'}, status=status.HTTP_200_OK)
             return Response({'status': 'pending_verification'}, status=status.HTTP_200_OK)
         if req.status == 'denied':
-            return Response({'status': 'rejected'}, status=status.HTTP_200_OK)
+            return Response(
+                self._manual_review_outcome(req) or {'status': 'rejected'},
+                status=status.HTTP_200_OK,
+            )
 
         # 'approved' is the terminal state that email verification drives the
         # request to (via consume_email_verification_token -> approve_request).
@@ -635,6 +648,27 @@ class RequestAccessStatusView(APIView):
             {'status': 'verified', 'setup_token': issued.plaintext},
             status=status.HTTP_200_OK,
         )
+
+    @staticmethod
+    def _manual_review_outcome(req):
+        """Where a manually reviewed request stands, without any credentials.
+
+        ``None`` for requests that never went to an administrator, so their
+        existing responses are unchanged.
+        """
+        from identity_verification.models import VerificationDocument
+
+        if req.status == 'pending':
+            has_document = VerificationDocument.objects.filter(access_request=req).exists()
+            return {'status': 'pending_manual_review'} if has_document else None
+        if req.reviewed_by_id is None:
+            return None
+        if req.status == 'denied':
+            return {'status': 'rejected', 'reviewed': True}
+        if req.status == 'approved':
+            user = User.objects.filter(email=req.email).first()
+            return {'status': 'already_active' if user and user.password else 'approved'}
+        return None
 
     @staticmethod
     def _not_found():

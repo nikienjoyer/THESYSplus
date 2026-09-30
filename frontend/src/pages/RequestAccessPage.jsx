@@ -36,6 +36,8 @@ const CLAIM_STORAGE_KEY = 'thesys.accessRequest.claim';
 // generous headroom; the 429 branch below backs off if that ever changes.
 const POLL_INTERVAL_MS = 4000;
 const POLL_BACKOFF_CEILING_MS = 60000;
+// An administrator's review takes minutes to days, so a slower check is plenty.
+const MANUAL_REVIEW_POLL_INTERVAL_MS = 15000;
 
 function readStoredClaim() {
   try {
@@ -104,9 +106,17 @@ const DECISIONS = {
     Icon: Search,
     iconColor: 'text-amber-600',
     title: 'Your request needs manual review',
-    body: 'Some details could not be verified automatically from your document. An administrator will review your request and contact you.',
-    note: 'This usually happens when the document scan is unclear or details are partially readable.',
+    body: 'Some details could not be verified automatically from your document. An administrator will review it. This page will update when they decide, and we will also email you.',
+    note: 'This usually happens when the document scan is unclear, details are partially readable, or the name on the document does not match the name you entered.',
     tone: 'warning',
+  },
+  rejected_reviewed: {
+    Icon: TriangleAlert,
+    iconColor: 'text-rose-600',
+    title: 'Your request was not approved',
+    body: 'An administrator reviewed your document and could not approve your request. We sent the reason to your PampangaStateU email.',
+    note: 'You can submit a new request after addressing the reason in that email.',
+    tone: 'error',
   },
   rejected: {
     Icon: TriangleAlert,
@@ -250,7 +260,7 @@ export default function RequestAccessPage() {
     () => readStoredClaim()?.claim_expires_at ?? '',
   );
 
-  // 'polling' | 'verified' | 'account_ready' | 'already_active' | 'expired'
+  // 'polling' | 'verified' | 'approved' | 'account_ready' | 'already_active' | 'expired'
   const [claimState, setClaimState] = useState('polling');
 
   // Deliberately component state, never storage — short-lived and single-use.
@@ -303,11 +313,12 @@ export default function RequestAccessPage() {
 
   // ── Claim polling ─────────────────────────────────────────────────────
   //
-  // Processing and email verification are pollable. Manual review has
-  // no email in flight and 'rejected' is terminal, so polling either would be
-  // pure noise against the server.
+  // Processing, email verification and manual review are pollable; 'rejected'
+  // is terminal. Manual review keeps polling so the admin's decision appears
+  // here without a reload (the decision is also emailed, for a closed tab).
+  const isManualReview = decision === 'pending_manual_review';
   const shouldPoll = (
-    (decision === 'processing' || decision === 'pending_email_verification')
+    (decision === 'processing' || decision === 'pending_email_verification' || isManualReview)
     && claimState === 'polling'
     && !!claim
     && !!claimExpiresAt
@@ -320,7 +331,8 @@ export default function RequestAccessPage() {
 
     let cancelled = false;
     let timerId = null;
-    let intervalMs = POLL_INTERVAL_MS;
+    const baseIntervalMs = isManualReview ? MANUAL_REVIEW_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+    let intervalMs = baseIntervalMs;
 
     // Absolute instant published by the server. Never a hardcoded 30 minutes —
     // the window can change server-side without this file drifting.
@@ -339,7 +351,9 @@ export default function RequestAccessPage() {
     const tick = async () => {
       if (cancelled || inFlightRef.current) return;
 
-      if (Number.isFinite(expiresAtMs) && Date.now() >= expiresAtMs) {
+      // A review outlasts the claim window; the server keeps reporting its
+      // outcome (never a token) after it, so only other states stop here.
+      if (!isManualReview && Number.isFinite(expiresAtMs) && Date.now() >= expiresAtMs) {
         stopWith('expired');
         return;
       }
@@ -363,11 +377,18 @@ export default function RequestAccessPage() {
           setDecision('pending_email_verification');
           writeStoredClaim({ decision: 'pending_email_verification', claim, claim_expires_at: claimExpiresAt });
         }
-        if (status === 'pending_manual_review' || status === 'rejected') {
+        if (status === 'pending_manual_review' && !isManualReview) {
+          // Kept in storage so a reload goes on waiting for the admin.
           setDecision(status);
+          writeStoredClaim({ decision: status, claim, claim_expires_at: claimExpiresAt });
+          return; // the effect restarts at the manual-review cadence
+        }
+        if (status === 'rejected') {
+          setDecision(res.data?.reviewed ? 'rejected_reviewed' : 'rejected');
           clearStoredClaim();
           return;
         }
+        if (status === 'approved') { stopWith('approved'); return; }
         if (status === 'verified') {
           setSetupToken(res.data?.setup_token || '');
           setClaimState('verified');
@@ -379,8 +400,8 @@ export default function RequestAccessPage() {
         if (status === 'already_active') { stopWith('already_active'); return; }
         if (status === 'expired')        { stopWith('expired'); return; }
 
-        // pending_verification — reset any backoff and keep waiting.
-        intervalMs = POLL_INTERVAL_MS;
+        // Still waiting — reset any backoff and keep polling.
+        intervalMs = baseIntervalMs;
         schedule();
       } catch (err) {
         if (cancelled) return;
@@ -430,7 +451,7 @@ export default function RequestAccessPage() {
       if (timerId) clearTimeout(timerId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [shouldPoll, claim, claimExpiresAt, decision]);
+  }, [shouldPoll, claim, claimExpiresAt, decision, isManualReview]);
 
   const decisionInfo = decision ? (DECISIONS[decision] || {
     Icon: ClipboardList,
@@ -445,7 +466,7 @@ export default function RequestAccessPage() {
   let stepperStep;
   if (claimState === 'account_ready' || claimState === 'already_active') {
     stepperStep = STEP_ACCOUNT_READY;
-  } else if (claimState === 'verified') {
+  } else if (claimState === 'verified' || claimState === 'approved') {
     stepperStep = STEP_SET_PASSWORD;
   } else if (decision === 'processing') {
     stepperStep = STEP_PROCESSING;
@@ -453,7 +474,7 @@ export default function RequestAccessPage() {
     stepperStep = STEP_VERIFY_EMAIL;
   } else if (decision === 'pending_manual_review') {
     stepperStep = STEP_MANUAL_REVIEW;
-  } else if (decision === 'rejected') {
+  } else if (decision === 'rejected' || decision === 'rejected_reviewed') {
     stepperStep = STEP_REJECTED;
   } else {
     stepperStep = STEP_FORM;
@@ -466,6 +487,7 @@ export default function RequestAccessPage() {
     || claimState === 'account_ready'
     || claimState === 'already_active'
     || claimState === 'expired'
+    || claimState === 'approved'
   );
 
   const subtitle = claimState === 'verified' ? 'Set Password'
@@ -533,6 +555,33 @@ export default function RequestAccessPage() {
                 </div>
               )}
 
+              {claimState === 'approved' && (
+                <div className="text-center">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 bg-success-bg`}>
+                    <Mail className="w-7 h-7 text-emerald-500" aria-hidden="true" />
+                  </div>
+                  <h2 className={`text-xl font-bold mb-2 text-ink`}>
+                    Your request was approved
+                  </h2>
+                  {/* The claim window has closed, so this tab cannot receive a
+                      setup token; the approval email carries the link. */}
+                  <p className={`text-sm mb-5 text-body`}>
+                    An administrator approved your request. We emailed a link to your
+                    PampangaStateU email to set your password. If that link has expired,
+                    use Forgot password with the same email to get a new one.
+                  </p>
+                  <div className="flex flex-col items-center gap-2">
+                    <Link to="/sign-in"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors">
+                      Sign In
+                    </Link>
+                    <Link to="/forgot-password" className="text-sm font-medium hover:underline text-primary">
+                      Forgot password
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {claimState === 'expired' && (
                 <div className="text-center">
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
@@ -590,7 +639,12 @@ export default function RequestAccessPage() {
                         will continue automatically once you do.
                       </p>
                     )}
-                    {decision === 'rejected' && (
+                    {decision === 'pending_manual_review' && (
+                      <p aria-live="polite" className={`text-sm text-center text-body`}>
+                        You can keep this page open. It will update when an administrator decides.
+                      </p>
+                    )}
+                    {(decision === 'rejected' || decision === 'rejected_reviewed') && (
                       <button
                         type="button"
                         onClick={handleTryAgain}
