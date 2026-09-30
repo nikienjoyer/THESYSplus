@@ -307,8 +307,8 @@ def check_title_topic(title: str, theses, *, average_size: float, grouped_total:
     Related = composite-vector cosine >= the 35% relevance floor, or an exact
     title/name match (a coined name like "THESIX" carries no meaning for SBERT).
     The count goes through the same size rule as the topic groups, so a title
-    and a group are never judged by different standards. The closest theses
-    are listed whatever their score, name matches first.
+    and a group are never judged by different standards. Only related theses
+    are listed, name matches first; none related means an empty list.
     """
     from .semantic_search import rank_theses
     from .title_match import build_title_matcher
@@ -322,11 +322,9 @@ def check_title_topic(title: str, theses, *, average_size: float, grouped_total:
     others = [s for s in ranked if id(s) not in named_ids]
     # 4-dp compare, as in classify_title: float32 lands 0.35 at 0.3499999.
     counted = [s for s in others if round(s.score, 4) >= THRESHOLD_MEANINGFUL]
-    count = len(named) + len(counted)
-    # A name match is what the user was looking for: list it and the theses
-    # that count as related, not below-cutoff filler. No name match: show the
-    # closest theses whatever their score, so "nothing close" is visible too.
-    shown = (named + counted) if named else others
+    # List only what is counted: below-cutoff filler would read as related.
+    shown = named + counted
+    count = len(shown)
     total = len(theses)
     saturated_at, underexplored_at = _trend_cutoffs(average_size, grouped_total)
     fewer = 'none are' if underexplored_at == 0 else f'{underexplored_at} or fewer'

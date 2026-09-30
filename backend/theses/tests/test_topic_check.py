@@ -90,11 +90,15 @@ def test_related_list_is_top_five_by_score():
     assert set(related[0]) == {'id', 'title', 'year', 'program', 'similarity', 'title_match'}
 
 
-def test_closest_theses_shown_below_the_cutoff_but_not_counted():
+def test_below_cutoff_theses_are_not_listed():
     result = _check([_thesis_at(0.20, 0), _thesis_at(0.08, 1)] + [_thesis_at(0.02, i) for i in range(2, 20)])
     assert result['related_count'] == 0
-    assert [r['title'] for r in result['related'][:2]] == ['Thesis 0', 'Thesis 1']
-    assert result['related'][0]['similarity'] == pytest.approx(0.20, abs=1e-4)
+    assert result['related'] == []
+
+
+def test_only_counted_theses_are_listed():
+    result = _check([_thesis_at(0.50, 0), _thesis_at(0.20, 1)] + _corpus(0, 20)[2:])
+    assert [r['title'] for r in result['related']] == ['Thesis 0']
 
 
 def test_exact_name_counts_and_comes_first_even_below_cutoff():
