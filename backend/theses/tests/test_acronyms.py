@@ -40,6 +40,18 @@ class TestExpandQuery:
         assert expand_query('is it working') == ['is it working']
         assert 'information technology helpdesk' in expand_query('IT helpdesk')
 
+    def test_all_caps_query_expands_like_lowercase(self):
+        # In an all-caps query capitals carry no signal: "IS" is just "is".
+        assert expand_query('HELLO MY NAME IS VAL') == ['HELLO MY NAME IS VAL']
+        assert expand_query('POS SYSTEM FOR CAFE') == ['POS SYSTEM FOR CAFE']
+
+    def test_all_caps_query_still_expands_plain_acronyms(self):
+        assert 'internet of things based cart' in expand_query('IOT BASED CART')
+
+    @pytest.mark.parametrize('query', ['IS', 'ML'])
+    def test_lone_ambiguous_acronym_still_expands(self, query):
+        assert len(expand_query(query)) == 2
+
     def test_partial_words_are_not_expanded(self):
         assert expand_query('patriot') == ['patriot']
 

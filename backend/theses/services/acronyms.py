@@ -155,7 +155,13 @@ def expand_query(query: str) -> List[str]:
         return []
     base = _clean(original)
     variants = [original]
+    # In an all-caps multi-word query capitals carry no signal, so "IS" in
+    # "HELLO MY NAME IS VAL" is the word "is": skip the capitals-only terms
+    # and rank it exactly like its lowercase spelling.
+    shouting = base.isupper() and ' ' in base
     for term in GLOSSARY:
+        if shouting and term.case_sensitive:
+            continue
         swapped = term.acronym_re.sub(lambda m: term.long_form + m.group(1), base)
         if swapped == base:
             swapped = term.long_form_re.sub(lambda m: term.acronym.lower() + m.group(1), base)
