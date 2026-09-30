@@ -411,7 +411,7 @@ export default function LandingPage() {
                 />
               </div>
               <button type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-primary-solid-hover transition-[color,background-color,border-color,box-shadow,transform] duration-150 hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold whitespace-nowrap w-full sm:w-auto flex-shrink-0 hover:bg-primary-solid-hover transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <Search className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Search Theses
               </button>
@@ -420,7 +420,7 @@ export default function LandingPage() {
             {/* Secondary CTA */}
             <m.div variants={fadeUp} className="flex flex-wrap gap-3">
               <Link to="/title-similarity"
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Check Title Similarity
               </Link>
