@@ -107,7 +107,7 @@ const DECISIONS = {
     iconColor: 'text-amber-600',
     title: 'Your request needs manual review',
     body: 'Some details could not be verified automatically from your document. An administrator will review it. This page will update when they decide, and we will also email you.',
-    note: 'This usually happens when the document scan is unclear, details are partially readable, or the name on the document does not match the name you entered.',
+    note: 'This usually happens when the document scan is unclear, details are partially readable, or the name or student number on the document does not match what you entered.',
     tone: 'warning',
   },
   rejected_reviewed: {

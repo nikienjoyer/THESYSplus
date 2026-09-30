@@ -19,7 +19,7 @@ from ..services.ocr_extractor import OCRExtractor
 from ..services.field_extractor import FieldExtractor
 from ..services.decision_engine import DecisionEngine
 from ..services import audit
-from ..validators.rule_validator import RuleValidator, name_matches
+from ..validators.rule_validator import RuleValidator, name_matches, student_number_matches
 
 
 class VerificationOrchestrator:
@@ -115,23 +115,36 @@ class VerificationOrchestrator:
                 rule_result=rule_result,
             )
 
-            # The document must belong to the applicant. A mismatch never
-            # auto-approves (no verification email goes out); an administrator
-            # decides instead. A rejection stays a rejection.
-            if decision.status != 'rejected' and not name_matches(
+            # The document must belong to the applicant: their name and the
+            # student number in their email must both appear on it. A mismatch
+            # never auto-approves, so no verification email goes to what may be
+            # another student's inbox; an administrator decides instead. A
+            # rejection stays a rejection.
+            mismatches = []
+            if not name_matches(
                 access_request.first_name, access_request.last_name, ocr_result.raw_text,
             ):
+                mismatches.append((
+                    'name_mismatch',
+                    'Name on document does not match the registered name '
+                    f'({access_request.first_name} {access_request.last_name})',
+                ))
+            if not student_number_matches(access_request.email, ocr_result.raw_text):
+                mismatches.append((
+                    'student_number_mismatch',
+                    f'Student number in the email ({access_request.email.split("@")[0]}) '
+                    'was not found on the document',
+                ))
+            if decision.status != 'rejected' and mismatches:
                 decision = replace(
                     decision,
                     status='pending_manual_review',
                     reason=(
-                        'name_mismatch' if decision.status == 'auto_approved'
+                        mismatches[0][0] if decision.status == 'auto_approved'
                         else decision.reason
                     ),
                     flagged_reasons=[
-                        *decision.flagged_reasons,
-                        'Name on document does not match the registered name '
-                        f'({access_request.first_name} {access_request.last_name})',
+                        *decision.flagged_reasons, *(flag for _, flag in mismatches),
                     ],
                 )
 

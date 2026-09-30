@@ -177,12 +177,12 @@ class TestOrchestratorAuditIntegration:
     ):
         """WHEN orchestrator runs successfully, THEN all audit events are written."""
         AuditLog.objects.all().delete()
-        
-        # Create test data
+
+        # Create test data (a real upload's email is the student number)
         access_request = AccessRequest.objects.create(
             first_name='Juan',
             last_name='Dela Cruz',
-            email='juan.delacruz@test.edu',
+            email='2021123456@pampangastateu.edu.ph',
             requested_role='student',
             status='processing',
         )
@@ -199,7 +199,7 @@ class TestOrchestratorAuditIntegration:
         mock_ocr_extractor = MagicMock()
         mock_ocr_result = OCRResult(
             success=True,
-            raw_text='Pampanga State University\nCollege of Computing Studies\nDELA CRUZ, JUAN\nBS Information System',
+            raw_text='Pampanga State University\nCollege of Computing Studies\nDELA CRUZ, JUAN\n2021123456\nBS Information System',
             overall_confidence=85.0,
             error=None,
         )

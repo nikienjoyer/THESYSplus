@@ -35,7 +35,7 @@ def user(db):
 def access_request(db, user):
     """Create a test AccessRequest."""
     return AccessRequest.objects.create(
-        email='student@pampangastateu.edu.ph',
+        email='202112345@pampangastateu.edu.ph',
         first_name='Juan',
         last_name='Dela Cruz',
         requested_role='student',
@@ -119,6 +119,7 @@ Student No: 2021-12345""",
             raw_text="""PAMPANGA STATE UNIVERSITY
 CCS
 Name: DELA CRUZ, JUAN
+Student No: 2021-12345
 Program: BS COMPUTER SCIENCE""",
             overall_confidence=75.0,
             success=True,
@@ -277,6 +278,7 @@ Program: BS COMPUTER SCIENCE""",
             raw_text="""PAMPANGA STATE UNIVERSITY
 COLLEGE OF ENGINEERING
 Name: DELA CRUZ, JUAN
+Student No: 2021-12345
 Program: BS INFORMATION TECHNOLOGY""",
             overall_confidence=88.0,
             success=True,
@@ -463,6 +465,7 @@ Student No: 2022-67890""",
 
 VALID_PSU_DOCUMENT = """PAMPANGA STATE UNIVERSITY
 Name: {name}
+Student No: 2021-12345
 BACHELOR OF SCIENCE IN INFORMATION SYSTEMS"""
 
 
@@ -535,3 +538,70 @@ class TestVerificationOrchestratorNameMatch:
         assert result.status == 'rejected'
         access_request.refresh_from_db()
         assert access_request.status == 'denied'
+
+
+@pytest.mark.django_db
+class TestVerificationOrchestratorStudentNumber:
+    """The student number in the email must appear on the document."""
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_another_students_email_goes_to_manual_review(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        """The reported case: the applicant's own ID, another student's email."""
+        access_request.email = '202199999@pampangastateu.edu.ph'
+        access_request.save(update_fields=['email'])
+        mock_extract.return_value = OCRResult(
+            raw_text=VALID_PSU_DOCUMENT.format(name='DELA CRUZ, JUAN MIGUEL'),
+            overall_confidence=89.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'pending_manual_review'
+        assert result.decision_reason == 'student_number_mismatch'
+        assert result.flagged_reasons == [
+            'Student number in the email (202199999) was not found on the document',
+        ]
+        access_request.refresh_from_db()
+        assert access_request.status == 'pending'
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_name_and_number_mismatch_are_both_flagged(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        access_request.email = '202199999@pampangastateu.edu.ph'
+        access_request.save(update_fields=['email'])
+        mock_extract.return_value = OCRResult(
+            raw_text=VALID_PSU_DOCUMENT.format(name='REYES, MARIA'),
+            overall_confidence=89.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'pending_manual_review'
+        assert result.decision_reason == 'name_mismatch'
+        assert result.flagged_reasons == [
+            'Name on document does not match the registered name (Juan Dela Cruz)',
+            'Student number in the email (202199999) was not found on the document',
+        ]
+
+    @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
+    def test_ten_digit_number_is_read_from_the_full_text(
+        self, mock_extract, orchestrator, access_request, verification_document,
+    ):
+        """PSU numbers have ten digits; the extracted field keeps at most nine,
+        so the check must read the OCR text itself."""
+        access_request.email = '2023123456@pampangastateu.edu.ph'
+        access_request.save(update_fields=['email'])
+        mock_extract.return_value = OCRResult(
+            raw_text=(
+                'PAMPANGA STATE UNIVERSITY\nName: DELA CRUZ, JUAN\n'
+                'Student No: 2023123456\nBACHELOR OF SCIENCE IN INFORMATION SYSTEMS'
+            ),
+            overall_confidence=89.0, success=True, error=None,
+        )
+
+        result = orchestrator.verify_request(str(access_request.id))
+
+        assert result.status == 'auto_approved'

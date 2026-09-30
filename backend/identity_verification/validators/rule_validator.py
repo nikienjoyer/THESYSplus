@@ -66,6 +66,20 @@ def name_matches(first_name: str, last_name: str, ocr_text: str) -> bool:
     )
 
 
+def student_number_matches(email: str, ocr_text: str) -> bool:
+    """True when the student number before the ``@`` appears on the document.
+
+    Checked against the raw OCR text, not the extracted ``student_number``,
+    which keeps at most nine digits. Whole number only; a space or hyphen
+    between digits is allowed ("2023-313521").
+    """
+    number = (email or '').split('@')[0]
+    if not re.fullmatch(r'[0-9]+', number):
+        return False
+    pattern = r'(?<!\d)' + r'[ -]?'.join(number) + r'(?!\d)'
+    return re.search(pattern, ocr_text or '') is not None
+
+
 class RuleValidator:
     """Validates extracted fields against institutional requirements.
     
