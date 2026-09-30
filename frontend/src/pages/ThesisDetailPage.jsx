@@ -12,9 +12,9 @@
  * TODO: For production, saved theses should be persisted in the backend per user.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bookmark, Download, Eye, TriangleAlert } from 'lucide-react';
+import { Bookmark, ChevronDown, Download, Eye, TriangleAlert } from 'lucide-react';
 import client from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -85,6 +85,21 @@ export default function ThesisDetailPage() {
   const [savingSubject, setSavingSubject] = useState(false);
   const [subjectError, setSubjectError] = useState('');
   const canReviewSubject = user?.role === 'faculty' || user?.role === 'administrator';
+
+  // Phones clamp the abstract to 6 lines and the author list to 3 names.
+  // The toggle appears only when the clamp actually hides text, measured on
+  // the rendered paragraph so it tracks the real width and font.
+  const abstractRef = useRef(null);
+  const [abstractOpen, setAbstractOpen] = useState(false);
+  const [abstractClamped, setAbstractClamped] = useState(false);
+  const [authorsOpen, setAuthorsOpen] = useState(false);
+  useLayoutEffect(() => {
+    const el = abstractRef.current;
+    if (!el || abstractOpen) return;
+    const observer = new ResizeObserver(() => setAbstractClamped(el.scrollHeight > el.clientHeight + 1));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [thesis?.abstract, abstractOpen]);
 
   // Re-read saved status once user is available (user may be null during auth init)
   useEffect(() => {
@@ -225,7 +240,8 @@ export default function ThesisDetailPage() {
       <AppNavbar activePage="repository" />
 
       <PageShell>
-        <div className="max-w-4xl mx-auto px-4">
+        {/* pb-24 on phones keeps the fixed action bar off the last lines. */}
+        <div className="max-w-4xl mx-auto pb-24 sm:pb-0 sm:px-4">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : error ? (
@@ -254,7 +270,7 @@ export default function ThesisDetailPage() {
             )}
 
             <article
-              className="thesys-card p-6 sm:p-8"
+              className="thesys-card p-4 sm:p-8"
             >
               {/* Back — an action with no stable destination, so a button
                   (not a Link with a fixed href) is the correct element.
@@ -295,34 +311,110 @@ export default function ThesisDetailPage() {
               </span>
             </div>
 
-            <h1 className={`text-2xl sm:text-3xl font-bold leading-tight mb-4 text-ink`}>
+            <h1 className={`text-xl sm:text-3xl font-bold leading-tight mb-4 text-ink`} style={{ textWrap: 'balance' }}>
               {thesis.title}
             </h1>
 
-            <div className={`text-sm mb-1 text-body`}>
-              <strong>Authors:</strong> {formatFullAuthorList(thesis.authors)}
-            </div>
+            {(() => {
+              const names = formatFullAuthorList(thesis.authors).split(', ').filter(Boolean);
+              const hidden = names.length - 3;
+              return (
+                <div className={`text-sm mb-1 text-body`}>
+                  <strong>Authors:</strong>{' '}
+                  {names.map((name, i) => (
+                    <span key={i} className={i >= 3 && !authorsOpen ? 'max-sm:hidden' : undefined}>
+                      {i > 0 && ', '}{name}
+                    </span>
+                  ))}
+                  {hidden > 0 && !authorsOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthorsOpen(true)}
+                      className="sm:hidden ml-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    >
+                      +{hidden} more
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             {thesis.adviser && (
               <div className={`text-sm mb-4 text-body`}>
                 <strong>Adviser:</strong> {thesis.adviser}
               </div>
             )}
 
+            {/* Actions. Phones: a bar fixed to the bottom of the screen, so
+                Preview is reachable without scrolling past the abstract.
+                sm and up: an inline row under the authors. Preview is the one
+                filled button; it is what most visits come for. */}
+            <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[2.75rem_1fr_1fr] gap-2 border-t border-border-default bg-surface-elevated px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]
+              sm:static sm:z-auto sm:mt-5 sm:flex sm:flex-wrap sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0">
+              <button
+                type="button"
+                onClick={() => setSaved(toggleSaved(thesis, user))}
+                aria-pressed={saved}
+                className={`min-h-11 sm:min-h-0 px-0 sm:px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  saved
+                    ? isDark
+                      ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                      : 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'border-border-strong text-body hover:bg-surface-secondary'
+                }`}
+                title={saved ? 'Remove from saved theses' : 'Save to your profile'}
+              >
+                <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">{saved ? 'Saved' : 'Save'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloading}
+                className={`min-h-11 sm:min-h-0 px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary`}
+                title="Download the watermarked document"
+              >
+                {downloading ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" aria-hidden="true" />}
+                {downloading ? `${downloadProgress === null ? 'Downloading…' : `${downloadProgress}%`}` : 'Download'}
+              </button>
+              <button
+                type="button"
+                onClick={handlePreview}
+                className={`min-h-11 sm:min-h-0 px-3 py-2 rounded-lg text-sm font-semibold border border-primary-solid transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-primary-solid text-white hover:bg-primary-solid-hover sm:order-first`}
+                title="Open watermarked preview"
+              >
+                <Eye className="w-4 h-4" aria-hidden="true" />
+                <span>Preview<span className="hidden sm:inline"> Document</span></span>
+              </button>
+            </div>
+
             <hr className={`my-5 border-border-default`} />
 
-            {/* Align the abstract with Authors and Keywords and use the card width.
-                font-reading = Source Serif 4 Variable (Phase 2.C-2).
-                text-[1.0625rem] = 17px — within the 16-18px approved reading range. */}
+            {/* font-reading = Source Serif 4 Variable. 16px on phones, 17px
+                from sm — both inside the approved 16-18px reading range. */}
             <div className="w-full mb-6">
               <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
                 Abstract
               </h2>
               <p
-                className={`font-reading text-left text-[1.0625rem] leading-[1.65] whitespace-pre-line text-ink`}
+                id="thesis-abstract"
+                ref={abstractRef}
+                className={`font-reading text-left text-base sm:text-[1.0625rem] leading-[1.65] whitespace-pre-line text-ink ${abstractOpen ? '' : 'max-sm:line-clamp-6'}`}
                 style={{ textWrap: 'pretty' }}
               >
                 {thesis.abstract}
               </p>
+              {(abstractClamped || abstractOpen) && (
+                <button
+                  type="button"
+                  onClick={() => setAbstractOpen((open) => !open)}
+                  aria-expanded={abstractOpen}
+                  aria-controls="thesis-abstract"
+                  className="sm:hidden mt-2 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                >
+                  {abstractOpen ? 'Show less' : 'Read full abstract'}
+                  <ChevronDown className={`w-4 h-4 transition-transform motion-reduce:transition-none ${abstractOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+              )}
             </div>
 
             <h2 className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
@@ -446,49 +538,10 @@ export default function ThesisDetailPage() {
 
             <hr className={`my-5 border-border-default`} />
 
-            <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted`}>
-              <div>
-                Uploaded by <strong className={'text-body'}>{thesis.uploaded_by_name}</strong>
-                {' · '}
-                {new Date(thesis.created_at).toLocaleDateString()}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSaved(toggleSaved(thesis, user))}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 ${
-                    saved
-                      ? isDark
-                        ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                        : 'bg-blue-50 border-blue-200 text-blue-700'
-                      : 'border-border-strong text-body hover:bg-surface-secondary'
-                  }`}
-                  title={saved ? 'Remove from saved theses' : 'Save to your profile'}
-                >
-                  <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
-                  {saved ? 'Saved' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePreview}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 border-border-strong text-body hover:bg-surface-secondary`}
-                  title="Open watermarked preview"
-                >
-                  <Eye className="w-4 h-4" aria-hidden="true" />
-                  Preview Document
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
-                  title="Download the watermarked document"
-                >
-                  {downloading ? <Spinner className="w-4 h-4" /> : <Download className="w-4 h-4" aria-hidden="true" />}
-                  {downloading ? `Downloading${downloadProgress === null ? '…' : ` ${downloadProgress}%`}` : 'Download'}
-                </button>
-              </div>
+            <div className={`text-xs text-muted`}>
+              Uploaded by <strong className={'text-body'}>{thesis.uploaded_by_name}</strong>
+              {' · '}
+              {new Date(thesis.created_at).toLocaleDateString()}
             </div>
           </article>
           </>

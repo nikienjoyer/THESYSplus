@@ -27,7 +27,7 @@ It is a tool for intellectual work. It should feel rigorous, trustworthy, and at
 ## Users
 
 ### Student (Primary)
-- BSIS, BSIT, BSCS, or ACT undergraduate student at PampangaStateU CCS
+- BSIS, BSIT, BSCS, or ACT undergraduate student at PampangaStateU CCS (ACT students can sign in, but ACT has no theses in the repository)
 - Arriving at the beginning of a thesis proposal, needing to verify their topic is original
 - Using Title Similarity Validation before investing months in a direction already explored
 - Browsing the Repository to find related literature and build their own context
@@ -245,4 +245,4 @@ These are fixed and must not be changed by design decisions:
 - React + Vite + Tailwind frontend — no framework migration
 - No external chart libraries — inline SVG charts only (established pattern)
 - Thesis files: PDF and DOCX only, max 25 MB
-- Program options are fixed: BSIS, BSIT, BSCS, ACT (no free-text program field)
+- Thesis program options are fixed: BSIS, BSIT, BSCS (no free-text program field). ACT has no theses, so it is not a thesis program; ID verification still accepts ACT students
