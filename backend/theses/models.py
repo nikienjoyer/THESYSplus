@@ -39,7 +39,6 @@ class Program(models.TextChoices):
     BSIS = 'BS Information System', 'BS Information System'
     BSIT = 'BS Information Technology', 'BS Information Technology'
     BSCS = 'BS Computer Science', 'BS Computer Science'
-    ACT = 'Associate in Computer Technology', 'Associate in Computer Technology'
 
 
 class ResearchSubject(models.Model):

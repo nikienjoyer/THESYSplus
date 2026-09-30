@@ -169,7 +169,6 @@ class TestDetectProgram:
         ('Bachelor of Science in Information System', 'BS Information System'),
         ('Bachelor of Science in Information Technology', 'BS Information Technology'),
         ('Bachelor of Science in Computer Science', 'BS Computer Science'),
-        ('Associate in Computer Technology', 'Associate in Computer Technology'),
     ])
     def test_degree_lines_map_to_enum_values(self, degree_line, expected):
         text = (
@@ -196,11 +195,10 @@ class TestDetectProgram:
         assert program == expected
         assert confidence == 'high'
 
-    def test_uppercase_act_acronym_maps_to_associate_program(self):
-        program, confidence = detect_program('Degree: ACT\n')
-
-        assert program == 'Associate in Computer Technology'
-        assert confidence == 'high'
+    @pytest.mark.parametrize('line', ['Degree: ACT', 'Associate in Computer Technology'])
+    def test_act_is_not_a_thesis_program(self, line):
+        # ACT has no theses; its degree line must not be read as another program.
+        assert detect_program(f'TITLE\n\n{line}\n')[0] == ''
 
     def test_lowercase_act_in_body_prose_does_not_set_program(self):
         # These lines are verbatim from the front matter of actual corpus PDFs.

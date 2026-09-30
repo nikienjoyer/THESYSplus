@@ -155,15 +155,6 @@ SAMPLE_THESES = [
         'year': 2025,
         'adviser': 'Dr. Sy, Christopher',
     },
-    {
-        'title': 'Associate Computer Technology Lab Equipment Tracking System',
-        'abstract': 'A QR-coded asset tracking system for ACT lab consumables and PCs, with check-in/check-out workflows, low-stock alerts, and a monthly utilization report.',
-        'authors': ['Navarro, Kim L.', 'Alarcon, Faith M.'],
-        'keywords': ['inventory', 'QR code', 'web system', 'asset tracking'],
-        'program': Program.ACT.value,
-        'year': 2023,
-        'adviser': 'Prof. Bautista, Jose',
-    },
 ]
 
 

@@ -1206,7 +1206,6 @@ class Command(BaseCommand):
             (Program.BSIS.value, 'BSIS'),
             (Program.BSIT.value, 'BSIT'),
             (Program.BSCS.value, 'BSCS'),
-            (Program.ACT.value,  'ACT'),
         ]:
             n = Thesis.objects.filter(
                 uploaded_by__email__in=demo_emails,

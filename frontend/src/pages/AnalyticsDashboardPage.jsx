@@ -245,7 +245,6 @@ function shortProgram(prog) {
     'BS Information System': 'BSIS',
     'BS Information Technology': 'BSIT',
     'BS Computer Science': 'BSCS',
-    'Associate in Computer Technology': 'ACT',
   };
   return map[prog] || prog;
 }

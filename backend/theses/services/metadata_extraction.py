@@ -1988,7 +1988,6 @@ CANONICAL_PROGRAMS = (
     'BS Information System',
     'BS Information Technology',
     'BS Computer Science',
-    'Associate in Computer Technology',
 )
 
 # A line must look like a degree statement before program matching runs.
@@ -1996,15 +1995,12 @@ CANONICAL_PROGRAMS = (
 # the program from the title rather than from the degree line.
 _DEGREE_LINE = re.compile(
     r'\b(bachelor|associate|degree|undergraduate\s+program|'
-    r'bsis|bsit|bscs|bs\s?is|bs\s?it|bs\s?cs)\b|(?-i:\bACT\b)',
+    r'bsis|bsit|bscs|bs\s?is|bs\s?it|bs\s?cs)\b',
     re.IGNORECASE,
 )
 
-# Deterministic discriminators, checked before any fuzzy matching. Ordered
-# most-specific first: "computer technology" must be tested before the looser
-# rules so an ACT degree line is not read as Computer Science.
+# Deterministic discriminators, checked before any fuzzy matching.
 _PROGRAM_TOKEN_RULES: tuple[tuple[str, str], ...] = (
-    ('computer technology', 'Associate in Computer Technology'),
     ('information system', 'BS Information System'),
     ('information technology', 'BS Information Technology'),
     ('computer science', 'BS Computer Science'),
@@ -2014,7 +2010,6 @@ _PROGRAM_ACRONYMS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r'\bbs\s?is\b', re.IGNORECASE), 'BS Information System'),
     (re.compile(r'\bbs\s?it\b', re.IGNORECASE), 'BS Information Technology'),
     (re.compile(r'\bbs\s?cs\b', re.IGNORECASE), 'BS Computer Science'),
-    (re.compile(r'\bACT\b'), 'Associate in Computer Technology'),
 )
 
 # Fuzzy fallback, used ONLY when the deterministic rules find nothing — it
@@ -2023,7 +2018,6 @@ _PROGRAM_FUZZY_ALIASES: tuple[tuple[str, str], ...] = (
     ('bachelor of science in information systems', 'BS Information System'),
     ('bachelor of science in information technology', 'BS Information Technology'),
     ('bachelor of science in computer science', 'BS Computer Science'),
-    ('associate in computer technology', 'Associate in Computer Technology'),
 )
 
 # Empirically the gap between a real OCR-damaged degree line and the wrong

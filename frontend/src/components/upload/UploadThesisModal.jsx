@@ -32,7 +32,6 @@ const PROGRAMS = [
   'BS Information System',
   'BS Information Technology',
   'BS Computer Science',
-  'Associate in Computer Technology',
 ];
 
 const EMPTY_METADATA_FORM = Object.freeze({

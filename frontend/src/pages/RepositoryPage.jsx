@@ -62,7 +62,6 @@ const PROGRAMS = [
   'BS Information System',
   'BS Information Technology',
   'BS Computer Science',
-  'Associate in Computer Technology',
 ];
 
 // Explicit corpus bounds, not a rolling window off the system clock.
