@@ -20,6 +20,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from access_requests.models import AccessRequest
+from access_requests.services import deny_request
 from accounts.models import User
 from password_reset.models import PasswordResetToken
 
@@ -196,9 +197,25 @@ def _id_check_rejects_pending():
     AccessRequest.objects.filter(status='pending').update(status='denied')
 
 
-def _admin_denies_pending():
-    AccessRequest.objects.filter(status='pending').update(
-        status='denied', reviewed_at=timezone.now(),
+def _admin_denies_pending(reviewer):
+    for req in AccessRequest.objects.filter(status='pending'):
+        deny_request(req, reviewer=reviewer, reason='Not eligible.')
+
+
+def _being_checked(count, email='student@pampangastateu.edu.ph'):
+    """Requests the ID check hasn't decided yet (any may still send an email)."""
+    for _ in range(count):
+        AccessRequest.objects.create(
+            email=email, first_name='Test', last_name='User',
+            requested_role='student', status='processing',
+        )
+
+
+@pytest.fixture
+def reviewer(db):
+    return User.objects.create_superuser(
+        email='reviewer@pampangastateu.edu.ph', first_name='Re', last_name='Viewer',
+        password='Str0ng!Passw0rd!2026',
     )
 
 
@@ -216,24 +233,24 @@ class TestRequestAccessPerEmailRateLimit:
 
         assert _submit_access_request(client).status_code == 201
 
-    def test_duplicate_submissions_do_not_count(self, client):
+    def test_duplicate_submissions_do_not_count(self, client, reviewer):
         """WHEN 2 submissions bounce off a pending request (409),
         THEN they do not use up the email's tries."""
         assert _submit_access_request(client).status_code == 201
         for i in range(2):
             response = _submit_access_request(client)
             assert response.status_code == 409, f"Request {i+2} should return 409"
-        _admin_denies_pending()
+        _admin_denies_pending(reviewer)
 
         assert _submit_access_request(client).status_code == 201
 
-    def test_fourth_counted_request_rate_limited(self, client):
+    def test_fourth_counted_request_rate_limited(self, client, reviewer):
         """WHEN 3 submissions for the same email were not rejected by the ID
         check (here: denied by an administrator),
         THEN the 4th should return 429 RATE_LIMITED_REQUEST_ACCESS."""
         for i in range(3):
             assert _submit_access_request(client).status_code == 201, f"Request {i+1} should succeed"
-            _admin_denies_pending()
+            _admin_denies_pending(reviewer)
 
         response = _submit_access_request(client)
         assert response.status_code == 429
@@ -241,15 +258,30 @@ class TestRequestAccessPerEmailRateLimit:
         assert body['error']['code'] == 'RATE_LIMITED_REQUEST_ACCESS'
         assert 'Retry-After' in response
 
-    def test_requests_older_than_a_day_do_not_count(self, client):
+    def test_requests_older_than_a_day_do_not_count(self, client, reviewer):
         """WHEN an email's 3 counted requests are more than a day old,
         THEN a new submission is accepted."""
         for i in range(3):
             assert _submit_access_request(client).status_code == 201, f"Request {i+1} should succeed"
-            _admin_denies_pending()
+            _admin_denies_pending(reviewer)
         AccessRequest.objects.update(created_at=timezone.now() - timedelta(days=1, minutes=1))
 
         assert _submit_access_request(client).status_code == 201
+
+    def test_requests_still_being_checked_count(self, client):
+        """WHEN 3 submissions for the same email are still being checked,
+        THEN the 4th should return 429."""
+        _being_checked(3)
+
+        assert _submit_access_request(client).status_code == 429
+
+    def test_requests_within_a_day_still_count(self, client):
+        """WHEN an email's 3 counted requests are 23 hours old,
+        THEN the next submission is still rate limited."""
+        _being_checked(3)
+        AccessRequest.objects.update(created_at=timezone.now() - timedelta(hours=23))
+
+        assert _submit_access_request(client).status_code == 429
 
 
 # ---------------------------------------------------------------------------

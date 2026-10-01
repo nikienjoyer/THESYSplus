@@ -258,6 +258,8 @@ Program: BS COMPUTER SCIENCE""",
 
         access_request.refresh_from_db()
         assert access_request.status == 'denied'
+        # No review stamp: request-access gives an ID-check rejection its try back.
+        assert access_request.reviewed_at is None
 
     @patch('identity_verification.services.orchestrator.OCRExtractor.extract')
     def test_rejected_wrong_college(
