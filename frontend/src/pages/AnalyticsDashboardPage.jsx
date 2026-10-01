@@ -465,7 +465,7 @@ export default function AnalyticsDashboardPage() {
                   to={data.reviewed_subject_summary?.main_view_enabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
                   className="underline text-primary hover:opacity-80"
                 >
-                  View full Trend Analysis →
+                  {data.reviewed_subject_summary?.main_view_enabled ? 'View Reviewed Subjects →' : 'View full Trend Analysis →'}
                 </Link>
               </p>
               <TrendSummary summary={data.reviewed_subject_summary?.main_view_enabled ? data.reviewed_subject_summary : data.topic_summary} reviewed={Boolean(data.reviewed_subject_summary?.main_view_enabled)} />

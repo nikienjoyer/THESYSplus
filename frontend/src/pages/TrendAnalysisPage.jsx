@@ -500,16 +500,11 @@ function TopicCheck({ isDark }) {
                           {t.title}
                           <span className={`block text-xs mt-0.5 ${muted}`}>{t.year} · {t.program}</span>
                         </span>
-                        <span className="flex items-center gap-1.5 flex-shrink-0">
-                          {t.title_match && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-warning-bg text-warning-text border-warning-border">
-                              Title/name match
-                            </span>
-                          )}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap tabular-nums bg-info-bg text-info-text border-info-border">
-                            {(t.similarity * 100).toFixed(1)}% match
+                        {t.title_match && (
+                          <span className="inline-flex items-center flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap bg-warning-bg text-warning-text border-warning-border">
+                            Title/name match
                           </span>
-                        </span>
+                        )}
                       </Link>
                     </li>
                   ))}
