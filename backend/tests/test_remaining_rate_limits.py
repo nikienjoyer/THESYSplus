@@ -3,7 +3,7 @@
 Per Requirements 10.3, 10.4, 19.1, 19.2, 19.3 and design §8.2:
 - POST /forgot-password: per-email 3/hour → RATE_LIMITED_FORGOT_PASSWORD
 - POST /request-access: per-IP 5/hour → RATE_LIMITED_REQUEST_ACCESS
-- POST /request-access: per-email 3/day → RATE_LIMITED_REQUEST_ACCESS
+- POST /request-access: per-email 3/day, ID-check rejections excluded → RATE_LIMITED_REQUEST_ACCESS
 - POST /reset-password: per-IP 10/hour → RATE_LIMITED_IP
 - POST /reset-password: per-token 5/15min → RATE_LIMITED_RESET_PASSWORD
 - POST /refresh: per-IP 60/min → RATE_LIMITED_IP
@@ -13,9 +13,13 @@ All 429 responses must include a Retry-After header.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.core.cache import cache
+from django.utils import timezone
 
+from access_requests.models import AccessRequest
 from accounts.models import User
 from password_reset.models import PasswordResetToken
 
@@ -172,84 +176,80 @@ class TestRequestAccessPerIPRateLimit:
         assert 'Retry-After' in response
 
 
+def _submit_access_request(client, email='student@pampangastateu.edu.ph'):
+    return client.post(
+        '/api/v1/auth/request-access/',
+        data={
+            'email': email,
+            'first_name': 'Test',
+            'last_name': 'User',
+            'requested_role': 'student',
+            'justification': 'Need access for research',
+        },
+        content_type='application/json',
+        HTTP_ORIGIN='http://localhost:5173',
+    )
+
+
+def _id_check_rejects_pending():
+    """What the identity worker does to a rejected ID: denied, no reviewer."""
+    AccessRequest.objects.filter(status='pending').update(status='denied')
+
+
+def _admin_denies_pending():
+    AccessRequest.objects.filter(status='pending').update(
+        status='denied', reviewed_at=timezone.now(),
+    )
+
+
 @pytest.mark.django_db
 class TestRequestAccessPerEmailRateLimit:
-    """Test per-email rate limiting for request-access (3 per day)."""
+    """Per-email limit for request-access: 3 per day, counting only requests
+    that were not rejected by the ID check."""
 
-    def test_three_requests_allowed(self, client):
-        """WHEN 3 request-access submissions are made for the same email,
-        THEN all 3 should be processed (not rate limited yet)."""
-        email = 'student@pampangastateu.edu.ph'
-        
-        # First request succeeds
-        response = client.post(
-            '/api/v1/auth/request-access/',
-            data={
-                'email': email,
-                'first_name': 'Test',
-                'last_name': 'User',
-                'requested_role': 'student',
-                'justification': 'Need access for research',
-            },
-            content_type='application/json',
-            HTTP_ORIGIN='http://localhost:5173',
-        )
-        assert response.status_code == 201
-
-        # Second and third requests return 409 (duplicate pending)
-        # but still count against rate limit
-        for i in range(2):
-            response = client.post(
-                '/api/v1/auth/request-access/',
-                data={
-                    'email': email,
-                    'first_name': 'Test',
-                    'last_name': 'User',
-                    'requested_role': 'student',
-                    'justification': 'Need access for research',
-                },
-                content_type='application/json',
-                HTTP_ORIGIN='http://localhost:5173',
-            )
-            assert response.status_code == 409, f"Request {i+2} should return 409"
-
-    def test_fourth_request_rate_limited(self, client):
-        """WHEN 4 request-access submissions are made for the same email,
-        THEN the 4th should return 429 RATE_LIMITED_REQUEST_ACCESS."""
-        email = 'student@pampangastateu.edu.ph'
-        
-        # First 3 requests (1st succeeds, 2nd and 3rd return 409)
+    def test_rejected_tries_do_not_count(self, client):
+        """WHEN the ID check rejects 3 submissions for the same email,
+        THEN a 4th submission is still accepted."""
         for i in range(3):
-            client.post(
-                '/api/v1/auth/request-access/',
-                data={
-                    'email': email,
-                    'first_name': 'Test',
-                    'last_name': 'User',
-                    'requested_role': 'student',
-                    'justification': 'Need access for research',
-                },
-                content_type='application/json',
-                HTTP_ORIGIN='http://localhost:5173',
-            )
+            assert _submit_access_request(client).status_code == 201, f"Request {i+1} should succeed"
+            _id_check_rejects_pending()
 
-        # 4th request should be rate limited
-        response = client.post(
-            '/api/v1/auth/request-access/',
-            data={
-                'email': email,
-                'first_name': 'Test',
-                'last_name': 'User',
-                'requested_role': 'student',
-                'justification': 'Need access for research',
-            },
-            content_type='application/json',
-            HTTP_ORIGIN='http://localhost:5173',
-        )
+        assert _submit_access_request(client).status_code == 201
+
+    def test_duplicate_submissions_do_not_count(self, client):
+        """WHEN 2 submissions bounce off a pending request (409),
+        THEN they do not use up the email's tries."""
+        assert _submit_access_request(client).status_code == 201
+        for i in range(2):
+            response = _submit_access_request(client)
+            assert response.status_code == 409, f"Request {i+2} should return 409"
+        _admin_denies_pending()
+
+        assert _submit_access_request(client).status_code == 201
+
+    def test_fourth_counted_request_rate_limited(self, client):
+        """WHEN 3 submissions for the same email were not rejected by the ID
+        check (here: denied by an administrator),
+        THEN the 4th should return 429 RATE_LIMITED_REQUEST_ACCESS."""
+        for i in range(3):
+            assert _submit_access_request(client).status_code == 201, f"Request {i+1} should succeed"
+            _admin_denies_pending()
+
+        response = _submit_access_request(client)
         assert response.status_code == 429
         body = response.json()
         assert body['error']['code'] == 'RATE_LIMITED_REQUEST_ACCESS'
         assert 'Retry-After' in response
+
+    def test_requests_older_than_a_day_do_not_count(self, client):
+        """WHEN an email's 3 counted requests are more than a day old,
+        THEN a new submission is accepted."""
+        for i in range(3):
+            assert _submit_access_request(client).status_code == 201, f"Request {i+1} should succeed"
+            _admin_denies_pending()
+        AccessRequest.objects.update(created_at=timezone.now() - timedelta(days=1, minutes=1))
+
+        assert _submit_access_request(client).status_code == 201
 
 
 # ---------------------------------------------------------------------------

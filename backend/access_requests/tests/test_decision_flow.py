@@ -23,6 +23,7 @@ import datetime as _dt
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import timezone
 
@@ -72,6 +73,14 @@ class TestStudentNumberEmailValidator:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def clear_rate_limit_cache():
+    """Rate-limit buckets live in LocMemCache and leak between tests."""
+    cache.clear()
+    yield
+    cache.clear()
+
 
 @pytest.fixture
 def pending_req(db):
@@ -410,6 +419,37 @@ class TestInvalidEmailFormat:
         response = client.post(url, data=data,
                                HTTP_ORIGIN='http://localhost:5173')
         assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Resubmitting while a verification link is out
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestResubmitWhileVerificationLinkPending:
+    """A second submission must not send a second verification email."""
+
+    def _resubmit(self, client, req):
+        return client.post(
+            reverse('access-request-submit'),
+            data={
+                'email': req.email,
+                'first_name': req.first_name,
+                'last_name': req.last_name,
+                'requested_role': 'student',
+                'justification': 'Resubmitting',
+            },
+            content_type='application/json',
+            HTTP_ORIGIN='http://localhost:5173',
+        )
+
+    def test_blocked_while_link_is_valid(self, client, pending_req, valid_token):
+        response = self._resubmit(client, pending_req)
+        assert response.status_code == 409
+        assert response.json()['error']['code'] == 'VERIFICATION_EMAIL_PENDING'
+
+    def test_allowed_after_link_expires(self, client, pending_req, expired_token):
+        assert self._resubmit(client, pending_req).status_code == 201
 
 
 # ---------------------------------------------------------------------------

@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import timedelta
 
 from django.db import IntegrityError
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.exceptions import NotFound
@@ -30,8 +32,8 @@ from common.csrf import require_origin_match
 from common.errors import make_error_response
 from common.ratelimit import (
     _client_ip,
+    _get_debug_limits,
     _hit_and_check,
-    rate_limit_per_email,
     rate_limit_per_ip,
 )
 from common.tokens.opaque import sha256
@@ -174,7 +176,6 @@ class RequestAccessView(APIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     @rate_limit_per_ip(limit=5, window_seconds=3600, error_code='RATE_LIMITED_REQUEST_ACCESS')
-    @rate_limit_per_email(limit=3, window_seconds=86400, error_code='RATE_LIMITED_REQUEST_ACCESS')
     def post(self, request, *args, **kwargs):
         # Check if this is a document upload (new flow) or justification (legacy flow)
         has_document = 'document' in request.data
@@ -216,6 +217,35 @@ class RequestAccessView(APIView):
                 code='DUPLICATE_REQUEST_PENDING',
                 message='A request for this email is already pending review.',
                 status=status.HTTP_409_CONFLICT,
+            )
+
+        # A verification link is already out and still valid: point the
+        # applicant at their inbox instead of sending another email.
+        now = timezone.now()
+        if AccessRequest.objects.filter(
+            email=email, status='pending_email_verification',
+            email_verification_token__expires_at__gt=now,
+        ).exists():
+            return make_error_response(
+                code='VERIFICATION_EMAIL_PENDING',
+                message='We already sent a verification link to this email. '
+                        'Check your inbox and spam folder.',
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Per-email budget, counted from the requests themselves so an ID the
+        # check rejected (denied without a reviewer) gives its try back. Failed
+        # and duplicate submissions never create a row, so they don't count.
+        limit, window = _get_debug_limits(3, 86400)
+        counted = AccessRequest.objects.filter(
+            email=email, created_at__gt=now - timedelta(seconds=window),
+        ).exclude(status='denied', reviewed_at__isnull=True)
+        if counted.count() >= limit:
+            return make_error_response(
+                code='RATE_LIMITED_REQUEST_ACCESS',
+                message='Too many requests. Please try again later.',
+                status=429,
+                retry_after_seconds=window,
             )
 
         # Branch: new verification flow vs legacy justification flow
