@@ -88,7 +88,7 @@ const FEATURES = [
     icon: TrendingUp,
     title: 'Trend Analysis',
     desc:  'See which research subjects are saturated, emerging, or underexplored, based on how many theses each has.',
-    to:    '/trend-analysis',
+    to:    '/trend-analysis?view=subjects',
   },
   {
     icon: BarChart3,
@@ -515,7 +515,7 @@ export default function LandingPage() {
                   );
                 })}
               </ul>
-              <Link to="/trend-analysis"
+              <Link to={reviewedSubjectsEnabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
                 className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
                 View all trends <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>

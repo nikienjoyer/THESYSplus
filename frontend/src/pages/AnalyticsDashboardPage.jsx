@@ -462,7 +462,7 @@ export default function AnalyticsDashboardPage() {
                   ? `Based on ${data.reviewed_subject_summary.reviewed_count} confirmed subjects among ${data.reviewed_subject_summary.approved_count} approved theses. Labels compare relative thesis counts, not growth over time. `
                   : 'Derived from exploratory groups of theses with similar meaning. Labels compare relative thesis counts, not growth over time. '}
                 <Link
-                  to="/trend-analysis"
+                  to={data.reviewed_subject_summary?.main_view_enabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
                   className="underline text-primary hover:opacity-80"
                 >
                   View full Trend Analysis →

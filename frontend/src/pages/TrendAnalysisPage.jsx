@@ -670,7 +670,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
           </button>
         ) : (
           <Link
-            to={reviewed ? '/trend-analysis' : '/trend-analysis?view=clusters'}
+            to={reviewed ? '/trend-analysis?view=subjects' : '/trend-analysis'}
             className={`inline-flex items-center gap-1.5 mb-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm text-muted hover:text-ink`}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -783,9 +783,14 @@ export default function TrendAnalysisPage() {
   const [subjectLoading, setSubjectLoading] = useState(true);
   const [subjectError, setSubjectError] = useState('');
   const reviewedEnabled = Boolean(subjectData?.main_view_enabled);
-  const showClusters = !reviewedEnabled || searchParams.get('view') === 'clusters' || searchParams.has('cluster');
-  const shouldLoadClusters = !subjectLoading && showClusters;
-  const reviewed = reviewedEnabled && !showClusters;
+  // Text clusters are the default view; reviewed subjects live at
+  // ?view=subjects (and ?subject=CODE for one subject's detail).
+  const wantsReviewed = searchParams.get('view') === 'subjects' || searchParams.has('subject');
+  const reviewed = wantsReviewed && reviewedEnabled;
+  const showClusters = !reviewed;
+  // Clusters load straight away unless the reviewed view was asked for —
+  // then only once we know it's disabled and we're falling back.
+  const shouldLoadClusters = wantsReviewed ? !subjectLoading && !reviewedEnabled : true;
 
   useEffect(() => {
     if (isInitializing || !isAuthenticated) return;
@@ -843,7 +848,7 @@ export default function TrendAnalysisPage() {
     saturated_count: subjectData.saturated_count,
     underexplored_count: subjectData.underexplored_count,
   } : clusterData;
-  const loading = subjectLoading || (showClusters && clusterLoading);
+  const loading = wantsReviewed ? subjectLoading || (showClusters && clusterLoading) : clusterLoading;
   const error = reviewed ? subjectError : clusterError;
 
   // Memoise palette mapping so cluster colours stay stable across re-renders
@@ -894,13 +899,13 @@ export default function TrendAnalysisPage() {
 
         {reviewedEnabled && showOverviewChrome && (
           <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
-            <Link to="/trend-analysis" aria-current={reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
-              Reviewed subjects
-            </Link>
-            <Link to="/trend-analysis?view=clusters" aria-current={!reviewed ? 'page' : undefined}
+            <Link to="/trend-analysis" aria-current={!reviewed ? 'page' : undefined}
               className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
               Explore text clusters
+            </Link>
+            <Link to="/trend-analysis?view=subjects" aria-current={reviewed ? 'page' : undefined}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
+              Reviewed subjects
             </Link>
           </nav>
         )}
