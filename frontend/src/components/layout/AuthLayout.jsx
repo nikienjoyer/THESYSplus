@@ -53,7 +53,7 @@ export default function AuthLayout() {
       )}
 
       {/* ── Header — persists across all auth page navigations ─────── */}
-      <header className="relative z-10 flex items-center justify-between px-5 sm:px-10 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-canvas)]/70 backdrop-blur-md flex-shrink-0">
+      <header className="relative z-10 flex items-center justify-between px-5 sm:px-8 lg:px-14 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-canvas)]/70 backdrop-blur-md flex-shrink-0">
         {/* Logo — internal navigation, no full page reload */}
         <Link
           to="/"
