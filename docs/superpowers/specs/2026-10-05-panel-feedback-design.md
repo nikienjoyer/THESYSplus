@@ -10,7 +10,7 @@ similarity, and trend features work:
 
 1. Pages and navbar feel cramped in the middle → spread them out, and make them responsive.
 2. ~~Ask "Student or Faculty?" first~~ — on hold; the team is consulting the panel first.
-3. Put Sign In on the landing page instead of behind a separate button.
+3. ~~Put Sign In on the landing page~~ — on hold; design agreed (see section 3), build later.
 4. Show suggestions while typing in search.
 5. Use "title similarity" instead of "originality".
 6. Show a thesis citation count, like Google Scholar's "Cited by N".
@@ -24,7 +24,7 @@ and leaves existing tests passing.
 | Item | Decision |
 |---|---|
 | Citations | Auto-detect from the uploaded thesis's reference list, then the uploader confirms which ones they really cited. |
-| Sign In | Sign-in form sits on the right side of the landing hero for logged-out visitors. The navbar Sign In button is removed. |
+| Sign In | On hold. Design kept in section 3 for later. |
 | Suggestions | Signed-in users get titles, keywords, and authors. Logged-out users get keywords only (no titles), keeping the existing privacy rule. |
 | Faculty flow | On hold. Not part of this work. |
 
@@ -49,28 +49,17 @@ wide screens everything bunches in the center.
 
 The team is checking with the panel before any changes. No request-access changes in this work.
 
-## 3. Sign In on the landing page
+## 3. Sign In on the landing page — on hold
 
-- Logged-out visitors at `lg+`: the CCS building photo stays as the hero
-  background. The headline, paragraph, search, and Title Similarity button stay
-  on the left. A frosted sign-in card sits bottom-right **on top of** the photo:
-  translucent background with `backdrop-filter: blur(8px)`, a light border, and
-  bottom alignment so the "College of Computing Studies" sign stays visible
-  above it. The card is dark glass in dark mode and white glass in light mode.
-  It holds the existing `SignInCard` fields plus "Forgot password?" and
-  "Request access" links. The scrim fades out by about 66% across, so the
-  building reads clearly behind the card.
-  Mockup: `shot-low.png` (dark) and `shot-low-light.png` (light).
-- Below `lg`: the panel stacks under the hero text, still inside the hero.
-- The navbar Sign In buttons (desktop, mobile, and drawer) are removed for
-  logged-out visitors. On mobile the drawer gets a "Sign in" link that scrolls
-  to the panel (`#sign-in`).
-- On success the visitor stays on `/`, which switches to its signed-in state:
-  the panel disappears and Upload Thesis plus the avatar appear.
-- The `/sign-in` page stays. It's where session-expired, password-set, and
-  account-setup redirects land.
-- The sign-in error mapping moves out of `SignInPage.jsx` into
-  `components/auth/` so the page and the hero panel share it.
+Not part of this work. The team will bring it back later. Design agreed so far,
+for when it resumes:
+
+- Keep today's full-bleed CCS photo hero, with the building on the right and the text on the left.
+- A frosted sign-in card (`backdrop-filter: blur(14px)`, translucent navy in dark mode, translucent white in light mode) sits over the photo.
+- The card is pinned to the building itself: it spans the two brick pillars of the entrance, just below the "College of Computing Studies" sign. It stays there at every desktop width, because it is placed in % of a box that keeps the photo's proportions.
+- The card has a "Sign in" heading and a one-line hint. Email and Password fields use placeholders, with hidden `aria-label`s. Below them: Remember me, Forgot password?, Sign In, and "Don't have an account? Request Access".
+- Phone: the card stacks under the hero search buttons, still frosted over the photo.
+- The navbar Sign In button is removed for logged-out visitors. `/sign-in` stays for redirects.
 
 ## 4. Search suggestions
 
@@ -179,7 +168,7 @@ as new theses that cite older ones are uploaded.
 - Existing backend and frontend test suites still pass.
 - Browser check on the side-by-side test servers (8001/5174, never 8000/5173):
   - Every page at the four widths in both themes.
-  - The landing sign-in, suggestions with the keyboard, and the upload citation checklist.
+  - Suggestions with the keyboard, and the upload citation checklist.
 
 ## Out of scope
 
