@@ -29,6 +29,7 @@ import PageHeader from '../components/layout/PageHeader';
 import SimilaritySlider from '../components/ui/SimilaritySlider';
 import { Badge } from '../components/shadcn/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
+import SearchSuggestions from '../components/search/SearchSuggestions';
 
 // Keyword chip styling, shared by the card so the clickable and pressed
 // states stay defined in one place.
@@ -584,14 +585,16 @@ export default function RepositoryPage() {
 
             {/* Row 1: search input + year/program selects + submit */}
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3">
-              <input
-                type="text"
-                placeholder="Search by topic, title, keyword, or author..."
+              <SearchSuggestions
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className={`px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors ${
-                  'thesys-input'
-                }`}
+                onChange={setSearchInput}
+                onPick={(text) => {
+                  setSearchInput(text);
+                  updateSearchParams({ q: text, keyword: '', page: '' });
+                }}
+                inputClassName="w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors thesys-input"
+                placeholder="Search by topic, title, keyword, or author..."
+                ariaLabel="Search by topic, title, keyword, or author"
               />
 
               {/* colorScheme tells the browser to paint its native popup

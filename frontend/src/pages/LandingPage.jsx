@@ -37,6 +37,7 @@ import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
 import usePresence from '../hooks/usePresence';
 import { useMotionVariants } from '../lib/motion';
+import SearchSuggestions from '../components/search/SearchSuggestions';
 
 const CORE_NAV = [
   { label: 'Home',             to: '/',                 implemented: true },
@@ -403,13 +404,14 @@ export default function LandingPage() {
               className="mb-4 max-w-xl flex flex-wrap sm:flex-nowrap items-stretch gap-2">
               <div className={`flex items-center rounded-lg px-4 py-2.5 border transition-[border-color,background-color] duration-200 flex-1 min-w-0 bg-white/[0.07] border-white/15 hover:border-white/25 focus-within:border-blue-500/60 focus-within:bg-white/[0.09] ${heroInputWrapCls}`}>
                 <Search className={`w-4 h-4 mr-3 flex-shrink-0 text-gray-400 ${heroInputIconCls}`} aria-hidden="true" />
-                <input
-                  type="text"
+                <SearchSuggestions
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={setSearchQuery}
+                  onPick={(text) => navigate(`/repository?q=${encodeURIComponent(text)}`)}
+                  wrapperClassName="flex-1 min-w-0"
+                  inputClassName={`w-full bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
                   placeholder="Search titles, topics, or authors…"
-                  className={`flex-1 bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
-                  aria-label="Search titles, topics, or authors"
+                  ariaLabel="Search titles, topics, or authors"
                 />
               </div>
               <button type="submit"
