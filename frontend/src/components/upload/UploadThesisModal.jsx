@@ -183,6 +183,7 @@ function UploadProgress({ phase, percent, canDismiss }) {
 function CitedChecklist({ thesisId, candidates }) {
   const [items, setItems] = useState(candidates);
   const [query, setQuery] = useState('');
+  const [dropped, setDropped] = useState(0);
   const [picked, setPicked] = useState(
     () => new Set(candidates.filter((c) => c.match === 'title').map((c) => c.id)),
   );
@@ -205,10 +206,11 @@ function CitedChecklist({ thesisId, candidates }) {
     setState('saving');
     try {
       const ticked = items.filter((c) => picked.has(c.id));
-      await client.post(`/theses/${thesisId}/citations/`, {
+      const res = await client.post(`/theses/${thesisId}/citations/`, {
         cited_ids: ticked.filter((c) => c.match !== 'manual').map((c) => c.id),
         manual_ids: ticked.filter((c) => c.match === 'manual').map((c) => c.id),
       });
+      setDropped(ticked.length - (res.data?.count_saved ?? ticked.length));
       setState('saved');
     } catch {
       setState('error');
@@ -254,6 +256,9 @@ function CitedChecklist({ thesisId, candidates }) {
           {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : 'Save citations'}
         </button>
         {state === 'error' && <span className="text-xs text-danger">Couldn't save. Try again.</span>}
+        {state === 'saved' && dropped > 0 && (
+          <span className="text-xs text-muted">{dropped} couldn't be saved — only approved theses can be cited.</span>
+        )}
       </div>
     </section>
   );
