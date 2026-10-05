@@ -9,7 +9,7 @@ Address six panel comments without changing how the system's core search,
 similarity, and trend features work:
 
 1. Pages and navbar feel cramped in the middle → spread them out, and make them responsive.
-2. Ask "Student or Faculty?" before showing the request-access form.
+2. ~~Ask "Student or Faculty?" first~~ — on hold; the team is consulting the panel first.
 3. Put Sign In on the landing page instead of behind a separate button.
 4. Show suggestions while typing in search.
 5. Use "title similarity" instead of "originality".
@@ -26,7 +26,7 @@ and leaves existing tests passing.
 | Citations | Auto-detect from the uploaded thesis's reference list, then the uploader confirms which ones they really cited. |
 | Sign In | Sign-in form sits on the right side of the landing hero for logged-out visitors. The navbar Sign In button is removed. |
 | Suggestions | Signed-in users get titles, keywords, and authors. Logged-out users get keywords only (no titles), keeping the existing privacy rule. |
-| Faculty flow | No preference given. Using the recommended option: faculty enter any `@pampangastateu.edu.ph` email and a short reason, then an administrator reviews it. |
+| Faculty flow | On hold. Not part of this work. |
 
 ## 1. Layout and navbar spacing
 
@@ -45,36 +45,22 @@ wide screens everything bunches in the center.
   horizontal overflow, cramped grids, and tap targets under 40px. Each fix is a
   class change in that page; no new layout components.
 
-## 2. Student or Faculty first
+## 2. Student or Faculty first — on hold
 
-**Flow.** `/request-access` first shows a choice screen with two large cards:
-"I'm a student" and "I'm faculty". Choosing one shows that role's form, with a
-"Change" link back to the choice. The role is kept in component state only.
-
-- **Student:** today's form, minus the role radio buttons. Fields are
-  student-number email and Student ID/COR upload, then automatic verification.
-  Nothing changes on the backend.
-- **Faculty:** first name, last name, institutional email (any
-  `@pampangastateu.edu.ph`), a "reason for access" textarea (10–2000 characters),
-  and the terms checkbox. The form posts `justification` and no `document`, so it
-  uses the backend's existing legacy flow. The account is created only after an
-  administrator approves, and the setup link goes to that email address, which
-  proves the person owns it.
-
-**Backend fix.** `_manual_review_outcome` currently returns `None` for a pending
-request without a document. That means a faculty tab polling the status sees no
-"manual review" state. Change: any `pending` request with a justification also
-returns `pending_manual_review`.
-
-**Copy.** The manual-review message for faculty says an administrator will
-review the request. It does not mention "your document".
+The team is checking with the panel before any changes. No request-access changes in this work.
 
 ## 3. Sign In on the landing page
 
-- Logged-out visitors at `lg+`: the hero becomes two columns. The headline,
-  paragraph, search, and Title Similarity button stay on the left. A sign-in
-  panel sits on the right: a solid surface card with the existing `SignInCard`
-  fields, and links for "Request access" and "Forgot password".
+- Logged-out visitors at `lg+`: the CCS building photo stays as the hero
+  background. The headline, paragraph, search, and Title Similarity button stay
+  on the left. A frosted sign-in card sits bottom-right **on top of** the photo:
+  translucent background with `backdrop-filter: blur(8px)`, a light border, and
+  bottom alignment so the "College of Computing Studies" sign stays visible
+  above it. The card is dark glass in dark mode and white glass in light mode.
+  It holds the existing `SignInCard` fields plus "Forgot password?" and
+  "Request access" links. The scrim fades out by about 66% across, so the
+  building reads clearly behind the card.
+  Approved mockup: `shot-low.png` (dark) and `shot-low-light.png` (light).
 - Below `lg`: the panel stacks under the hero text, still inside the hero.
 - The navbar Sign In buttons (desktop, mobile, and drawer) are removed for
   logged-out visitors. On mobile the drawer gets a "Sign in" link that scrolls
@@ -190,11 +176,10 @@ as new theses that cite older ones are uploaded.
   - Suggest endpoint: anonymous users get no titles or authors; a student doesn't see others' pending theses; `q` under 2 characters returns empty.
   - Upload with `cited_thesis_ids`: valid, self, unknown, and unapproved ids.
   - `cited_by_count`: only approved citing theses count.
-  - Access-request status: a pending justification request returns `pending_manual_review`.
 - Existing backend and frontend test suites still pass.
 - Browser check on the side-by-side test servers (8001/5174, never 8000/5173):
   - Every page at the four widths in both themes.
-  - The landing sign-in, the student and faculty request-access paths, suggestions with the keyboard, and the upload citation checklist.
+  - The landing sign-in, suggestions with the keyboard, and the upload citation checklist.
 
 ## Out of scope
 
