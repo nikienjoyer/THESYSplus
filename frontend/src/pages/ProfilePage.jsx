@@ -299,7 +299,7 @@ export default function ProfilePage() {
   };
 
   const tabCls = (key) =>
-    `pb-2 text-sm font-medium border-b-2 transition-colors focus-visible:outline-none ${
+    `pb-2 max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-sm font-medium border-b-2 transition-colors focus-visible:outline-none ${
       activeTab === key
         ? isDark
           ? 'border-blue-400 text-white'

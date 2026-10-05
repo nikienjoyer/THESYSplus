@@ -518,7 +518,7 @@ export default function LandingPage() {
                 })}
               </ul>
               <Link to={reviewedSubjectsEnabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
-                className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
+                className="inline-flex items-center gap-1.5 mt-5 max-sm:min-h-10 text-sm font-semibold text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
                 View all trends <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
             </div>
@@ -551,7 +551,7 @@ export default function LandingPage() {
                 ].map(({ label, onClick }) => (
                   <li key={label}>
                     <button type="button" onClick={onClick}
-                      className="text-xs text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
+                      className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
                       {label}
                     </button>
                   </li>

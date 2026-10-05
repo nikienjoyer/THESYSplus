@@ -40,7 +40,7 @@ import SearchSuggestions from '../components/search/SearchSuggestions';
 // ring and underline appear for keyboard users only.
 function keywordChipClass(isDark, isActive) {
   const base = 'inline-flex items-center rounded-full border text-xs font-semibold'
-    + ' px-2 py-0.5 h-auto transition-colors cursor-pointer'
+    + ' px-2 py-0.5 max-sm:py-1 h-auto transition-colors cursor-pointer'
     // The adviser's explicit requirement: keywords underline on hover to
     // signal they are clickable. focus-visible mirrors it, because a hover
     // affordance alone serves mouse users and leaves keyboard users guessing.
@@ -311,7 +311,7 @@ function ExampleChips({ onSelect }) {
           key={q}
           type="button"
           onClick={() => onSelect(q)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary hover:text-ink`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 max-sm:min-h-10 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary hover:text-ink`}
         >
           <svg className="w-3 h-3 flex-shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>

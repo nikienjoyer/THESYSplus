@@ -316,7 +316,7 @@ export default function ThesisDetailPage() {
               <button
                 type="button"
                 onClick={handleBack}
-                className={`flex w-fit items-center gap-1.5 mb-4 text-left text-sm font-medium transition-colors text-muted hover:text-ink`}
+                className={`flex w-fit items-center gap-1.5 max-sm:min-h-10 mb-4 text-left text-sm font-medium transition-colors text-muted hover:text-ink`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
@@ -368,7 +368,7 @@ export default function ThesisDetailPage() {
                     <button
                       type="button"
                       onClick={() => setAuthorsOpen(true)}
-                      className="sm:hidden ml-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                      className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center sm:hidden ml-1 font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                     >
                       +{hidden} more
                     </button>
