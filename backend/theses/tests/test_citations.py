@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from io import StringIO
+
 import pytest
 from django.core.files.base import ContentFile
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.urls import reverse
 
@@ -183,3 +186,20 @@ def test_list_shows_cited_by_count(client, uploader, make_thesis):
     ThesisCitation.objects.create(citing=a, cited=cited)
     rows = client.get(reverse('thesis-list'), **_auth(uploader)).json()['results']
     assert {r['id']: r['cited_by_count'] for r in rows}[str(cited.id)] == 1
+
+
+def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
+    make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'], year=2022)
+    citing = make_thesis(uploader, 'Newer thesis that cites things', text=REFS)
+
+    out = StringIO()
+    call_command('detect_citations', stdout=out)
+    assert ThesisCitation.objects.count() == 0
+    assert 'title' in out.getvalue() and 'author_year' in out.getvalue()
+
+    call_command('detect_citations', '--apply', stdout=StringIO())
+    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(citing.id, cited.id)]
+
+    call_command('detect_citations', '--apply', stdout=StringIO())   # re-run is safe
+    assert ThesisCitation.objects.count() == 1
