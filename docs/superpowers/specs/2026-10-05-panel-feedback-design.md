@@ -60,7 +60,7 @@ The team is checking with the panel before any changes. No request-access change
   It holds the existing `SignInCard` fields plus "Forgot password?" and
   "Request access" links. The scrim fades out by about 66% across, so the
   building reads clearly behind the card.
-  Approved mockup: `shot-low.png` (dark) and `shot-low-light.png` (light).
+  Mockup: `shot-low.png` (dark) and `shot-low-light.png` (light).
 - Below `lg`: the panel stacks under the hero text, still inside the hero.
 - The navbar Sign In buttons (desktop, mobile, and drawer) are removed for
   logged-out visitors. On mobile the drawer gets a "Sign in" link that scrolls
