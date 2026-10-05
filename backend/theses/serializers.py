@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Program, Thesis
+from .models import Program, Thesis, ThesisStatus
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +63,7 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
     # True when a glossary-term search ("iot", "OCR") matched this thesis's
     # keywords, abstract or full text rather than its title.
     term_match = serializers.BooleanField(read_only=True, default=False)
+    cited_by_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Thesis
@@ -81,8 +82,14 @@ class ThesisListItemSerializer(serializers.ModelSerializer):
             'similarity_score',
             'title_match',
             'term_match',
+            'cited_by_count',
         )
         read_only_fields = fields
+
+    def get_cited_by_count(self, obj) -> int:
+        # ponytail: one small COUNT per card (pages are 20); annotate the list
+        # querysets instead if pages grow.
+        return obj.citations_received.filter(citing__status=ThesisStatus.APPROVED).count()
 
     def get_uploaded_by_name(self, obj) -> str:
         u = obj.uploaded_by

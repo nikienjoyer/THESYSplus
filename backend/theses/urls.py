@@ -7,6 +7,7 @@ from django.urls import path
 
 from .views import (
     ThesisAnalyticsView,
+    ThesisCitationsView,
     ResearchSubjectListView,
     ThesisDetailView,
     ThesisDownloadView,
@@ -42,6 +43,7 @@ urlpatterns = [
     path('subjects/', ResearchSubjectListView.as_view(), name='research-subjects'),
     path('analytics/', ThesisAnalyticsView.as_view(), name='thesis-analytics'),
     path('<str:id>/', ThesisDetailView.as_view(), name='thesis-detail'),
+    path('<str:id>/citations/', ThesisCitationsView.as_view(), name='thesis-citations'),
     path('<str:id>/download/', ThesisDownloadView.as_view(), name='thesis-download'),
     path('<str:id>/preview/pages/<int:page>/', ThesisPreviewPageView.as_view(), name='thesis-preview-page'),
     path('<str:id>/review/', ThesisReviewView.as_view(), name='thesis-review'),

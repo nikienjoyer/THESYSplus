@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from django.core.files.base import ContentFile
 from django.db import IntegrityError
+from django.urls import reverse
 
 from accounts.models import Role, User
 from theses.models import FileType, Program, Thesis, ThesisCitation, ThesisStatus
@@ -106,3 +107,79 @@ def test_self_citation_rejected(uploader, make_thesis):
     a = make_thesis(uploader, 'Thesis A title words')
     with pytest.raises(IntegrityError):
         ThesisCitation.objects.create(citing=a, cited=a)
+
+
+def _bearer(user):
+    from auth_service.services import issue_token_pair
+    return issue_token_pair(user, request=None, remember_me=False).access_token
+
+
+def _auth(user):
+    return {'HTTP_AUTHORIZATION': f'Bearer {_bearer(user)}'}
+
+
+@pytest.fixture
+def other(db):
+    return User.objects.create_user(
+        email='cite.other@pampangastateu.edu.ph', first_name='Ot', last_name='Her',
+        role=Role.STUDENT, password='Test12345!Test',
+    )
+
+
+def _post(client, user, thesis, ids):
+    return client.post(
+        reverse('thesis-citations', args=[thesis.id]), {'cited_ids': ids},
+        content_type='application/json', **_auth(user),
+    )
+
+
+def test_post_saves_valid_and_skips_bad_ids(client, uploader, make_thesis):
+    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
+    good = make_thesis(uploader, 'Older approved thesis words')
+    pending = make_thesis(uploader, 'Pending thesis title words', status=ThesisStatus.PENDING_REVIEW)
+    r = _post(client, uploader, mine, [str(good.id), str(mine.id), str(pending.id),
+                                       '00000000-0000-0000-0000-000000000000', 'not-a-uuid'])
+    assert r.status_code == 200
+    assert r.json() == {'count_saved': 1}
+    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(mine.id, good.id)]
+
+
+def test_post_is_idempotent(client, uploader, make_thesis):
+    mine = make_thesis(uploader, 'My new thesis title words')
+    good = make_thesis(uploader, 'Older approved thesis words')
+    _post(client, uploader, mine, [str(good.id)])
+    r = _post(client, uploader, mine, [str(good.id)])
+    assert r.status_code == 200
+    assert ThesisCitation.objects.count() == 1
+
+
+def test_post_forbidden_for_other_student(client, uploader, other, make_thesis):
+    mine = make_thesis(uploader, 'My new thesis title words')
+    good = make_thesis(uploader, 'Older approved thesis words')
+    assert _post(client, other, mine, [str(good.id)]).status_code == 403
+
+
+def test_get_lists_approved_citing_only(client, uploader, make_thesis):
+    cited = make_thesis(uploader, 'Older approved thesis words')
+    a = make_thesis(uploader, 'Approved citing thesis words', year=2024)
+    p = make_thesis(uploader, 'Pending citing thesis words', status=ThesisStatus.PENDING_REVIEW)
+    ThesisCitation.objects.create(citing=a, cited=cited)
+    ThesisCitation.objects.create(citing=p, cited=cited)
+    body = client.get(reverse('thesis-citations', args=[cited.id]), **_auth(uploader)).json()
+    assert body == {'count': 1, 'cited_by': [{'id': str(a.id), 'title': a.title, 'year': 2024}]}
+
+
+def test_count_ignores_unapproved_citing(client, uploader, make_thesis):
+    cited = make_thesis(uploader, 'Older approved thesis words')
+    p = make_thesis(uploader, 'Pending citing thesis words', status=ThesisStatus.PENDING_REVIEW)
+    ThesisCitation.objects.create(citing=p, cited=cited)
+    rows = client.get(reverse('thesis-list'), **_auth(uploader)).json()['results']
+    assert {r['id']: r['cited_by_count'] for r in rows}[str(cited.id)] == 0
+
+
+def test_list_shows_cited_by_count(client, uploader, make_thesis):
+    cited = make_thesis(uploader, 'Older approved thesis words')
+    a = make_thesis(uploader, 'Approved citing thesis words')
+    ThesisCitation.objects.create(citing=a, cited=cited)
+    rows = client.get(reverse('thesis-list'), **_auth(uploader)).json()['results']
+    assert {r['id']: r['cited_by_count'] for r in rows}[str(cited.id)] == 1

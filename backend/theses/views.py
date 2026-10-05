@@ -37,7 +37,7 @@ from rest_framework.views import APIView
 from accounts.models import Role
 from common.errors import make_error_response
 
-from .models import EmbeddingStatus, FileType, ResearchSubject, Thesis, ThesisStatus
+from .models import EmbeddingStatus, FileType, ResearchSubject, Thesis, ThesisCitation, ThesisStatus
 from .serializers import (
     ThesisDetailSerializer,
     ThesisListItemSerializer,
@@ -464,6 +464,46 @@ class ThesisDetailView(APIView):
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
         return Response(ThesisDetailSerializer(thesis).data)
+
+
+class ThesisCitationsView(APIView):
+    """``GET``: approved theses citing this one. ``POST {cited_ids}``: the uploader
+    (or an administrator) confirms which repository theses this one cites."""
+
+    permission_classes = [IsAuthenticated]
+    MAX_IDS = 50
+
+    def get(self, request, id, *args, **kwargs):
+        thesis = _resolve_thesis(id, request.user)
+        citing = (
+            _visible_queryset(request.user)
+            .filter(status=ThesisStatus.APPROVED, citations_made__cited=thesis)
+            .order_by('-year', 'title')
+        )
+        rows = [{'id': str(t.id), 'title': t.title, 'year': t.year} for t in citing]
+        return Response({'count': len(rows), 'cited_by': rows})
+
+    def post(self, request, id, *args, **kwargs):
+        thesis = _resolve_thesis(id, request.user)
+        if thesis.uploaded_by_id != request.user.id and getattr(request.user, 'role', None) != Role.ADMINISTRATOR:
+            return make_error_response(
+                code='FORBIDDEN', message='Only the uploader can confirm citations.',
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        raw_ids = request.data.get('cited_ids') or []
+        ids = []
+        for raw in (raw_ids if isinstance(raw_ids, list) else [])[:self.MAX_IDS]:
+            try:
+                ids.append(uuid.UUID(str(raw)))
+            except ValueError:
+                continue
+        targets = Thesis.objects.filter(id__in=ids, status=ThesisStatus.APPROVED).exclude(id=thesis.id)
+        before = ThesisCitation.objects.filter(citing=thesis).count()
+        ThesisCitation.objects.bulk_create(
+            [ThesisCitation(citing=thesis, cited=t, created_by=request.user) for t in targets],
+            ignore_conflicts=True,
+        )
+        return Response({'count_saved': ThesisCitation.objects.filter(citing=thesis).count() - before})
 
 
 class ResearchSubjectListView(APIView):
@@ -1185,11 +1225,17 @@ class ThesisUploadView(APIView):
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Thesis %s title embedding generation failed: %s', thesis.id, exc)
 
-        # Step 8: respond with the detail shape
-        return Response(
-            ThesisDetailSerializer(thesis).data,
-            status=status.HTTP_201_CREATED,
-        )
+        # Step 8: respond with the detail shape, plus repository theses this
+        # one appears to cite. The uploader confirms them on the success screen.
+        from .services.citations import find_cited_theses
+
+        data = ThesisDetailSerializer(thesis).data
+        try:
+            data['cited_candidates'] = find_cited_theses(thesis.extracted_text, exclude_id=thesis.id)
+        except Exception as exc:  # pragma: no cover - detection must never fail an upload
+            logger.warning('Thesis %s citation detection failed: %s', thesis.id, exc)
+            data['cited_candidates'] = []
+        return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
     def _parse_author_input(value: str) -> list[str]:
