@@ -60,6 +60,7 @@ for when it resumes:
 - The card has a "Sign in" heading and a one-line hint. Email and Password fields use placeholders, with hidden `aria-label`s. Below them: Remember me, Forgot password?, Sign In, and "Don't have an account? Request Access".
 - Phone: the card stacks under the hero search buttons, still frosted over the photo.
 - The navbar Sign In button is removed for logged-out visitors. `/sign-in` stays for redirects.
+- Mockup: [`mockups/2026-10-05-landing-signin.html`](mockups/2026-10-05-landing-signin.html). Open it from the repo; it loads the real photos from `frontend/public/`. Add `?light` to the URL for light mode.
 
 ## 4. Search suggestions
 
@@ -99,7 +100,9 @@ The app already calls the tool "Title Similarity". Remaining text to change:
 - `LegalModal.jsx`: "Title originality validation…" → "Title similarity validation…".
 - Landing feature card: "…so your topic starts out original." → "…before you commit to a topic."
 - The uncommitted landing-hero line ("check title similarity") is included.
-- `seed_demo_data.py` strings and `PRODUCT.md`.
+- `PRODUCT.md` "A title originality checker" line. The demo seed data keeps
+  "originality" where it is a thesis's own keyword or a rejection reason; that is
+  thesis content, not the system's name.
 - The printed thesis manuscript has to be updated by you. It isn't in this repo.
 
 ## 6. Citation counts
@@ -132,16 +135,23 @@ approved**. A rejected or pending thesis doesn't inflate anyone's count.
   lower confidence.
 - Candidates come from approved theses only.
 
-**Upload flow.**
-- `/theses/extract-metadata/` adds `cited_candidates: [{id, title, year, authors, match}]`
-  to its response.
-- The upload modal shows a "Repository theses cited in this paper" checklist
-  when there are candidates. Title matches start ticked; author-year matches
-  start unticked. The section is hidden when there are no candidates.
-- `/theses/upload/` accepts `cited_thesis_ids` (a repeated form field). After
-  the thesis is created it stores `ThesisCitation(source="detected", created_by=uploader)`
-  for each id that exists, isn't the new thesis, and is approved. Unknown ids
-  are ignored, not errors.
+**Upload flow.** Detection runs **after** the upload, on the full extracted
+text. `/theses/extract-metadata/` reads only the first 10 pages, and the
+references are at the end of the document, so detection can't run there.
+- The `/theses/upload/` response (sync, or the job result) gains
+  `cited_candidates: [{id, title, year, match}]`, computed from the stored
+  `extracted_text`.
+- The upload modal's success screen shows "Repository theses cited in this
+  paper" when there are candidates. Title matches start ticked; author-year
+  matches start unticked. A "Save citations" button posts the ticked ids.
+- New endpoint `/theses/<id>/citations/`:
+  - `GET` returns `{count, cited_by: [{id, title, year}]}`: the approved
+    theses citing this one.
+  - `POST {cited_ids: [...]}` adds links `source="detected"`. Only the
+    uploader or an administrator may post. It ignores unknown, unapproved,
+    or self ids, and ignores pairs that already exist. It returns `{count_saved}`.
+- If the uploader closes the modal without saving, nothing is stored. The
+  `detect_citations` command can pick up title matches later.
 
 **Existing theses.** Management command `detect_citations [--apply]`. It is a
 dry run by default and prints the candidates. With `--apply` it stores
@@ -150,12 +160,12 @@ current data has 0 title matches, so existing counts will start at 0 and grow
 as new theses that cite older ones are uploaded.
 
 **Display.**
-- Thesis list/search serializer: `cited_by_count`, annotated with one
-  `Count(..., filter=Q(citations_received__citing__status=APPROVED))`.
+- Thesis list/search serializer: `cited_by_count`, one small count query per
+  card (pages are 20 items).
 - Repository cards: "Cited by N" in the meta row, shown only when N > 0, like
   Scholar.
 - Thesis Detail: a "Cited by N" section listing the citing theses (title, year,
-  linking to the thesis), visible-queryset filtered. When N is 0 it shows "Not
+  linking to the thesis), loaded from `GET /theses/<id>/citations/`. When N is 0 it shows "Not
   cited by other theses in the repository yet."
 
 ## Testing
@@ -163,7 +173,7 @@ as new theses that cite older ones are uploaded.
 - Backend pytest:
   - `find_cited_theses`: title match, author-year match, self-exclusion, no references heading, and a short-surname guard.
   - Suggest endpoint: anonymous users get no titles or authors; a student doesn't see others' pending theses; `q` under 2 characters returns empty.
-  - Upload with `cited_thesis_ids`: valid, self, unknown, and unapproved ids.
+  - `POST /citations/`: valid, self, unknown, unapproved, and duplicate ids; a non-uploader student gets 403.
   - `cited_by_count`: only approved citing theses count.
 - Existing backend and frontend test suites still pass.
 - Browser check on the side-by-side test servers (8001/5174, never 8000/5173):
