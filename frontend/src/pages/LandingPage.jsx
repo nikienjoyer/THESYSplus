@@ -81,7 +81,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: 'Title Similarity',
-    desc:  'See how close your proposed title is to existing theses before you commit to it, so your topic starts out original.',
+    desc:  'See how close your proposed title is to existing theses before you commit to a topic.',
     to:    '/title-similarity',
   },
   {
@@ -394,7 +394,7 @@ export default function LandingPage() {
 
             {/* Supporting text */}
             <m.p variants={fadeUp} className={`text-sm sm:text-base leading-relaxed mb-7 max-w-lg ${heroParagraphCls}`}>
-              Search previous studies by meaning, check title originality,
+              Search previous studies by meaning, check title similarity,
               and compare research areas by thesis count.
             </m.p>
 

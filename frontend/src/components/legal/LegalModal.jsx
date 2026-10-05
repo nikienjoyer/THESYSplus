@@ -99,7 +99,7 @@ function getContent(type) {
           <h3 className="text-base font-semibold mt-6 mb-3">What THESYS+ Does</h3>
           <ul className="text-sm leading-relaxed mb-4 list-disc pl-5 space-y-1">
             <li>Semantic search across the CCS undergraduate thesis repository using SBERT embeddings</li>
-            <li>Title originality validation against the full corpus using cosine similarity and TF-IDF</li>
+            <li>Title similarity validation against the full corpus using cosine similarity and TF-IDF</li>
             <li>Topic trend analysis that surfaces saturated, emerging, and underexplored research areas</li>
             <li>A structured submission and faculty review workflow for new theses</li>
             <li>Departmental analytics on research output over time</li>

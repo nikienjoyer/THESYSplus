@@ -101,7 +101,7 @@ THESYS+ occupies the intersection of library science, academic integrity, and re
 ## What THESYS+ Is
 
 - A thesis repository with semantic full-text search powered by SBERT
-- A title originality checker that compares proposed topics against the full institutional corpus
+- A title similarity checker that compares proposed topics against the full institutional corpus
 - A research trend analyzer that surfaces saturated, emerging, and underexplored topic areas
 - A structured submission and approval workflow for new theses
 - A departmental analytics tool for understanding research output over time
