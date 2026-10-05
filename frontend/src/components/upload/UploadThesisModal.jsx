@@ -27,6 +27,7 @@ import useFocusTrap from '../../hooks/useFocusTrap';
 import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import Spinner from '../ui/Spinner';
 import FileDropzone from '../ui/FileDropzone';
+import SearchSuggestions from '../search/SearchSuggestions';
 import { MAX_UPLOAD_MB } from '../../lib/upload';
 import { useMotionVariants } from '../../lib/motion';
 
@@ -178,12 +179,21 @@ function UploadProgress({ phase, percent, canDismiss }) {
 
 // Repository theses this upload appears to cite. Title matches start ticked;
 // author-year matches are weaker and start unticked. Nothing is stored until
-// the uploader presses Save.
+// the uploader presses Save. Uploaders can also add theses by search.
 function CitedChecklist({ thesisId, candidates }) {
+  const [items, setItems] = useState(candidates);
+  const [query, setQuery] = useState('');
   const [picked, setPicked] = useState(
     () => new Set(candidates.filter((c) => c.match === 'title').map((c) => c.id)),
   );
   const [state, setState] = useState('idle'); // idle | saving | saved | error
+
+  const addManual = (t) => {
+    if (t.id === thesisId) return;
+    setItems((prev) => (prev.some((c) => c.id === t.id) ? prev : [...prev, { ...t, match: 'manual' }]));
+    setPicked((prev) => new Set(prev).add(t.id));
+    setQuery('');
+  };
 
   const toggle = (id) => setPicked((prev) => {
     const next = new Set(prev);
@@ -194,7 +204,11 @@ function CitedChecklist({ thesisId, candidates }) {
   const save = async () => {
     setState('saving');
     try {
-      await client.post(`/theses/${thesisId}/citations/`, { cited_ids: [...picked] });
+      const ticked = items.filter((c) => picked.has(c.id));
+      await client.post(`/theses/${thesisId}/citations/`, {
+        cited_ids: ticked.filter((c) => c.match !== 'manual').map((c) => c.id),
+        manual_ids: ticked.filter((c) => c.match === 'manual').map((c) => c.id),
+      });
       setState('saved');
     } catch {
       setState('error');
@@ -204,9 +218,26 @@ function CitedChecklist({ thesisId, candidates }) {
   return (
     <section className="mt-6 text-left border-t border-border-default pt-5" aria-labelledby="cited-heading">
       <h3 id="cited-heading" className="text-sm font-semibold text-ink">Repository theses cited in this paper</h3>
-      <p className="text-xs text-muted mt-1 mb-3">Found in your reference list. Untick any you did not cite.</p>
+      <p className="text-xs text-muted mt-1 mb-3">
+        {candidates.length > 0
+          ? 'Found in your reference list. Untick any you did not cite.'
+          : 'Did you cite theses already in the repository? Add them below.'}
+      </p>
+      {state !== 'saved' && (
+        <SearchSuggestions
+          value={query}
+          onChange={setQuery}
+          onPick={setQuery}
+          onPickTitle={addManual}
+          wrapperClassName="mb-3"
+          inputClassName="w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors thesys-input"
+          placeholder="Add another thesis you cited…"
+          ariaLabel="Search for a repository thesis you cited"
+        />
+      )}
+      {items.length > 0 && (
       <ul className="space-y-2 max-h-48 overflow-y-auto">
-        {candidates.map((c) => (
+        {items.map((c) => (
           <li key={c.id}>
             <label className="flex items-start gap-2.5 text-sm text-body cursor-pointer">
               <input type="checkbox" className="mt-0.5 accent-blue-600" checked={picked.has(c.id)}
@@ -216,6 +247,7 @@ function CitedChecklist({ thesisId, candidates }) {
           </li>
         ))}
       </ul>
+      )}
       <div className="mt-3 flex items-center gap-3">
         <button type="button" onClick={save} disabled={state === 'saving' || state === 'saved' || picked.size === 0}
           className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-60 transition-colors">
@@ -816,8 +848,8 @@ function UploadThesisModalContent() {
                 Upload Another Thesis
               </button>
             </m.div>
-            {success.cited_candidates?.length > 0 && (
-              <CitedChecklist thesisId={success.id} candidates={success.cited_candidates} />
+            {success.id && (
+              <CitedChecklist thesisId={success.id} candidates={success.cited_candidates || []} />
             )}
           </m.div>
           </LazyMotion>

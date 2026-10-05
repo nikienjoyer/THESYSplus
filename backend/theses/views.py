@@ -468,8 +468,9 @@ class ThesisDetailView(APIView):
 
 
 class ThesisCitationsView(APIView):
-    """``GET``: approved theses citing this one. ``POST {cited_ids}``: the uploader
-    (or an administrator) confirms which repository theses this one cites."""
+    """``GET``: approved theses citing this one. ``POST {cited_ids, manual_ids}``: the uploader
+    (or an administrator) confirms which repository theses this one cites; ``manual_ids`` are
+    ones the uploader added by search (stored as source=manual)."""
 
     permission_classes = [IsAuthenticated]
     MAX_IDS = 50
@@ -492,20 +493,29 @@ class ThesisCitationsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         data = request.data if isinstance(request.data, dict) else {}
-        raw_ids = data.get('cited_ids') or []
+        before = ThesisCitation.objects.filter(citing=thesis).count()
+        for key, source in (
+            ('cited_ids', ThesisCitation.Source.DETECTED),
+            ('manual_ids', ThesisCitation.Source.MANUAL),
+        ):
+            targets = (
+                Thesis.objects.filter(id__in=self._uuids(data.get(key)), status=ThesisStatus.APPROVED)
+                .exclude(id=thesis.id)
+            )
+            ThesisCitation.objects.bulk_create(
+                [ThesisCitation(citing=thesis, cited=t, source=source, created_by=request.user) for t in targets],
+                ignore_conflicts=True,
+            )
+        return Response({'count_saved': ThesisCitation.objects.filter(citing=thesis).count() - before})
+
+    def _uuids(self, raw):
         ids = []
-        for raw in (raw_ids if isinstance(raw_ids, list) else [])[:self.MAX_IDS]:
+        for value in (raw if isinstance(raw, list) else [])[:self.MAX_IDS]:
             try:
-                ids.append(uuid.UUID(str(raw)))
+                ids.append(uuid.UUID(str(value)))
             except ValueError:
                 continue
-        targets = Thesis.objects.filter(id__in=ids, status=ThesisStatus.APPROVED).exclude(id=thesis.id)
-        before = ThesisCitation.objects.filter(citing=thesis).count()
-        ThesisCitation.objects.bulk_create(
-            [ThesisCitation(citing=thesis, cited=t, created_by=request.user) for t in targets],
-            ignore_conflicts=True,
-        )
-        return Response({'count_saved': ThesisCitation.objects.filter(citing=thesis).count() - before})
+        return ids
 
 
 class ResearchSubjectListView(APIView):

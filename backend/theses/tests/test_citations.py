@@ -238,3 +238,18 @@ def test_upload_response_carries_cited_candidates(client, make_thesis, settings,
     assert r.status_code == 201, r.content
     cands = r.json()['cited_candidates']
     assert cands[0]['match'] == 'title' and cands[0]['id'] == str(cited.id)
+
+
+def test_post_manual_ids_saved_as_manual(client, uploader, make_thesis):
+    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
+    detected = make_thesis(uploader, 'Older approved thesis words')
+    manual = make_thesis(uploader, 'Another approved thesis words')
+    r = client.post(
+        reverse('thesis-citations', args=[mine.id]),
+        {'cited_ids': [str(detected.id)], 'manual_ids': [str(manual.id), str(mine.id)]},
+        content_type='application/json', **_auth(uploader),
+    )
+    assert r.status_code == 200
+    assert r.json() == {'count_saved': 2}
+    sources = dict(ThesisCitation.objects.values_list('cited_id', 'source'))
+    assert sources == {detected.id: 'detected', manual.id: 'manual'}

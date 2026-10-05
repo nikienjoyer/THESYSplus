@@ -4,7 +4,7 @@
  * Calls GET /theses/suggest/?q= 200ms after typing stops, cancelling any
  * request still in flight. Signed-out users only get keywords back (the
  * server decides). ARIA combobox: ↑/↓ move, Enter picks, Esc closes.
- * Picking a thesis opens it; picking a keyword or author calls onPick(text).
+ * Picking a thesis opens it, or calls onPickTitle when given; picking a keyword or author calls onPick(text).
  * Errors are ignored: suggestions are a convenience and must never block search.
  */
 
@@ -19,7 +19,7 @@ const GROUPS = [
 ];
 
 export default function SearchSuggestions({
-  value, onChange, onPick, inputClassName = '', wrapperClassName = '', placeholder, ariaLabel,
+  value, onChange, onPick, onPickTitle, inputClassName = '', wrapperClassName = '', placeholder, ariaLabel,
 }) {
   const navigate = useNavigate();
   const listId = useId();
@@ -54,7 +54,11 @@ export default function SearchSuggestions({
 
   const pick = (item) => {
     setOpen(false);
-    if (item.group === 'titles') { navigate(`/repository/${item.id}`); return; }
+    if (item.group === 'titles') {
+      if (onPickTitle) { onPickTitle({ id: item.id, title: item.text, year: item.meta }); return; }
+      navigate(`/repository/${item.id}`);
+      return;
+    }
     skipNext.current = true; // the value change below should not reopen the list
     onPick(item.text);
   };
