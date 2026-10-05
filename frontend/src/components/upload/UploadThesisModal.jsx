@@ -176,6 +176,57 @@ function UploadProgress({ phase, percent, canDismiss }) {
 }
 
 
+// Repository theses this upload appears to cite. Title matches start ticked;
+// author-year matches are weaker and start unticked. Nothing is stored until
+// the uploader presses Save.
+function CitedChecklist({ thesisId, candidates }) {
+  const [picked, setPicked] = useState(
+    () => new Set(candidates.filter((c) => c.match === 'title').map((c) => c.id)),
+  );
+  const [state, setState] = useState('idle'); // idle | saving | saved | error
+
+  const toggle = (id) => setPicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const save = async () => {
+    setState('saving');
+    try {
+      await client.post(`/theses/${thesisId}/citations/`, { cited_ids: [...picked] });
+      setState('saved');
+    } catch {
+      setState('error');
+    }
+  };
+
+  return (
+    <section className="mt-6 text-left border-t border-border-default pt-5" aria-labelledby="cited-heading">
+      <h3 id="cited-heading" className="text-sm font-semibold text-ink">Repository theses cited in this paper</h3>
+      <p className="text-xs text-muted mt-1 mb-3">Found in your reference list. Untick any you did not cite.</p>
+      <ul className="space-y-2 max-h-48 overflow-y-auto">
+        {candidates.map((c) => (
+          <li key={c.id}>
+            <label className="flex items-start gap-2.5 text-sm text-body cursor-pointer">
+              <input type="checkbox" className="mt-0.5 accent-blue-600" checked={picked.has(c.id)}
+                onChange={() => toggle(c.id)} disabled={state === 'saving' || state === 'saved'} />
+              <span>{c.title} <span className="text-muted tabular-nums">({c.year})</span></span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex items-center gap-3">
+        <button type="button" onClick={save} disabled={state === 'saving' || state === 'saved' || picked.size === 0}
+          className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-60 transition-colors">
+          {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : 'Save citations'}
+        </button>
+        {state === 'error' && <span className="text-xs text-danger">Couldn't save. Try again.</span>}
+      </div>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
@@ -765,6 +816,9 @@ function UploadThesisModalContent() {
                 Upload Another Thesis
               </button>
             </m.div>
+            {success.cited_candidates?.length > 0 && (
+              <CitedChecklist thesisId={success.id} candidates={success.cited_candidates} />
+            )}
           </m.div>
           </LazyMotion>
         ) : (

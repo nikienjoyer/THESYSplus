@@ -77,6 +77,7 @@ export default function ThesisDetailPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [subjects, setSubjects] = useState([]);
+  const [citedBy, setCitedBy] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState('');
   // Suggestions are kept with the thesis they belong to, so moving to another
   // thesis never shows the previous thesis's chips while its request runs.
@@ -153,6 +154,14 @@ export default function ThesisDetailPage() {
       .catch(() => { if (!cancelled) setSuggestionState({ thesisId: id, items: [] }); });
     return () => { cancelled = true; };
   }, [isAuthenticated, canReviewSubject, awaitingSubjectReview, id]);
+
+  useEffect(() => {
+    let alive = true;
+    client.get(`/theses/${id}/citations/`)
+      .then((res) => { if (alive) setCitedBy({ id, ...res.data }); })
+      .catch(() => { if (alive) setCitedBy({ id, count: 0, cited_by: [] }); });
+    return () => { alive = false; };
+  }, [id]);
 
   const saveSubject = async () => {
     if (!selectedSubject || savingSubject) return;
@@ -559,6 +568,26 @@ export default function ThesisDetailPage() {
                 </span>
               )}
             </div>
+
+            {citedBy?.id === id && (
+              <section className="mb-6" aria-labelledby="cited-by-heading">
+                <h2 id="cited-by-heading" className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
+                  Cited by {citedBy.count}
+                </h2>
+                {citedBy.count === 0 ? (
+                  <p className="text-sm text-muted">Not cited by other theses in the repository yet.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {citedBy.cited_by.map((t) => (
+                      <li key={t.id} className="text-sm">
+                        <Link to={`/repository/${t.id}`} className="text-primary hover:underline">{t.title}</Link>
+                        <span className="text-muted tabular-nums"> · {t.year}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
             {thesis.status === 'approved' && (
               <section className="mb-6" aria-labelledby="research-subject-heading">

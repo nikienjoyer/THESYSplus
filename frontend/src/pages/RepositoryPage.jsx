@@ -255,6 +255,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
 
       <div className={`text-xs mb-3 text-muted`}>
         {thesis.program} · {thesis.year}
+        {thesis.cited_by_count > 0 && <> · Cited by {thesis.cited_by_count}</>}
       </div>
 
       <div className={`text-sm mb-3 text-body`}>
