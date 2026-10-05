@@ -30,7 +30,7 @@ from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -2100,6 +2100,65 @@ class ThesisAnalyticsView(APIView):
             # Role-gated
             'pending_review_count': pending_review_count,
         })
+
+
+# ---------------------------------------------------------------------------
+# GET /theses/suggest/  — typing suggestions for the search boxes
+# ---------------------------------------------------------------------------
+
+class ThesisSuggestView(APIView):
+    """Typing suggestions for the landing and Repository search boxes.
+
+    Anonymous callers get keywords only: thesis titles and authors stay behind
+    sign-in, same as the rest of the landing page. Signed-in callers get titles
+    and authors from ``_visible_queryset`` so a student never sees another
+    student's pending upload here.
+    """
+
+    permission_classes = [AllowAny]
+    MIN_LENGTH = 2
+    MAX_LENGTH = 100
+
+    def get(self, request, *args, **kwargs):
+        q = (request.query_params.get('q') or '').strip()[:self.MAX_LENGTH]
+        body = {'titles': [], 'keywords': [], 'authors': []}
+        if len(q) < self.MIN_LENGTH:
+            return Response(body)
+        needle = q.lower()
+
+        # ponytail: Python scan over approved keywords/authors, fine at a few
+        # hundred theses; move to a Postgres trigram index past ~10k.
+        body['keywords'] = self._matches(
+            Thesis.objects.filter(status=ThesisStatus.APPROVED).order_by('created_at').values_list('keywords', flat=True),
+            needle, limit=5,
+        )
+        if not request.user.is_authenticated:
+            return Response(body)
+
+        visible = _visible_queryset(request.user)
+        body['titles'] = [
+            {'id': str(t.id), 'title': t.title, 'year': t.year}
+            for t in visible.filter(title__icontains=q).order_by('-year', 'title')[:5]
+        ]
+        body['authors'] = self._matches(
+            visible.order_by('created_at').values_list('authors', flat=True), needle, limit=3,
+        )
+        return Response(body)
+
+    @staticmethod
+    def _matches(lists, needle, *, limit):
+        """Distinct values containing ``needle``; case- and space-blind, first spelling kept.
+
+        Values that start with the needle sort before ones that merely contain it.
+        """
+        seen = {}
+        for values in lists:
+            for raw in values or []:
+                label = ' '.join(str(raw).split())
+                key = label.lower()
+                if needle in key and key not in seen:
+                    seen[key] = label
+        return sorted(seen.values(), key=lambda v: (not v.lower().startswith(needle), v.lower()))[:limit]
 
 
 # ---------------------------------------------------------------------------
