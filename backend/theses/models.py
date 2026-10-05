@@ -206,3 +206,31 @@ class Thesis(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f'Thesis({self.title[:50]}…, {self.status})'
+
+
+class ThesisCitation(models.Model):
+    """One repository thesis citing another, like Google Scholar's "Cited by".
+
+    Only citations whose ``citing`` thesis is approved count toward a total.
+    """
+
+    class Source(models.TextChoices):
+        DETECTED = 'detected', 'Detected from references'
+        MANUAL = 'manual', 'Added manually'
+
+    citing = models.ForeignKey(Thesis, on_delete=models.CASCADE, related_name='citations_made')
+    cited = models.ForeignKey(Thesis, on_delete=models.CASCADE, related_name='citations_received')
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.DETECTED)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['citing', 'cited'], name='thesis_citation_unique_pair'),
+            models.CheckConstraint(check=~models.Q(citing=models.F('cited')), name='thesis_citation_not_self'),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.citing_id} cites {self.cited_id}'

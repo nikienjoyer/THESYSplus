@@ -29,7 +29,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import capfirst
 
-from .models import ResearchSubject, Thesis, ThesisStatus
+from .models import ResearchSubject, Thesis, ThesisCitation, ThesisStatus
 from .services.redundancy import (
     LABEL_CLEAN,
     LABEL_HIGH,
@@ -582,3 +582,11 @@ class ThesisAdmin(admin.ModelAdmin):
         # The admin delete view runs in a transaction; files go only after
         # the row is really gone.
         transaction.on_commit(lambda: _remove_thesis_files(thesis_id, names))
+
+
+@admin.register(ThesisCitation)
+class ThesisCitationAdmin(admin.ModelAdmin):
+    list_display = ('citing', 'cited', 'source', 'created_by', 'created_at')
+    list_filter = ('source',)
+    search_fields = ('citing__title', 'cited__title')
+    raw_id_fields = ('citing', 'cited', 'created_by')
