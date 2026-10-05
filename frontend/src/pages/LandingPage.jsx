@@ -568,7 +568,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Visit the Pampanga State University official website (opens in new tab)"
-                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
                     Pampanga State University
                   </a>
@@ -579,7 +579,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Visit the CCS Facebook page (opens in new tab)"
-                    className="text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
                     CCS Facebook Page
                   </a>

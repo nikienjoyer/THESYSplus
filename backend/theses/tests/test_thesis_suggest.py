@@ -98,3 +98,13 @@ def test_long_and_odd_input_is_safe(client, student, make_thesis):
     make_thesis(student, 'Some thesis title words', keywords=['RFID'])
     for q in ['%_%', "o'reilly \"x\"", 'x' * 5000]:
         assert _get(client, q, student).status_code == 200
+
+
+def test_anonymous_suggest_is_throttled_but_signed_in_is_not(client, student, monkeypatch):
+    from django.core.cache import cache
+    from theses.views import _SuggestAnonThrottle
+    cache.clear()  # earlier anonymous GETs share this IP's throttle history
+    monkeypatch.setattr(_SuggestAnonThrottle, 'rate', '2/min')
+    codes = [_get(client, 'rf').status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
+    assert [_get(client, 'rf', student).status_code for _ in range(3)] == [200, 200, 200]

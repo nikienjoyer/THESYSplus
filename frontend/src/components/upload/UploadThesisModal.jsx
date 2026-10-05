@@ -765,7 +765,7 @@ function UploadThesisModalContent() {
           /* ── Success state ── */
           /* Rare, high-emotion moment: the one place a spring is earned. */
           <LazyMotion features={domAnimation}>
-          <m.div className="p-6 sm:p-8 text-center" initial="hidden" animate="visible" variants={staggerContainer}>
+          <m.div className="custom-modal-scroll max-h-[88vh] overflow-y-auto p-6 sm:p-8 text-center" initial="hidden" animate="visible" variants={staggerContainer}>
             <button
               type="button"
               onClick={requestClose}

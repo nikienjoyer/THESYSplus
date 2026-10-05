@@ -28,6 +28,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.exceptions import NotFound
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -490,7 +491,8 @@ class ThesisCitationsView(APIView):
                 code='FORBIDDEN', message='Only the uploader can confirm citations.',
                 status=status.HTTP_403_FORBIDDEN,
             )
-        raw_ids = request.data.get('cited_ids') or []
+        data = request.data if isinstance(request.data, dict) else {}
+        raw_ids = data.get('cited_ids') or []
         ids = []
         for raw in (raw_ids if isinstance(raw_ids, list) else [])[:self.MAX_IDS]:
             try:
@@ -2152,6 +2154,11 @@ class ThesisAnalyticsView(APIView):
 # GET /theses/suggest/  — typing suggestions for the search boxes
 # ---------------------------------------------------------------------------
 
+class _SuggestAnonThrottle(AnonRateThrottle):
+    # Public endpoint, hit per keystroke; generous because campus traffic shares NAT IPs.
+    rate = '300/min'
+
+
 class ThesisSuggestView(APIView):
     """Typing suggestions for the landing and Repository search boxes.
 
@@ -2162,6 +2169,7 @@ class ThesisSuggestView(APIView):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [_SuggestAnonThrottle]
     MIN_LENGTH = 2
     MAX_LENGTH = 100
 

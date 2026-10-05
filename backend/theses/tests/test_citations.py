@@ -203,3 +203,38 @@ def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
 
     call_command('detect_citations', '--apply', stdout=StringIO())   # re-run is safe
     assert ThesisCitation.objects.count() == 1
+
+
+def test_post_with_list_body_saves_nothing(client, uploader, make_thesis):
+    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
+    r = client.post(reverse('thesis-citations', args=[mine.id]), [str(mine.id)],
+                    content_type='application/json', **_auth(uploader))
+    assert r.status_code == 200 and r.json()['count_saved'] == 0
+
+
+def test_upload_response_carries_cited_candidates(client, make_thesis, settings, tmp_path):
+    """Real upload path (sync): the 201 body lists repository theses cited in REFERENCES."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
+
+    settings.DOCUMENT_PROCESSING_ASYNC = False
+    settings.MEDIA_ROOT = str(tmp_path / 'media')
+    faculty = User.objects.create_user(
+        email='cite.fac@pampangastateu.edu.ph', first_name='Fa', last_name='Culty',
+        role=Role.FACULTY, password='Test12345!Test',
+    )
+    cited = make_thesis(faculty, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
+    pdf = _pdf_from_lines(THESIS_LINES + [cited.title])
+
+    from auth_service.services import issue_token_pair
+    token = issue_token_pair(faculty, request=None, remember_me=False).access_token
+    r = client.post(reverse('thesis-upload'), data={
+        'title': 'A Mobile Health Records System For Rural Clinics',
+        'abstract': 'An abstract comfortably longer than twenty characters.',
+        'authors': '["Dela Cruz, Juan M."]', 'keywords': '["mobile health"]',
+        'program': 'BS Information Technology', 'year': '2025', 'adviser': '',
+        'file': SimpleUploadedFile('t.pdf', pdf, content_type='application/pdf'),
+    }, HTTP_AUTHORIZATION=f'Bearer {token}')
+    assert r.status_code == 201, r.content
+    cands = r.json()['cited_candidates']
+    assert cands[0]['match'] == 'title' and cands[0]['id'] == str(cited.id)
