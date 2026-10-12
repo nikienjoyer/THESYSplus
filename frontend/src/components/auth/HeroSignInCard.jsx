@@ -11,7 +11,7 @@
  * the building reads through the card.
  */
 
-import { forwardRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { m, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -34,10 +34,7 @@ const cardMotionReduced = {
   exit:    { opacity: 0, transition: { duration: 0.12 } },
 };
 
-const HeroSignInCard = forwardRef(function HeroSignInCard(
-  { isDark, see = false, onClose, autoFocus = false },
-  emailRef,
-) {
+export default function HeroSignInCard({ isDark, see = false, onClose, autoFocus = false }) {
   const { signIn } = useAuth();
   const reduceMotion = useReducedMotion();
   const [email, setEmail] = useState('');
@@ -107,7 +104,6 @@ const HeroSignInCard = forwardRef(function HeroSignInCard(
       <div className="mt-4">
         <label htmlFor="hero-sign-in-email" className="sr-only">Email</label>
         <input
-          ref={emailRef}
           id="hero-sign-in-email"
           type="email"
           autoComplete="username"
@@ -175,6 +171,4 @@ const HeroSignInCard = forwardRef(function HeroSignInCard(
       </div>
     </m.form>
   );
-});
-
-export default HeroSignInCard;
+}

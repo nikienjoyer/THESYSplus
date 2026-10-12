@@ -130,7 +130,8 @@ export default function LandingPage() {
 
   // ── Hero sign-in card (desktop, logged out) ────────────────────────────
   // Layout C (default): the navbar Sign In toggles the card. A/B keep it up
-  // permanently — those only exist on the dev server for the panel preview.
+  // permanently and drop the navbar button — those only exist on the dev
+  // server for the panel preview.
   const [heroLayout, setHeroLayout] = useHeroLayout();
   const [signInOpen, setSignInOpen] = useState(false);
   const [cardBox, setCardBox] = useState(null);
@@ -138,17 +139,12 @@ export default function LandingPage() {
   const heroTextRef = useRef(null);
   const heroEyebrowRef = useRef(null);
   const heroCtaRef = useRef(null);
-  const heroEmailRef = useRef(null);
   const navSignInRef = useRef(null);
   const showHeroSignIn = !isInitializing && !isAuthenticated && (heroLayout !== 'c' || signInOpen);
 
   const closeSignIn = () => {
     setSignInOpen(false);
     navSignInRef.current?.focus();
-  };
-  const onNavSignIn = () => {
-    if (heroLayout === 'c') setSignInOpen((o) => !o);
-    else heroEmailRef.current?.focus();
   };
 
   // Horizontal: pillar to pillar on the object-cover photo. Vertical: the
@@ -323,9 +319,9 @@ export default function LandingPage() {
                 <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
-            {!isInitializing && !isAuthenticated && (
-              <button ref={navSignInRef} type="button" onClick={onNavSignIn}
-                aria-expanded={heroLayout === 'c' ? signInOpen : undefined}
+            {!isInitializing && !isAuthenticated && heroLayout === 'c' && (
+              <button ref={navSignInRef} type="button" onClick={() => setSignInOpen((o) => !o)}
+                aria-expanded={signInOpen}
                 aria-controls="hero-sign-in"
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
@@ -510,8 +506,7 @@ export default function LandingPage() {
             <AnimatePresence>
               {showHeroSignIn && cardBox && (
                 <HeroSignInCard
-                  key={heroLayout === 'b' ? 'see' : 'solid'}
-                  ref={heroEmailRef}
+                  key="hero-sign-in"
                   isDark={isDark}
                   see={heroLayout === 'b'}
                   onClose={heroLayout === 'c' ? closeSignIn : undefined}
