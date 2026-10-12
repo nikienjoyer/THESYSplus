@@ -13,14 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { SignInCard } from '../components/auth';
 import Alert from '../components/ui/Alert';
 import AuthBranding from '../components/brand/AuthBranding';
-
-function mapErrorMessage(error) {
-  const errorCode = error?.response?.data?.error?.code;
-  const errorMessage = error?.response?.data?.error?.message;
-  if (errorCode === 'INVALID_CREDENTIALS')  return 'Email or password is incorrect';
-  if (errorCode === 'INVALID_EMAIL_DOMAIN') return 'Please use your institutional email address.';
-  return errorMessage || 'An error occurred. Please try again.';
-}
+import { mapSignInError } from '../components/auth/signInHelpers';
 
 function getReasonBanner(reason) {
   switch (reason) {
@@ -65,7 +58,7 @@ export default function SignInPage() {
       await signIn(email, password, rememberMe);
       navigate('/');
     } catch (err) {
-      setError(mapErrorMessage(err));
+      setError(mapSignInError(err));
     } finally {
       setIsLoading(false);
     }

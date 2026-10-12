@@ -21,9 +21,9 @@
  */
 
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { LazyMotion, domAnimation, m } from 'framer-motion';
+import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import {
   Sun, Moon, Search, ShieldCheck, TrendingUp, BarChart3, ArrowRight,
 } from 'lucide-react';
@@ -38,6 +38,9 @@ import useFocusTrap from '../hooks/useFocusTrap';
 import usePresence from '../hooks/usePresence';
 import { useMotionVariants } from '../lib/motion';
 import SearchSuggestions from '../components/search/SearchSuggestions';
+import HeroSignInCard from '../components/auth/HeroSignInCard';
+import HeroLayoutSwitcher from '../components/auth/HeroLayoutSwitcher';
+import useHeroLayout from '../hooks/useHeroLayout';
 
 const CORE_NAV = [
   { label: 'Home',             to: '/',                 implemented: true },
@@ -67,6 +70,15 @@ const HERO_SCRIM_MOBILE =
 // Mobile has no light variant — the mobile scrim stays dark in both themes.
 const HERO_SCRIM_DESKTOP_LIGHT =
   'linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 32%, rgba(255,255,255,0.62) 58%, rgba(255,255,255,0.12) 74%, transparent 88%)';
+
+// Hero sign-in card geometry (lg+). The card spans the entrance's two brick
+// pillars on the landscape photo, plus a little overhang each side. Fractions
+// are of the photo's width (ccsdesktop: 2730×1536, cropped object-cover,
+// centred horizontally), so the card stays on the pillars at any window size.
+const HERO_PHOTO_ASPECT = 2730 / 1536;
+const PILLAR_LEFT  = 0.6265;
+const PILLAR_RIGHT = 0.896;
+const CARD_OVERHANG = 20;
 
 // One container for every band below the hero, so all left edges line up.
 const CONTAINER = 'max-w-7xl 2xl:max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-14';
@@ -115,6 +127,64 @@ export default function LandingPage() {
   const drawerRef = useFocusTrap(mobileMenuOpen);
   const [menuMounted, menuClosing] = usePresence(mobileMenuOpen, 200);
   const { fadeUp, staggerContainer } = useMotionVariants();
+
+  // ── Hero sign-in card (desktop, logged out) ────────────────────────────
+  // Layout C (default): the navbar Sign In toggles the card. A/B keep it up
+  // permanently — those only exist on the dev server for the panel preview.
+  const [heroLayout, setHeroLayout] = useHeroLayout();
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [cardBox, setCardBox] = useState(null);
+  const heroRef = useRef(null);
+  const heroTextRef = useRef(null);
+  const heroEyebrowRef = useRef(null);
+  const heroCtaRef = useRef(null);
+  const heroEmailRef = useRef(null);
+  const navSignInRef = useRef(null);
+  const showHeroSignIn = !isInitializing && !isAuthenticated && (heroLayout !== 'c' || signInOpen);
+
+  const closeSignIn = () => {
+    setSignInOpen(false);
+    navSignInRef.current?.focus();
+  };
+  const onNavSignIn = () => {
+    if (heroLayout === 'c') setSignInOpen((o) => !o);
+    else heroEmailRef.current?.focus();
+  };
+
+  // Horizontal: pillar to pillar on the object-cover photo. Vertical: the
+  // card keeps its natural height, centred on the text block (eyebrow top to
+  // Check Title Similarity bottom), so the two read as one band.
+  useLayoutEffect(() => {
+    const hero = heroRef.current;
+    const text = heroTextRef.current;
+    if (!hero || !text) return undefined;
+    const measure = () => {
+      const w = hero.clientWidth;
+      const photoW = Math.max(w, hero.clientHeight * HERO_PHOTO_ASPECT);
+      const photoLeft = (w - photoW) / 2;
+      const top = text.offsetTop + heroEyebrowRef.current.offsetTop;
+      const bottom = text.offsetTop + heroCtaRef.current.offsetTop + heroCtaRef.current.offsetHeight;
+      setCardBox({
+        left: photoLeft + photoW * PILLAR_LEFT - CARD_OVERHANG,
+        width: photoW * (PILLAR_RIGHT - PILLAR_LEFT) + CARD_OVERHANG * 2,
+        top,
+        height: bottom - top,
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(hero);
+    ro.observe(text);
+    return () => ro.disconnect();
+  }, []);
+
+  // Escape puts the card away (layout C only — A/B have nothing to close).
+  useEffect(() => {
+    if (!signInOpen) return undefined;
+    function onKey(e) { if (e.key === 'Escape') closeSignIn(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [signInOpen]);
 
   // ── Hero text + chrome classes ─────────────────────────────────────────
   // Mobile (< lg) keeps light-on-dark in BOTH themes because the mobile scrim
@@ -254,9 +324,12 @@ export default function LandingPage() {
               </>
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <button ref={navSignInRef} type="button" onClick={onNavSignIn}
+                aria-expanded={heroLayout === 'c' ? signInOpen : undefined}
+                aria-controls="hero-sign-in"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
-              </Link>
+              </button>
             )}
             <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
@@ -321,7 +394,7 @@ export default function LandingPage() {
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <main>
         <LazyMotion features={domAnimation}>
-        <section className="relative w-full min-h-[100svh] flex items-end lg:items-center overflow-hidden">
+        <section ref={heroRef} className="relative w-full min-h-[100svh] flex items-end lg:items-center overflow-hidden">
           {/* Background photo — decorative, never animated (avoids layout jank).
               Art-directed crops: landscape (16:9, entrance right-of-center)
               at lg+ (1024px, matches Tailwind's lg — kept in sync with the
@@ -371,13 +444,14 @@ export default function LandingPage() {
 
           {/* Text container */}
           <m.div
+            ref={heroTextRef}
             className="relative z-10 max-w-2xl lg:max-w-none px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
           >
             {/* Breadcrumb eyebrow */}
-            <m.p variants={fadeUp} className={`text-xs font-medium mb-4 ${heroEyebrowCls}`}>
+            <m.p ref={heroEyebrowRef} variants={fadeUp} className={`text-xs font-medium mb-4 ${heroEyebrowCls}`}>
               Pampanga State University
               <span className={`mx-1.5 ${heroDotCls}`}>•</span>
               College of Computing Studies
@@ -422,7 +496,7 @@ export default function LandingPage() {
             </m.form>
 
             {/* Secondary CTA */}
-            <m.div variants={fadeUp} className="flex flex-wrap gap-3">
+            <m.div ref={heroCtaRef} variants={fadeUp} className="flex flex-wrap gap-3">
               <Link to="/title-similarity"
                 className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-white/20 text-gray-100 hover:bg-white/[0.08] hover:border-white/30 ${heroOutlineBtnCls}`}>
                 <ShieldCheck className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
@@ -430,6 +504,26 @@ export default function LandingPage() {
               </Link>
             </m.div>
           </m.div>
+
+          <div id="hero-sign-in" style={cardBox ?? undefined}
+            className="absolute z-20 hidden lg:flex items-center pointer-events-none">
+            <AnimatePresence>
+              {showHeroSignIn && cardBox && (
+                <HeroSignInCard
+                  key={heroLayout === 'b' ? 'see' : 'solid'}
+                  ref={heroEmailRef}
+                  isDark={isDark}
+                  see={heroLayout === 'b'}
+                  onClose={heroLayout === 'c' ? closeSignIn : undefined}
+                  autoFocus={heroLayout === 'c'}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+
+          {import.meta.env.DEV && !isAuthenticated && (
+            <HeroLayoutSwitcher layout={heroLayout} onChange={(v) => { setSignInOpen(false); setHeroLayout(v); }} />
+          )}
         </section>
         </LazyMotion>
 

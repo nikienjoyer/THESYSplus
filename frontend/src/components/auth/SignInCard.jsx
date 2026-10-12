@@ -20,15 +20,7 @@ import Checkbox from '../ui/Checkbox';
 import Alert from '../ui/Alert';
 import Spinner from '../ui/Spinner';
 import { EyeIcon, EyeOffIcon } from '../ui/Icon';
-
-/**
- * Validates institutional email (pampangastateu.edu.ph apex + subdomains)
- * Regex: ^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*pampangastateu\.edu\.ph$
- */
-function isInstitutionalEmail(email) {
-  const regex = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)*pampangastateu\.edu\.ph$/i;
-  return regex.test(email);
-}
+import { isInstitutionalEmail } from './signInHelpers';
 
 export default function SignInCard({ onSubmit, error, isLoading }) {
   const [email, setEmail] = useState('');
