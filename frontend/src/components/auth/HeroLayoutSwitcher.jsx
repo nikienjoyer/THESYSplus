@@ -1,10 +1,11 @@
 /**
- * HeroLayoutSwitcher — dev-server-only A/B/C picker for the landing hero
+ * HeroLayoutSwitcher — dev-server-only A/B/C/D picker for the landing hero
  * sign-in card, so the layouts can be shown to the panel side by side.
  *
  *   A  card always shown, solid frosted
  *   B  card always shown, see-through
  *   C  card slides in from the navbar Sign In button (the shipped default)
+ *   D  like C, with the see-through card from B
  *
  * Production builds always get C (see useHeroLayout), and LandingPage only
  * renders this under `import.meta.env.DEV`.

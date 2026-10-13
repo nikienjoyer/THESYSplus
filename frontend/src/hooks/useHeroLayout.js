@@ -1,12 +1,12 @@
 /**
- * useHeroLayout — which landing-hero sign-in layout to render (a/b/c).
+ * useHeroLayout — which landing-hero sign-in layout to render (a/b/c/d).
  * Dev server: remembered in localStorage so it can be set before a panel
  * demo. Production: always 'c', since `import.meta.env.DEV` is false.
  */
 
 import { useState } from 'react';
 
-export const HERO_LAYOUTS = ['a', 'b', 'c'];
+export const HERO_LAYOUTS = ['a', 'b', 'c', 'd'];
 const DEFAULT_LAYOUT = 'c';
 const STORAGE_KEY = 'thesys:heroLayout';
 

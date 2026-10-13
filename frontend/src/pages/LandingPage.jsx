@@ -129,10 +129,12 @@ export default function LandingPage() {
   const { fadeUp, staggerContainer } = useMotionVariants();
 
   // ── Hero sign-in card (desktop, logged out) ────────────────────────────
-  // Layout C (default): the navbar Sign In toggles the card. A/B keep it up
-  // permanently and drop the navbar button — those only exist on the dev
-  // server for the panel preview.
+  // Layout C (default): the navbar Sign In toggles the card; D is C with the
+  // see-through card. A/B keep it up permanently and drop the navbar button.
+  // A/B/D only exist on the dev server for the panel preview.
   const [heroLayout, setHeroLayout] = useHeroLayout();
+  const heroToggles = heroLayout === 'c' || heroLayout === 'd';
+  const heroSeeThrough = heroLayout === 'b' || heroLayout === 'd';
   const [signInOpen, setSignInOpen] = useState(false);
   const [cardBox, setCardBox] = useState(null);
   const heroRef = useRef(null);
@@ -140,7 +142,7 @@ export default function LandingPage() {
   const heroEyebrowRef = useRef(null);
   const heroCtaRef = useRef(null);
   const navSignInRef = useRef(null);
-  const showHeroSignIn = !isInitializing && !isAuthenticated && (heroLayout !== 'c' || signInOpen);
+  const showHeroSignIn = !isInitializing && !isAuthenticated && (!heroToggles || signInOpen);
 
   const closeSignIn = () => {
     setSignInOpen(false);
@@ -319,7 +321,7 @@ export default function LandingPage() {
                 <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
-            {!isInitializing && !isAuthenticated && heroLayout === 'c' && (
+            {!isInitializing && !isAuthenticated && heroToggles && (
               <button ref={navSignInRef} type="button" onClick={() => setSignInOpen((o) => !o)}
                 aria-expanded={signInOpen}
                 aria-controls="hero-sign-in"
@@ -508,9 +510,9 @@ export default function LandingPage() {
                 <HeroSignInCard
                   key="hero-sign-in"
                   isDark={isDark}
-                  see={heroLayout === 'b'}
-                  onClose={heroLayout === 'c' ? closeSignIn : undefined}
-                  autoFocus={heroLayout === 'c'}
+                  see={heroSeeThrough}
+                  onClose={heroToggles ? closeSignIn : undefined}
+                  autoFocus={heroToggles}
                 />
               )}
             </AnimatePresence>
