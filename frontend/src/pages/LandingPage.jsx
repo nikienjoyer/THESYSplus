@@ -81,6 +81,10 @@ const CARD_OVERHANG = 20;
 // One container for every band below the hero, so all left edges line up.
 const CONTAINER = 'max-w-7xl 2xl:max-w-[90rem] mx-auto px-5 sm:px-8 lg:px-14';
 
+// Routes behind ProtectedRoute (App.jsx); a signed-out click on one of these
+// opens the hero sign-in card instead of navigating.
+const PROTECTED_PREFIXES = ['/repository', '/title-similarity', '/trend-analysis', '/analytics', '/theses', '/profile', '/settings'];
+
 // Tool list — titles match the nav labels exactly, and each links to its page.
 const FEATURES = [
   {
@@ -145,7 +149,32 @@ export default function LandingPage() {
   const navSignInRef = useRef(null);
   const showHeroSignIn = !isInitializing && !isAuthenticated && signInOpen;
 
+  // Signed out on a wide screen: links and searches that lead to a sign-in-only
+  // page open the card here instead of bouncing through ProtectedRoute, and
+  // the visitor lands on that page once they sign in. Phones have no card,
+  // so they navigate as before (ProtectedRoute sends them to /sign-in).
+  const pendingTo = useRef(null);
+  const interceptsSignIn = () => !isInitializing && !isAuthenticated
+    && window.matchMedia('(min-width: 1024px)').matches;
+  const askSignIn = (to) => { pendingTo.current = to; setSignInOpen(true); };
+  const goOrSignIn = (to) => (interceptsSignIn() ? askSignIn(to) : navigate(to));
+  const onLandingClickCapture = (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (!a || !interceptsSignIn()) return;
+    const url = new URL(a.href);
+    if (url.origin !== window.location.origin || !PROTECTED_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
+    e.preventDefault(); // react-router's Link skips navigation when this is set
+    askSignIn(url.pathname + url.search);
+  };
+  useEffect(() => {
+    if (!isAuthenticated || !pendingTo.current) return;
+    const to = pendingTo.current;
+    pendingTo.current = null;
+    navigate(to);
+  }, [isAuthenticated, navigate]);
+
   const closeSignIn = () => {
+    pendingTo.current = null;
     setSignInOpen(false);
     navSignInRef.current?.focus();
   };
@@ -245,7 +274,7 @@ export default function LandingPage() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const q = searchQuery.trim();
-    navigate(q ? `/repository?q=${encodeURIComponent(q)}` : '/repository');
+    goOrSignIn(q ? `/repository?q=${encodeURIComponent(q)}` : '/repository');
   };
 
   // ── Trend chip helper ──────────────────────────────────────────────
@@ -261,7 +290,7 @@ export default function LandingPage() {
   const trendList = topics?.slice(0, 6) || [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-canvas transition-colors duration-300" onClickCapture={onLandingClickCapture}>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           NAVBAR — sticky, auth-aware, matches app branding
@@ -480,7 +509,7 @@ export default function LandingPage() {
                 <SearchSuggestions
                   value={searchQuery}
                   onChange={setSearchQuery}
-                  onPick={(text) => navigate(`/repository?q=${encodeURIComponent(text)}`)}
+                  onPick={(text) => goOrSignIn(`/repository?q=${encodeURIComponent(text)}`)}
                   wrapperClassName="flex-1 min-w-0"
                   inputClassName={`w-full bg-transparent text-sm outline-none min-w-0 text-gray-100 placeholder-gray-500 ${heroInputTextCls}`}
                   placeholder="Search titles, topics, or authors…"
