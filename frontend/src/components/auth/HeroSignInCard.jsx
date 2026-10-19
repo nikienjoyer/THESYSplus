@@ -6,9 +6,6 @@
  * Same validation and error wording as the /sign-in page (signInHelpers).
  * On success the auth state flips, LandingPage stops rendering the card, and
  * AnimatePresence plays its exit — the visitor stays on the landing page.
- *
- * `see` = true is the see-through variant (layout B): lighter fill and blur so
- * the building reads through the card.
  */
 
 import { useState } from 'react';
@@ -34,7 +31,7 @@ const cardMotionReduced = {
   exit:    { opacity: 0, transition: { duration: 0.12 } },
 };
 
-export default function HeroSignInCard({ isDark, see = false, onClose, autoFocus = false }) {
+export default function HeroSignInCard({ isDark, onClose, autoFocus = false }) {
   const { signIn } = useAuth();
   const reduceMotion = useReducedMotion();
   const [email, setEmail] = useState('');
@@ -67,13 +64,13 @@ export default function HeroSignInCard({ isDark, see = false, onClose, autoFocus
 
   // Dark: navy glass with light text. Light: white glass with ink text.
   const surface = isDark
-    ? (see ? 'bg-[rgba(10,16,40,0.22)] border-white/35 backdrop-blur-[3px]' : 'bg-[rgba(10,16,40,0.55)] border-white/20 backdrop-blur-[14px] backdrop-saturate-[1.3]')
-    : (see ? 'bg-white/25 border-white/70 backdrop-blur-[3px]'            : 'bg-white/60 border-white/80 backdrop-blur-[14px] backdrop-saturate-[1.3]');
+    ? 'bg-[rgba(10,16,40,0.55)] border-white/20 backdrop-blur-[14px] backdrop-saturate-[1.3]'
+    : 'bg-white/60 border-white/80 backdrop-blur-[14px] backdrop-saturate-[1.3]';
   const heading = isDark ? 'text-white' : 'text-ink';
   const sub     = isDark ? 'text-slate-300' : 'text-body';
   const link    = isDark ? 'text-blue-200 hover:text-white' : 'text-primary hover:text-primary-solid-hover';
   const field   = isDark
-    ? `${see ? 'bg-slate-950/60' : 'bg-slate-950/45'} border-white/20 text-white placeholder-slate-300 focus:border-blue-400/70`
+    ? 'bg-slate-950/45 border-white/20 text-white placeholder-slate-300 focus:border-blue-400/70'
     : 'bg-white/90 border-gray-300 text-ink placeholder-gray-500 focus:border-blue-400';
   const fieldBase = `w-full h-[42px] rounded-[9px] border px-3.5 text-sm outline-none transition-[border-color] duration-150 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${field}`;
 

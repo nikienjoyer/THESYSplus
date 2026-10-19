@@ -39,8 +39,6 @@ import usePresence from '../hooks/usePresence';
 import { useMotionVariants } from '../lib/motion';
 import SearchSuggestions from '../components/search/SearchSuggestions';
 import HeroSignInCard from '../components/auth/HeroSignInCard';
-import HeroLayoutSwitcher from '../components/auth/HeroLayoutSwitcher';
-import useHeroLayout from '../hooks/useHeroLayout';
 
 const CORE_NAV = [
   { label: 'Home',             to: '/',                 implemented: true },
@@ -129,12 +127,7 @@ export default function LandingPage() {
   const { fadeUp, staggerContainer } = useMotionVariants();
 
   // ── Hero sign-in card (desktop, logged out) ────────────────────────────
-  // Layout C (default): the navbar Sign In toggles the card; D is C with the
-  // see-through card. A/B keep it up permanently and drop the navbar button.
-  // A/B/D only exist on the dev server for the panel preview.
-  const [heroLayout, setHeroLayout] = useHeroLayout();
-  const heroToggles = heroLayout === 'c' || heroLayout === 'd';
-  const heroSeeThrough = heroLayout === 'b' || heroLayout === 'd';
+  // The navbar Sign In toggles the card (layout C, the one the team picked).
   const [signInOpen, setSignInOpen] = useState(false);
   const [cardBox, setCardBox] = useState(null);
   const heroRef = useRef(null);
@@ -142,7 +135,7 @@ export default function LandingPage() {
   const heroEyebrowRef = useRef(null);
   const heroCtaRef = useRef(null);
   const navSignInRef = useRef(null);
-  const showHeroSignIn = !isInitializing && !isAuthenticated && (!heroToggles || signInOpen);
+  const showHeroSignIn = !isInitializing && !isAuthenticated && signInOpen;
 
   const closeSignIn = () => {
     setSignInOpen(false);
@@ -321,7 +314,7 @@ export default function LandingPage() {
                 <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
               </>
             )}
-            {!isInitializing && !isAuthenticated && heroToggles && (
+            {!isInitializing && !isAuthenticated && (
               <button ref={navSignInRef} type="button" onClick={() => setSignInOpen((o) => !o)}
                 aria-expanded={signInOpen}
                 aria-controls="hero-sign-in"
@@ -510,17 +503,13 @@ export default function LandingPage() {
                 <HeroSignInCard
                   key="hero-sign-in"
                   isDark={isDark}
-                  see={heroSeeThrough}
-                  onClose={heroToggles ? closeSignIn : undefined}
-                  autoFocus={heroToggles}
+                  onClose={closeSignIn}
+                  autoFocus
                 />
               )}
             </AnimatePresence>
           </div>
 
-          {import.meta.env.DEV && !isAuthenticated && (
-            <HeroLayoutSwitcher layout={heroLayout} onChange={(v) => { setSignInOpen(false); setHeroLayout(v); }} />
-          )}
         </section>
         </LazyMotion>
 
