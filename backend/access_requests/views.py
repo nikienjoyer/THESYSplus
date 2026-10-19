@@ -191,7 +191,8 @@ class RequestAccessView(APIView):
         # The role picks the branch. Faculty send no document; anything else
         # (including an invalid role, which the serializer then rejects) is
         # held to the student field set.
-        is_faculty = request.data.get('requested_role') == 'faculty'
+        data = request.data if isinstance(request.data, dict) else {}
+        is_faculty = data.get('requested_role') == 'faculty'
         allowed_fields = {'email', 'first_name', 'last_name', 'requested_role'}
         if not is_faculty:
             allowed_fields.add('document')
@@ -636,6 +637,12 @@ class RequestAccessStatusView(APIView):
             return Response(
                 {'status': 'pending_verification'}, status=status.HTTP_200_OK,
             )
+
+        # Faculty prove nothing at submission (no document, no email link), so
+        # the tab that submitted must not set the password: the owner of the
+        # address finishes signup from the approval email.
+        if req.requested_role == 'faculty' and req.reviewed_by_id is not None:
+            return Response(self._manual_review_outcome(req), status=status.HTTP_200_OK)
 
         user = User.objects.filter(email=req.email).first()
         if user is None:

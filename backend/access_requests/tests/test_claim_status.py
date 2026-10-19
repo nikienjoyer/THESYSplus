@@ -557,6 +557,10 @@ def _under_manual_review(client):
 
     _, body = _submit(client)
     req = AccessRequest.objects.get()
+    # A document means a student request (_submit sends faculty, the branch
+    # with no upload pipeline).
+    req.requested_role = 'student'
+    req.save(update_fields=['requested_role'])
     VerificationDocument.objects.create(
         access_request=req, file_path='/x/id.jpg', mime_type='image/jpeg',
         sha256='b' * 64, size_bytes=10,
@@ -642,3 +646,18 @@ class TestManualReviewOutcome:
         req.save(update_fields=['status'])
 
         assert _status(client, claim).json() == {'status': 'rejected'}
+
+
+@pytest.mark.django_db
+def test_admin_approved_faculty_gets_no_token_in_tab(client, reviewer):
+    """Faculty prove nothing at submission, so the submitting tab must not be
+    able to set the password; the owner of the address finishes signup from
+    the emailed link."""
+    from access_requests.services import approve_request
+
+    _, body = _submit(client, 'maria.santos@pampangastateu.edu.ph')
+    approve_request(AccessRequest.objects.get(), reviewer=reviewer)
+
+    payload = _status(client, body['claim']).json()
+
+    assert payload == {'status': 'approved'}

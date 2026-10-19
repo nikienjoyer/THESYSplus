@@ -96,3 +96,12 @@ def test_faculty_duplicate_pending_rejected(client):
     assert _post(client).status_code == 201
     second = _post(client)
     assert second.status_code == 409 and code(second) == 'DUPLICATE_REQUEST_PENDING'
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('body', [[], 'x', [{'requested_role': 'faculty'}]])
+def test_non_object_json_body_is_rejected_not_500(client, body):
+    import json
+    res = client.post(reverse(SUBMIT_URL_NAME), data=json.dumps(body),
+                      content_type='application/json', HTTP_ORIGIN=ORIGIN)
+    assert res.status_code == 400

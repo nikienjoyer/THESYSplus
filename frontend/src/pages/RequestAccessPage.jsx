@@ -494,6 +494,9 @@ export default function RequestAccessPage() {
     title: 'Waiting for an administrator',
     body: `Your faculty request${submitted?.email ? ` for ${submitted.email}` : ''} was received. An administrator will review it.`,
     note: 'When it is approved, we email you a link to set your password. This page also updates on its own.',
+  } : decision === 'rejected_reviewed' && activeRole === 'faculty' ? {
+    ...DECISIONS.rejected_reviewed,
+    body: 'An administrator reviewed your faculty request and could not approve it. We sent the reason to your PampangaStateU email.',
   } : decision ? (DECISIONS[decision] || {
     Icon: ClipboardList,
     iconColor: 'text-blue-600',
