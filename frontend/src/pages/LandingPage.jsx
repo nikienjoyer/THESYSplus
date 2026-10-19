@@ -607,67 +607,45 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer — dark band with institutional links */}
+      {/* Footer — logo with the two institution names as links, legal links on the right */}
       <footer className={`border-t ${isDark ? 'border-white/[0.06] bg-[#060b1e]' : 'border-gray-800 bg-[#0f172a]'}`}>
-        <div className={`${CONTAINER} py-6`}>
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 sm:gap-4">
-
-            <div className="flex flex-col gap-1 min-w-0">
-              <ThesysLogo variant="wordmark" size={26} onDark />
-              <p className="text-xs text-gray-300 mt-1">Pampanga State University</p>
-              <p className="text-xs text-gray-300">College of Computing Studies</p>
-              <p className="text-xs text-gray-400 mt-1">© 2026 THESYS+. All rights reserved.</p>
-            </div>
-
-            {/* Resources — 2×2: About / Terms on the first row, Privacy / Help on the second */}
-            <nav aria-label="Footer navigation">
-              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Resources</p>
-              <ul className="grid w-fit grid-cols-[auto_auto] gap-x-10 gap-y-1.5">
-                {[
-                  { label: 'About',   onClick: () => setLegalModal('about') },
-                  { label: 'Terms',   onClick: () => setLegalModal('terms') },
-                  { label: 'Privacy', onClick: () => setLegalModal('privacy') },
-                  { label: 'Help',    onClick: () => setLegalModal('help') },
-                ].map(({ label, onClick }) => (
-                  <li key={label}>
-                    <button type="button" onClick={onClick}
-                      className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <nav aria-label="Institutional links">
-              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Institutional Links</p>
-              <ul className="flex flex-col gap-1.5">
-                <li>
-                  <a
-                    href="https://pampangastateu.edu.ph/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Visit the Pampanga State University official website (opens in new tab)"
-                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                  >
-                    Pampanga State University
+        <div className={`${CONTAINER} py-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5`}>
+          <div className="min-w-0">
+            <ThesysLogo variant="wordmark" size={26} onDark />
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-300">
+              {[
+                { label: 'Pampanga State University',    href: 'https://pampangastateu.edu.ph/',       aria: 'Pampanga State University official website (opens in new tab)' },
+                { label: 'College of Computing Studies', href: 'https://web.facebook.com/dhvsu.ccssc', aria: 'College of Computing Studies Facebook page (opens in new tab)' },
+              ].map(({ label, href, aria }, i) => (
+                <span key={label} className="inline-flex items-center gap-2">
+                  {i > 0 && <span className="w-[3px] h-[3px] rounded-full bg-gray-500" aria-hidden="true" />}
+                  <a href={href} target="_blank" rel="noopener noreferrer" aria-label={aria}
+                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center underline decoration-gray-300/35 underline-offset-[3px] hover:text-blue-300 hover:decoration-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-sm">
+                    {label}
                   </a>
-                </li>
-                <li>
-                  <a
-                    href="https://web.facebook.com/dhvsu.ccssc"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Visit the CCS Facebook page (opens in new tab)"
-                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-300 hover:text-blue-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                  >
-                    CCS Facebook Page
-                  </a>
-                </li>
-              </ul>
-            </nav>
-
+                </span>
+              ))}
+            </p>
+            <p className="text-xs text-gray-400 mt-1.5">© 2026 THESYS+. All rights reserved.</p>
           </div>
+
+          <nav aria-label="Footer navigation">
+            <ul className="flex flex-wrap gap-x-5 gap-y-1">
+              {[
+                { label: 'About',   onClick: () => setLegalModal('about') },
+                { label: 'Terms',   onClick: () => setLegalModal('terms') },
+                { label: 'Privacy', onClick: () => setLegalModal('privacy') },
+                { label: 'Help',    onClick: () => setLegalModal('help') },
+              ].map(({ label, onClick }) => (
+                <li key={label}>
+                  <button type="button" onClick={onClick}
+                    className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-xs text-gray-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-sm">
+                    {label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
       </footer>
 
