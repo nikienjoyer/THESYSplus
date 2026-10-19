@@ -427,7 +427,21 @@ class TestInvalidEmailFormat:
 
 @pytest.mark.django_db
 class TestResubmitWhileVerificationLinkPending:
-    """A second submission must not send a second verification email."""
+    """A second submission must not send a second verification email.
+
+    Resubmits as faculty (no document) so the check is exercised without the
+    document pipeline; it runs before the role branch either way.
+    """
+
+    @pytest.fixture
+    def pending_req(self, db):
+        return AccessRequest.objects.create(
+            email='maria.santos@pampangastateu.edu.ph',
+            first_name='Maria',
+            last_name='Santos',
+            requested_role='faculty',
+            status='pending_email_verification',
+        )
 
     def _resubmit(self, client, req):
         return client.post(
@@ -436,8 +450,7 @@ class TestResubmitWhileVerificationLinkPending:
                 'email': req.email,
                 'first_name': req.first_name,
                 'last_name': req.last_name,
-                'requested_role': 'student',
-                'justification': 'Resubmitting',
+                'requested_role': 'faculty',
             },
             content_type='application/json',
             HTTP_ORIGIN='http://localhost:5173',

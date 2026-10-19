@@ -164,6 +164,17 @@ def _hoist_first_field_error(errors: dict) -> tuple[str, str]:
 # Public submission — POST /api/v1/auth/request-access/
 # ---------------------------------------------------------------------------
 
+def _awaits_admin(req: AccessRequest) -> bool:
+    """A pending request an administrator decides: every faculty request, and
+    a student request whose document the pipeline sent to manual review."""
+    from identity_verification.models import VerificationDocument
+
+    return (
+        req.requested_role == 'faculty'
+        or VerificationDocument.objects.filter(access_request=req).exists()
+    )
+
+
 @method_decorator(require_origin_match, name='post')
 class RequestAccessView(APIView):
     """Public submission of an access request."""
@@ -609,8 +620,7 @@ class RequestAccessStatusView(APIView):
                 status=status.HTTP_200_OK,
             )
         if req.status == 'pending':
-            from identity_verification.models import VerificationDocument
-            if VerificationDocument.objects.filter(access_request=req).exists():
+            if _awaits_admin(req):
                 return Response({'status': 'pending_manual_review'}, status=status.HTTP_200_OK)
             return Response({'status': 'pending_verification'}, status=status.HTTP_200_OK)
         if req.status == 'denied':
@@ -683,11 +693,8 @@ class RequestAccessStatusView(APIView):
         ``None`` for requests that never went to an administrator, so their
         existing responses are unchanged.
         """
-        from identity_verification.models import VerificationDocument
-
         if req.status == 'pending':
-            has_document = VerificationDocument.objects.filter(access_request=req).exists()
-            return {'status': 'pending_manual_review'} if has_document else None
+            return {'status': 'pending_manual_review'} if _awaits_admin(req) else None
         if req.reviewed_by_id is None:
             return None
         if req.status == 'denied':

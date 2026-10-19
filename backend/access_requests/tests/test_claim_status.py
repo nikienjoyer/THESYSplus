@@ -45,15 +45,18 @@ def clear_rate_limit_cache():
 
 
 def _submit(client, email='claimant@pampangastateu.edu.ph'):
-    """Submit via the legacy justification flow and return (response, body)."""
+    """Submit a faculty request (no document) and return (response, body).
+
+    The claim mechanics under test are role-independent; faculty is the branch
+    that needs no document pipeline.
+    """
     response = client.post(
         reverse(SUBMIT_URL_NAME),
         data={
             'email': email,
             'first_name': 'Claim',
             'last_name': 'Ant',
-            'requested_role': 'student',
-            'justification': 'I am a student and require repository access for my thesis.',
+            'requested_role': 'faculty',
         },
         content_type='application/json',
         HTTP_ORIGIN='http://localhost:5173',
@@ -161,13 +164,19 @@ class TestOnlyTheHashIsPersisted:
 
 @pytest.mark.django_db
 class TestPendingVerification:
-    def test_before_verification_reports_pending(self, client):
+    def test_pending_faculty_claim_reports_manual_review(self, client):
         _, body = _submit(client)
 
         response = _status(client, body['claim'])
 
         assert response.status_code == 200
-        assert response.json() == {'status': 'pending_verification'}
+        assert response.json() == {'status': 'pending_manual_review'}
+
+    def test_expired_faculty_claim_still_reports_manual_review(self, client):
+        _, body = _submit(client)
+        _expire(AccessRequest.objects.get())
+
+        assert _status(client, body['claim']).json() == {'status': 'pending_manual_review'}
 
     def test_pending_response_carries_no_token(self, client):
         _, body = _submit(client)
@@ -299,8 +308,11 @@ class TestExpiry:
     def test_past_expiry_reports_expired(self, client):
         _, body = _submit(client)
         req = AccessRequest.objects.get()
+        # Waiting on an emailed link, not an administrator (a pending faculty
+        # request keeps reporting manual review past the window).
+        req.status = 'pending_email_verification'
         req.claim_expires_at = timezone.now() - _dt.timedelta(seconds=1)
-        req.save(update_fields=['claim_expires_at'])
+        req.save(update_fields=['status', 'claim_expires_at'])
 
         response = _status(client, body['claim'])
 
