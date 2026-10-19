@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compact Navbar Landing</title>
+<link href="/frontend/node_modules/@fontsource-variable/inter/wght.css" rel="stylesheet">
+<style>
+  /* Mockup chrome */
+  :root { --chrome-bg:#0b1020; --chrome-ink:#e2e8f0; --chrome-muted:#94a3b8; --chrome-line:#1e293b; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--chrome-bg); color:var(--chrome-ink); font-family:'Inter Variable', Inter, system-ui, sans-serif; padding:20px 16px 48px; }
+  h1 { font-size:20px; font-weight:700; }
+  .lead { color:var(--chrome-muted); font-size:14px; margin:6px 0 16px; max-width:72ch; line-height:1.55; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+  .bar span { font-size:12px; color:var(--chrome-muted); margin-right:4px; }
+  .bar button { font:inherit; font-size:13px; background:#1e293b; color:var(--chrome-ink); border:1px solid #334155; border-radius:8px; padding:7px 12px; cursor:pointer; }
+  .bar button[aria-pressed=true] { background:#1e40af; border-color:#1e40af; color:#fff; }
+  .bar button:focus-visible { outline:2px solid #60a5fa; outline-offset:2px; }
+  .gap { width:12px; }
+  .info { font-size:12px; color:var(--chrome-muted); margin:0 0 8px; font-variant-numeric:tabular-nums; }
+  .viewport { width:100%; overflow:hidden; border:1px solid var(--chrome-line); border-radius:10px; }
+  .notes { margin-top:20px; font-size:13px; color:var(--chrome-muted); line-height:1.65; max-width:80ch; }
+  .notes b { color:var(--chrome-ink); }
+  .notes code { color:var(--chrome-ink); }
+
+  /* The page, drawn at the chosen real width (font-size = root rem) */
+  .page { transform-origin:top left; background:#080d24; color:#d1d5db; font-family:'Inter Variable', Inter, system-ui, sans-serif; }
+  .container { max-width:80rem; margin:0 auto; padding:0 3.5rem; }
+  .page.x2 .container { max-width:90rem; }
+  nav.top { position:relative; z-index:2; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:.75rem 3.5rem; border-bottom:1px solid rgba(255,255,255,.06); background:#080d24; }
+  .page.xl nav.top { padding-top:1rem; padding-bottom:1rem; }
+  .logo { display:flex; align-items:center; gap:.5rem; color:#fff; font-weight:800; letter-spacing:-.01em; transform-origin:left center; }
+  .logo b { color:#60a5fa; font-weight:800; }
+  .mark { width:28px; height:28px; border:2.5px solid #60a5fa; border-radius:5px; transform:rotate(-8deg); flex:none; }
+  .links { list-style:none; padding:0; display:flex; align-items:center; gap:.25rem; }
+  .links a { display:block; position:relative; white-space:nowrap; color:#d1d5db; font-size:.875rem; font-weight:500; padding:.375rem .75rem; border-radius:.375rem; }
+  .page.xl .links a { padding:.5rem 1rem; }
+  .links a.hover { background:rgba(255,255,255,.06); color:#fff; }
+  .links a.cur { color:#60a5fa; }
+  .links a.cur::after { content:""; position:absolute; left:.75rem; right:.75rem; bottom:0; height:2px; border-radius:2px; background:currentColor; }
+  .page.xl .links a.cur::after { left:1rem; right:1rem; }
+  .actions { display:flex; justify-content:flex-end; align-items:center; gap:.75rem; }
+  .btn { background:#2563eb; color:#fff; font-size:.875rem; font-weight:600; padding:.375rem .75rem; border-radius:.5rem; white-space:nowrap; }
+  .avatar { width:2rem; height:2rem; border-radius:999px; background:rgba(37,99,235,.2); color:#fff; font-size:.75rem; font-weight:700; display:grid; place-items:center; }
+  .sun { width:2rem; height:2rem; display:grid; place-items:center; color:#60a5fa; }
+
+  .hero { position:relative; overflow:hidden; display:flex; align-items:center; }
+  .hero img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 40%; }
+  .hero::before { content:""; position:absolute; inset:0; z-index:1; background:linear-gradient(90deg, rgba(8,13,36,.92) 0%, rgba(8,13,36,.72) 38%, rgba(8,13,36,.15) 70%, rgba(8,13,36,0) 100%); }
+  .hero .container { position:relative; z-index:2; width:100%; }
+  .eyebrow { font-size:.8125rem; font-weight:500; color:#e2e8f0; display:flex; gap:.5rem; align-items:center; }
+  .eyebrow i { width:4px; height:4px; border-radius:99px; background:#94a3b8; display:inline-block; }
+  .hero h2 { margin-top:1.25rem; color:#fff; font-weight:800; letter-spacing:-.03em; line-height:1.08; font-size:3.25rem; max-width:15ch; }
+  .hero h2 span { color:#60a5fa; }
+  .hero p { margin-top:1.25rem; font-size:1.125rem; line-height:1.6; color:#e5e7eb; max-width:36rem; }
+  .search { margin-top:2rem; display:flex; gap:.625rem; max-width:45rem; }
+  .field { flex:1; height:3.5rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.2); background:rgba(15,23,42,.55); color:#94a3b8; font-size:1rem; display:flex; align-items:center; padding:0 1rem; gap:.75rem; }
+  .go { height:3.5rem; padding:0 1.5rem; border-radius:.5rem; background:#2563eb; color:#fff; font-weight:600; font-size:1rem; display:flex; align-items:center; gap:.5rem; }
+  .ghost { margin-top:1.25rem; display:inline-flex; align-items:center; gap:.5rem; padding:.75rem 1.25rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.2); color:#f3f4f6; font-weight:600; font-size:.9375rem; }
+
+  .stats { background:#0f1a3a; border-bottom:1px solid rgba(255,255,255,.09); padding:2.5rem 0; }
+  .stats h3 { text-align:center; font-size:1rem; font-weight:600; color:#d1d5db; letter-spacing:.02em; }
+  .stats .row { margin-top:1.75rem; display:grid; grid-template-columns:repeat(3,1fr); text-align:center; }
+  .stats b { display:block; color:#fff; font-size:1.875rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stats small { display:block; margin-top:.375rem; font-size:.875rem; color:#9ca3af; }
+  .tools { padding:3.5rem 0 4rem; }
+  .tools h3 { font-size:1.125rem; font-weight:600; color:#fff; }
+  .grid { margin-top:1.25rem; display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+  .card { border:1px solid rgba(255,255,255,.09); background:rgba(255,255,255,.03); border-radius:.75rem; padding:1.25rem; }
+  .card .ic { width:2.25rem; height:2.25rem; border-radius:.5rem; background:rgba(30,64,175,.2); color:#60a5fa; display:grid; place-items:center; }
+  .card h4 { margin-top:.875rem; color:#fff; font-size:1rem; font-weight:600; }
+  .card p { margin-top:.375rem; font-size:.875rem; line-height:1.55; color:#9ca3af; }
+  footer { border-top:1px solid rgba(255,255,255,.06); background:#060b1e; padding:1.5rem 0; }
+  footer .container { display:flex; justify-content:space-between; font-size:.8125rem; color:#9ca3af; }
+  footer nav { display:flex; gap:1.25rem; }
+  svg.i { width:1.1em; height:1.1em; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+</head>
+<body>
+<h1>Landing page: compact navbar</h1>
+<p class="lead">The whole landing page, drawn at a real screen width and shrunk to fit. Pick a screen, then flip between today's navbar and the compact one. Only the navbar changes; everything else is today's page.</p>
+
+<div class="bar" id="widths"><span>Screen</span>
+  <button data-w="1280">14" laptop · 1280</button>
+  <button data-w="1536" aria-pressed="true">1536</button>
+  <button data-w="1920">24" monitor · 1920</button>
+  <button data-w="2560">27" · 2560</button>
+</div>
+<div class="bar" id="modes"><span>Navbar</span>
+  <button data-m="current">Current (links spread across 52–58% of the screen)</button>
+  <button data-m="compact">Compact (fixed gaps)</button>
+  <button data-m="fluid" aria-pressed="true">Fluid (gap grows with the screen)</button>
+</div>
+
+<p class="info" id="info"></p>
+<div class="viewport" id="vp"><div class="page" id="page"></div></div>
+
+<div class="notes">
+  <p><b>Compact:</b> the links stop stretching with the screen. They sit as one centered group with an even 2rem gap (2.5rem from 1536px), so the space between "Home" and "Analytics" stays about the width of the hero headline instead of most of the bar. Link text, padding, the underline on the current page and the hover pill are unchanged.</p>
+  <p><b>Fluid:</b> the gap between tabs is 2.5% of the screen width (never under 1rem, never over 5rem): 32px on a 1280 laptop, 38px at 1536, 48px on a 24" monitor, 64px at 2560. Bigger screens get more air, smaller ones stay tight, and no screen gets the stretched look. Code: <code>NAV_LIST_CLASS</code> becomes <code>xl:gap-[clamp(1rem,2.5vw,5rem)]</code>, dropping the vw widths and <code>justify-between</code>.</p>
+  <p><b>Code it would take (compact):</b> one constant in <code>AppNavbar.jsx</code>: <code>NAV_LIST_CLASS</code> drops <code>xl:w-[52vw] 2xl:w-[58vw] xl:justify-between</code> for <code>xl:gap-8 2xl:gap-10</code>. Every app page and the landing page share it.</p>
+</div>
+
+<script>
+const LINKS = ['Home', 'Repository', 'Title Similarity', 'Trend Analysis', 'Analytics'];
+const TOOLS = [
+  ['Repository', 'Find related theses by meaning, not just matching keywords, using SBERT sentence embeddings.', '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'],
+  ['Title Similarity', 'See how close your proposed title is to existing theses before you commit to a topic.', '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'],
+  ['Trend Analysis', 'See which research subjects are saturated, emerging, or underexplored, based on how many theses each has.', '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>'],
+  ['Analytics', 'Thesis counts by program and by year, plus the most common keywords.', '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>'],
+];
+const icon = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+
+function render() {
+  const W = +document.querySelector('#widths [aria-pressed=true]').dataset.w;
+  const mode = document.querySelector('#modes [aria-pressed=true]').dataset.m;
+  const rem = Math.min(Math.max(16, W / 96), 24);      // index.css: clamp(16px, 100vw/96, 24px)
+  const xl = W >= 1280, x2 = W >= 1536;
+  const logoScale = x2 ? 1.3 : xl ? 1.15 : 1;
+
+  const listStyle = mode === 'current'
+    ? (xl ? `width:${(x2 ? .58 : .52) * W}px;justify-content:space-between;` : '')
+    : mode === 'fluid'
+      ? (xl ? `gap:${Math.min(Math.max(rem, 0.025 * W), 5 * rem)}px;` : '')   // clamp(1rem, 2.5vw, 5rem)
+      : (xl ? `gap:${x2 ? 2.5 : 2}rem;` : '');
+
+  const page = document.getElementById('page');
+  page.className = 'page' + (xl ? ' xl' : '') + (x2 ? ' x2' : '');
+  page.style.width = W + 'px';
+  // The page's rem must follow the drawn width; the mockup chrome is all px.
+  document.documentElement.style.fontSize = rem + 'px';
+  page.style.fontSize = '1rem';
+  const heroH = Math.round(W * 0.5);
+  page.innerHTML = `
+    <nav class="top">
+      <div class="logo" style="transform:scale(${logoScale});font-size:20px"><span class="mark"></span>THE<b>SYS+</b></div>
+      <ul class="links" style="${listStyle}">${LINKS.map((l, i) => `<li><a class="${i === 0 ? 'cur' : i === 1 ? 'hover' : ''}">${l}</a></li>`).join('')}</ul>
+      <div class="actions"><span class="btn">Upload Thesis</span><span class="avatar">KG</span><span class="sun">${icon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>')}</span></div>
+    </nav>
+    <section class="hero" style="height:${heroH}px">
+      <img src="/frontend/public/ccsdesktop.webp" alt="">
+      <div class="container">
+        <div class="eyebrow">Pampanga State University <i></i> College of Computing Studies</div>
+        <h2>Explore, validate, and discover <span>undergraduate research</span> within PampangaStateU CCS.</h2>
+        <p>Search previous studies by meaning, check title similarity, and compare research areas by thesis count.</p>
+        <div class="search"><div class="field">${icon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')}Search titles, topics, or authors…</div><div class="go">${icon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>')}Search Theses</div></div>
+        <div class="ghost">${icon('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>')}Check Title Similarity</div>
+      </div>
+    </section>
+    <section class="stats"><div class="container">
+      <h3>Repository Snapshot</h3>
+      <div class="row"><div><b>115</b><small>Undergraduate Theses Indexed</small></div><div><b>2021–2025</b><small>Corpus Coverage</small></div><div><b>BSIS • BSIT • BSCS</b><small>Programs</small></div></div>
+    </div></section>
+    <section class="tools"><div class="container">
+      <h3>Research tools</h3>
+      <div class="grid">${TOOLS.map(([t, d, ic]) => `<div class="card"><span class="ic">${icon(ic)}</span><h4>${t}</h4><p>${d}</p></div>`).join('')}</div>
+    </div></section>
+    <footer><div class="container"><span>© 2026 THESYS+. All rights reserved.</span><nav><span>About</span><span>Terms</span><span>Privacy</span><span>Help</span></nav></div></footer>`;
+
+  const vp = document.getElementById('vp');
+  const s = vp.clientWidth / W;
+  page.style.transform = `scale(${s})`;
+  vp.style.height = page.scrollHeight * s + 'px';
+
+  const ul = page.querySelector('.links');
+  const first = ul.firstElementChild.getBoundingClientRect(), last = ul.lastElementChild.getBoundingClientRect();
+  document.getElementById('info').textContent =
+    `${W}px screen · links span ${Math.round((last.right - first.left) / s)}px (${Math.round((last.right - first.left) / s / W * 100)}% of the width) · link text ${(0.875 * rem).toFixed(1)}px`;
+}
+
+for (const id of ['widths', 'modes']) {
+  document.getElementById(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll(`#${id} button`).forEach((x) => x.setAttribute('aria-pressed', x === b));
+    render();
+  });
+}
+addEventListener('resize', render);
+document.fonts?.ready.then(render);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cited By Counter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (:root and .dark). */
+  :root {
+    --primary:#1e40af; --solid:#1e40af; --solid-hover:#1c3a99; --primary-light:#eff6ff;
+    --canvas:#f8fafc; --surface:#ffffff; --surface-2:#f1f5f9; --elevated:#ffffff;
+    --border:#e2e8f0; --border-strong:#cbd5e1;
+    --ink:#111827; --body:#475569; --muted:#6b7280;
+    --warn-bg:#fffbeb; --warn-border:#fcd34d; --warn-text:#b45309;
+    --ok-bg:#ecfdf5; --ok-border:#a7f3d0; --ok-text:#047857;
+    --shadow:0 1px 2px rgba(15,23,42,.06);
+  }
+  :root.dark {
+    --primary:#60a5fa; --solid:#2563eb; --solid-hover:#1d4ed8; --primary-light:rgba(30,64,175,.15);
+    --canvas:#080d24; --surface:rgba(255,255,255,.03); --surface-2:rgba(255,255,255,.04); --elevated:#0f1a3a;
+    --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.16);
+    --ink:#f9fafb; --body:#d1d5db; --muted:#9ca3af;
+    --warn-bg:rgba(245,158,11,.15); --warn-border:rgba(245,158,11,.30); --warn-text:#fbbf24;
+    --ok-bg:rgba(16,185,129,.12); --ok-border:rgba(16,185,129,.30); --ok-text:#34d399;
+    --shadow:none;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--canvas); color:var(--body); font-family:"Inter Variable", Inter, system-ui, sans-serif; font-size:14px; line-height:1.5; padding:24px 16px 64px; transition:background .18s; }
+  .wrap { max-width:880px; margin:0 auto; }
+  h1 { color:var(--ink); font-size:22px; font-weight:700; }
+  .lead { color:var(--muted); margin:4px 0 16px; max-width:70ch; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:28px; }
+  .btn { font:inherit; font-size:13px; font-weight:600; border-radius:8px; padding:6px 12px; cursor:pointer; border:1px solid var(--border-strong); background:transparent; color:var(--body); }
+  .btn:hover { background:var(--surface-2); }
+  .btn.solid { background:var(--solid); border-color:var(--solid); color:#fff; }
+  .btn.solid:hover { background:var(--solid-hover); }
+  .btn:focus-visible, a:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+  .step { display:flex; align-items:center; gap:8px; margin:32px 0 10px; }
+  .step h2 { color:var(--ink); font-size:15px; font-weight:600; }
+  .tag { font-size:12px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid; }
+  .tag.new { color:var(--warn-text); background:var(--warn-bg); border-color:var(--warn-border); }
+  .tag.have { color:var(--ok-text); background:var(--ok-bg); border-color:var(--ok-border); }
+  .explain { color:var(--muted); font-size:13px; margin-bottom:12px; max-width:72ch; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:var(--shadow); }
+  .list { display:grid; gap:12px; }
+  .title { color:var(--ink); font-weight:600; font-size:16px; line-height:1.35; }
+  .row { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .badge { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:6px; border:1px solid var(--ok-border); color:var(--ok-text); background:var(--ok-bg); white-space:nowrap; }
+  .badge.type { border-color:var(--border-strong); color:var(--body); background:var(--surface-2); }
+  .meta { color:var(--muted); font-size:12px; margin:6px 0 10px; }
+  .authors { font-size:14px; margin-bottom:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:12px; padding:2px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--body); }
+  .scholar { display:flex; gap:16px; font-size:13px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+  .scholar a, a.link { color:var(--primary); text-decoration:none; font-weight:500; cursor:pointer; }
+  .scholar a:hover, a.link:hover { text-decoration:underline; }
+  .scholar .quiet { color:var(--muted); }
+  .callout { position:relative; }
+  .pin { font-size:11px; color:var(--warn-text); margin-left:6px; }
+
+  /* Cited-by panel */
+  .panel { background:var(--elevated); border:1px solid var(--border-strong); border-radius:14px; padding:20px; box-shadow:0 12px 32px rgba(0,0,0,.18); }
+  .panel h3 { color:var(--ink); font-size:16px; font-weight:600; }
+  .panel .sub { color:var(--muted); font-size:13px; margin:2px 0 14px; }
+  .cites { list-style:none; padding:0; display:grid; }
+  .cites li { padding:12px 0; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .cites .t { color:var(--ink); font-weight:500; }
+  .cites .m { color:var(--muted); font-size:12px; margin-top:2px; }
+  .hidden-note { border-top:1px solid var(--border); padding-top:12px; color:var(--muted); font-size:13px; display:flex; gap:8px; align-items:center; }
+
+  /* Cite popup */
+  .actions-row { display:flex; flex-wrap:wrap; gap:8px; }
+  .act { font:inherit; font-size:14px; font-weight:600; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; border:1px solid var(--border-strong); background:transparent; color:var(--body); cursor:pointer; }
+  .act:hover, .act.on { background:var(--surface-2); color:var(--ink); }
+  .act.primary { background:var(--solid); border-color:var(--solid); color:#fff; }
+  .act:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+  .cite-pop { margin-top:8px; }
+  .cite-pop { max-width:520px; }
+  .tabs { display:flex; gap:4px; margin:10px 0; }
+  .tabs span { font-size:12px; font-weight:600; padding:4px 10px; border-radius:6px; color:var(--muted); }
+  .tabs span.on { background:var(--primary-light); color:var(--primary); }
+  .ref { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:13px; color:var(--body); }
+  .note { font-size:12px; color:var(--muted); margin-top:10px; display:flex; gap:6px; }
+
+  /* Upload confirm */
+  .match { border:1px solid var(--warn-border); background:var(--warn-bg); border-radius:10px; padding:14px; margin-top:10px; }
+  .match .why { color:var(--warn-text); font-size:12px; font-weight:600; margin-bottom:6px; }
+  .match .actions { display:flex; gap:8px; margin-top:12px; }
+  .check { display:flex; gap:10px; align-items:flex-start; font-size:14px; padding:4px 0; }
+  .check input { margin-top:3px; accent-color:var(--primary); }
+
+  .notes { margin-top:40px; }
+  .notes h2 { color:var(--ink); font-size:15px; margin-bottom:8px; }
+  .notes ul { padding-left:18px; display:grid; gap:4px; font-size:13px; }
+  .notes b { color:var(--ink); }
+  svg { flex-shrink:0; }
+  @media (max-width:560px){ .row{flex-direction:column} .cites li{flex-direction:column} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>"Cited by" counter</h1>
+  <p class="lead">How the citation counter would look in the Repository. Each part is marked <span class="tag have">exists</span> or <span class="tag new">new</span>. Click a "Cited by" link to jump to the list.</p>
+  <div class="bar">
+    <button class="btn" id="theme" aria-pressed="false">Switch to dark</button>
+  </div>
+
+  <!-- 1 -->
+  <div class="step"><h2>1. Repository results</h2><span class="tag new">new: link row</span></div>
+  <p class="explain">Today the count is plain text in the meta line ("BSIT · 2024 · Cited by 4"), and hidden when 0. New: a Scholar-style row under each card. The count becomes a link, and 0 shows as quiet text.</p>
+  <div class="list">
+    <article class="card">
+      <div class="row"><div class="title">Solar-Powered Water Pump Monitoring Using LoRa Sensor Networks</div><span class="badge">Approved</span></div>
+      <div class="meta">BS Electronics Engineering · 2023</div>
+      <div class="authors">Dela Cruz, J. M., Reyes, A. P., Santos, K. L.</div>
+      <div class="chips"><span class="chip">IoT</span><span class="chip">LoRa</span><span class="chip">Solar energy</span></div>
+      <div class="scholar"><a href="#cited-by">Cited by 4</a><a>Cite</a></div>
+    </article>
+    <article class="card">
+      <div class="row"><div class="title">A Mobile Attendance System Using QR Codes for Campus Events</div><span class="badge">Approved</span></div>
+      <div class="meta">BS Information Technology · 2024</div>
+      <div class="authors">Gonzales, R. T., Lim, M. A.</div>
+      <div class="chips"><span class="chip">Mobile app</span><span class="chip">QR code</span></div>
+      <div class="scholar"><a href="#cited-by">Cited by 1</a><a>Cite</a></div>
+    </article>
+    <article class="card">
+      <div class="row"><div class="title">Sentiment Analysis of Student Feedback on Online Learning</div><span class="badge">Approved</span></div>
+      <div class="meta">BS Computer Science · 2025</div>
+      <div class="authors">Villanueva, P. S., Ramos, E. D., Torres, L. J. +1 more</div>
+      <div class="chips"><span class="chip">NLP</span><span class="chip">Education</span></div>
+      <div class="scholar"><span class="quiet">Cited by 0</span><a>Cite</a></div>
+    </article>
+  </div>
+
+  <!-- 2 -->
+  <div class="step" id="cited-by"><h2>2. Cited-by list</h2><span class="tag have">exists: list on detail page</span><span class="tag new">new: authors, type, hidden count</span></div>
+  <p class="explain">The thesis page already has a "Cited by N" section listing title and year. New: authors, document type, a View link, and a count of citing theses the viewer can't open. Their details are never sent to the browser.</p>
+  <div class="panel">
+    <h3>Cited by 4</h3>
+    <p class="sub">Theses in the repository that cite <i>Solar-Powered Water Pump Monitoring Using LoRa Sensor Networks</i></p>
+    <ul class="cites">
+      <li><div><div class="t">Smart Irrigation Scheduling with Soil Moisture Prediction</div><div class="m">Bautista, C. R., Ong, F. L. · 2025 · <span class="badge type">Thesis</span></div></div><a class="link">View →</a></li>
+      <li><div><div class="t">Low-Power Mesh Networks for Rural Flood Early Warning</div><div class="m">Mendoza, A. J. · 2025 · <span class="badge type">Capstone</span></div></div><a class="link">View →</a></li>
+      <li><div><div class="t">Remote Monitoring of Aquaculture Water Quality</div><div class="m">Castillo, N. P., Aquino, B. S., Cruz, D. M. · 2024 · <span class="badge type">Thesis</span></div></div><a class="link">View →</a></li>
+    </ul>
+    <div class="hidden-note">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      +1 more you don't have access to
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="step"><h2>3. Cite button on the thesis page</h2><span class="tag have">exists: Preview, Save, Download</span><span class="tag new">new: Cite</span></div>
+  <p class="explain">Cite sits between Save and Download. Save and Cite both keep a reference for later, and Download stays last as the file action. It opens a small popover under the button that only formats and copies text. Copying never counts.</p>
+  <div class="actions-row">
+    <button class="act primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>Preview Document</button>
+    <button class="act"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg>Save</button>
+    <button class="act on" aria-expanded="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.76-2-2-2H4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 4-1 5-4 6M15 21c3 0 7-1 7-8V5c0-1.25-.76-2-2-2h-4c-1.25 0-2 .75-2 2v6c0 1.25.75 2 2 2h3c0 4-1 5-4 6"/></svg>Cite</button>
+    <button class="act"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</button>
+  </div>
+  <p class="explain" style="margin-top:8px">Phone: the bottom bar becomes [Save icon] [Cite icon] [Download] [Preview], so Cite is icon-only like Save.</p>
+  <div class="panel cite-pop">
+    <h3>Cite</h3>
+    <div class="tabs"><span class="on">APA</span><span>IEEE</span><span>MLA</span></div>
+    <div class="ref">Dela Cruz, J. M., Reyes, A. P., &amp; Santos, K. L. (2023). <i>Solar-powered water pump monitoring using LoRa sensor networks</i> [Undergraduate thesis]. THESYS+ Repository.</div>
+    <div style="margin-top:12px"><button class="btn solid">Copy</button></div>
+    <p class="note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Copying a citation doesn't change "Cited by". Only theses uploaded here that list this one in their references count.</p>
+  </div>
+
+  <!-- 4 -->
+  <div class="step"><h2>4. Upload: confirm a weak match</h2><span class="tag have">exists: checklist</span><span class="tag new">new: confirm card</span></div>
+  <p class="explain">After upload, the success screen already lists repository theses found in the references. Title matches start ticked, author+year matches start unticked, and nothing saves until "Save citations". New: weak matches get their own card showing the candidate's details, with Confirm / Not this one.</p>
+  <div class="card">
+    <div class="title" style="font-size:14px">Repository theses cited in this paper</div>
+    <p class="meta" style="margin:2px 0 10px">Found in your reference list. Untick any you did not cite.</p>
+    <label class="check"><input type="checkbox" checked> <span>Solar-Powered Water Pump Monitoring Using LoRa Sensor Networks <span style="color:var(--muted)">(2023)</span></span></label>
+    <div class="match" role="group" aria-label="Weak match">
+      <div class="why">Is this the thesis you cited? Matched by author and year only.</div>
+      <div class="m" style="font-size:12px;color:var(--muted)">Your reference: "Mendoza (2022). Flood sensor network study."</div>
+      <div style="margin-top:8px" class="t"><b style="color:var(--ink);font-weight:600">Flood Level Detection Using Ultrasonic Sensor Arrays</b></div>
+      <div style="font-size:13px">Mendoza, A. J., Garcia, R. L. · 2022 · <span class="badge type">Thesis</span></div>
+      <div class="actions"><button class="btn solid">Confirm</button><button class="btn">Not this one</button></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn solid">Save citations</button></div>
+  </div>
+
+  <section class="notes">
+    <h2>What exists vs. what's new</h2>
+    <ul>
+      <li><b>Exists:</b> <code>ThesisCitation</code> records (citing, cited, source, created_by, created_at), unique per pair, no self-citation. Duplicates can't count twice.</li>
+      <li><b>Exists:</b> only approved citing theses count; the count shows in the card meta line; the thesis page lists citing title and year.</li>
+      <li><b>Exists:</b> upload checklist (title match ticked, author+year unticked, manual add by search, save on press).</li>
+      <li><b>New:</b> the Scholar-style link row and the quiet "Cited by 0"; authors, type and View on each cited-by row; the "+N you don't have access to" line.</li>
+      <li><b>New:</b> a Cite button (none exists today) and the weak-match confirm card. The brief's "style" and "status" fields aren't on the model yet.</li>
+    </ul>
+  </section>
+</div>
+<script>
+  const b = document.getElementById('theme');
+  b.onclick = () => {
+    const dark = document.documentElement.classList.toggle('dark');
+    b.textContent = dark ? 'Switch to light' : 'Switch to dark';
+    b.setAttribute('aria-pressed', dark);
+  };
+</script>
+</body>
+</html>
