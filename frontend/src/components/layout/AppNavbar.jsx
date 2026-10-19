@@ -197,8 +197,17 @@ export function AvatarDropdown({ user, onSignOut }) {
 
 // Single source for the bar itself, so the landing page and every app page put
 // the logo, links and actions at the same coordinates.
-export const NAV_BAR_CLASS = 'px-5 sm:px-8 lg:px-14 py-3 border-b border-[var(--color-border-subtle)] bg-canvas sticky top-0 z-30';
-export const NAV_LINK_BASE = 'relative px-3 xl:px-4 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+export const NAV_BAR_CLASS = 'px-5 sm:px-8 lg:px-14 py-3 xl:py-4 border-b border-[var(--color-border-subtle)] bg-canvas sticky top-0 z-30';
+export const NAV_LINK_BASE = 'relative block whitespace-nowrap px-3 xl:px-4 py-1.5 xl:py-2 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+// Desktop link list: from xl the gap between tabs grows with the screen
+// (2.5vw, between 1rem and 5rem), so wide monitors get more air without the
+// tabs stretching across the whole bar.
+export const NAV_LIST_CLASS = 'flex items-center gap-1 xl:gap-[clamp(1rem,2.5vw,5rem)]';
+// Desktop current page: primary text with a short underline just below the word.
+// The mobile drawer keeps NAV_LINK_ACTIVE's pill.
+export const NAV_LINK_CURRENT = "text-[color:var(--color-primary)] after:content-[''] after:absolute after:inset-x-3 xl:after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-current";
+// Logo grows with the links on wide screens (28px → ~32px xl, ~36px 2xl).
+export const NAV_LOGO_SCALE = 'origin-left xl:scale-[1.15] 2xl:scale-[1.3]';
 export const NAV_LINK_IDLE = 'text-body hover:text-ink hover:bg-nav-hover-bg';
 export const NAV_LINK_ACTIVE = 'bg-nav-active-bg text-nav-active-text';
 export const NAV_LINK_SOON = 'text-subtle pointer-events-none cursor-default';
@@ -264,13 +273,13 @@ export default function AppNavbar({ activePage = '' }) {
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
           {/* COL 1 — Logo */}
           <div className="flex items-center gap-2 select-none">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className={`flex items-center gap-2 ${NAV_LOGO_SCALE}`}>
               <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
 
           {/* COL 2 — Centered nav links */}
-          <ul className="flex items-center gap-1 xl:gap-3">
+          <ul className={NAV_LIST_CLASS}>
             {NAV_LINKS.map(({ label, to, key, soon }) => {
               const isActive = activePage === key;
               return (
@@ -280,7 +289,7 @@ export default function AppNavbar({ activePage = '' }) {
                     onClick={soon ? (e) => e.preventDefault() : undefined}
                     aria-disabled={soon}
                     aria-current={isActive ? 'page' : undefined}
-                    className={[NAV_LINK_BASE, soon ? NAV_LINK_SOON : isActive ? NAV_LINK_ACTIVE : NAV_LINK_IDLE].join(' ')}
+                    className={[NAV_LINK_BASE, soon ? NAV_LINK_SOON : isActive ? NAV_LINK_CURRENT : NAV_LINK_IDLE].join(' ')}
                   >
                     {label}
                     {soon && (

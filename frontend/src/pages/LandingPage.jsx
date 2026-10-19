@@ -30,7 +30,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import client from '../api/client';
-import { AvatarDropdown, NAV_BAR_CLASS, NAV_LINK_ACTIVE, NAV_LINK_BASE, NAV_LINK_IDLE, NAV_LINK_SOON } from '../components/layout/AppNavbar';
+import { AvatarDropdown, NAV_BAR_CLASS, NAV_LINK_ACTIVE, NAV_LINK_BASE, NAV_LINK_CURRENT, NAV_LINK_IDLE, NAV_LINK_SOON, NAV_LIST_CLASS, NAV_LOGO_SCALE } from '../components/layout/AppNavbar';
 import { useUploadModal } from '../hooks/useUploadModal';
 import LegalModal from '../components/legal/LegalModal';
 import ThesysLogo from '../components/brand/ThesysLogo';
@@ -79,7 +79,7 @@ const PILLAR_RIGHT = 0.896;
 const CARD_OVERHANG = 20;
 
 // One container for every band below the hero, so all left edges line up.
-const CONTAINER = 'max-w-7xl 2xl:max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-14';
+const CONTAINER = 'max-w-7xl 2xl:max-w-[90rem] mx-auto px-5 sm:px-8 lg:px-14';
 
 // Tool list — titles match the nav labels exactly, and each links to its page.
 const FEATURES = [
@@ -290,16 +290,16 @@ export default function LandingPage() {
 
         {/* Desktop row */}
         <div className="hidden lg:grid grid-cols-[1fr_auto_1fr] items-center">
-          <Link to="/" className="flex items-center gap-2 select-none">
+          <Link to="/" className={`flex items-center gap-2 select-none ${NAV_LOGO_SCALE}`}>
             <ThesysLogo variant="wordmark" size={28} />
           </Link>
-          <ul className="flex items-center gap-1 xl:gap-3">
+          <ul className={NAV_LIST_CLASS}>
             {CORE_NAV.map(({ label, to, implemented }) => (
               <li key={label}>
                 <Link to={to} onClick={implemented ? undefined : (e) => e.preventDefault()}
                   aria-disabled={!implemented}
                   aria-current={to === '/' ? 'page' : undefined}
-                  className={`${NAV_LINK_BASE} ${!implemented ? NAV_LINK_SOON : to === '/' ? NAV_LINK_ACTIVE : NAV_LINK_IDLE}`}>
+                  className={`${NAV_LINK_BASE} ${!implemented ? NAV_LINK_SOON : to === '/' ? NAV_LINK_CURRENT : NAV_LINK_IDLE}`}>
                   {label}
                 </Link>
               </li>

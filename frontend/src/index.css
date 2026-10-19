@@ -98,6 +98,9 @@
 
   /* ── Touch baseline — feel native on phones ─────────────────────────── */
   html {
+    /* 16px up to a 1536px viewport, then grows with it (20px at 1920, capped at
+       24px from ~2300px) so wide monitors and projectors keep laptop proportions. */
+    font-size: clamp(16px, calc(100vw / 96), 24px);
     -webkit-tap-highlight-color: transparent; /* no grey flash on tap */
     -webkit-text-size-adjust: 100%;           /* no font inflation in landscape */
   }

@@ -17,7 +17,7 @@
  */
 export default function PageShell({ children, className = '' }) {
   return (
-    <main className={`max-w-7xl 2xl:max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-14 py-8 ${className}`.trim()}>
+    <main className={`max-w-7xl 2xl:max-w-[90rem] mx-auto px-5 sm:px-8 lg:px-14 py-8 ${className}`.trim()}>
       {children}
     </main>
   );
