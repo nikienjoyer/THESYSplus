@@ -177,16 +177,14 @@ class RequestAccessView(APIView):
 
     @rate_limit_per_ip(limit=5, window_seconds=3600, error_code='RATE_LIMITED_REQUEST_ACCESS')
     def post(self, request, *args, **kwargs):
-        # Check if this is a document upload (new flow) or justification (legacy flow)
-        has_document = 'document' in request.data
-        has_justification = 'justification' in request.data
-        
-        # Determine allowed fields based on flow
-        if has_document:
-            allowed_fields = {'email', 'first_name', 'last_name', 'requested_role', 'document'}
-        else:
-            allowed_fields = {'email', 'first_name', 'last_name', 'requested_role', 'justification'}
-        
+        # The role picks the branch. Faculty send no document; anything else
+        # (including an invalid role, which the serializer then rejects) is
+        # held to the student field set.
+        is_faculty = request.data.get('requested_role') == 'faculty'
+        allowed_fields = {'email', 'first_name', 'last_name', 'requested_role'}
+        if not is_faculty:
+            allowed_fields.add('document')
+
         unknown = _reject_unknown_fields(request, allowed=allowed_fields)
         if unknown is not None:
             return unknown
@@ -248,14 +246,12 @@ class RequestAccessView(APIView):
                 retry_after_seconds=window,
             )
 
-        # Branch: new verification flow vs legacy justification flow
-        if has_document:
-            return self._handle_document_upload(request, v)
-        else:
-            return self._handle_legacy_justification(request, v)
-    
-    def _handle_legacy_justification(self, request, validated_data):
-        """Handle legacy justification-based access request (unchanged)."""
+        if v['requested_role'] == 'faculty':
+            return self._handle_faculty_request(request, v)
+        return self._handle_document_upload(request, v)
+
+    def _handle_faculty_request(self, request, validated_data):
+        """Faculty: no document; the request waits for an administrator."""
         email = validated_data['email']
         
         req = AccessRequest(
@@ -263,7 +259,7 @@ class RequestAccessView(APIView):
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
             requested_role=validated_data['requested_role'],
-            justification=validated_data['justification'],
+            justification=None,
             status='pending',
         )
         # Minted before the INSERT so the hash lands in the same write.
@@ -287,7 +283,7 @@ class RequestAccessView(APIView):
                 'access_request_id': str(req.id),
                 'email': email,
                 'requested_role': req.requested_role,
-                'flow': 'legacy_justification',
+                'flow': 'faculty_request',
             },
             request=request,
         )
@@ -295,6 +291,7 @@ class RequestAccessView(APIView):
         return Response(
             {
                 'status': 'pending',
+                'decision': 'pending_manual_review',
                 'submitted_at': req.created_at.isoformat(),
                 # Additive. The claim plaintext is returned here and NOWHERE
                 # else, ever — only its hash is stored. Expiry is an absolute

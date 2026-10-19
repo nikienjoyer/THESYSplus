@@ -34,46 +34,42 @@ class RequestAccessSerializer(serializers.Serializer):
     actual extra-key check; this serializer is tight on its own field
     set).
     
-    MVP-2: Supports both legacy (justification) and new (document upload) flows.
+    The role picks the branch: students upload a Student ID or COR and use
+    a student-number email; faculty send no document and use a
+    non-numeric PampangaStateU email, then wait for an administrator.
     """
 
     email = serializers.EmailField(max_length=254)
     first_name = serializers.CharField(max_length=80, allow_blank=False)
     last_name = serializers.CharField(max_length=80, allow_blank=False)
     requested_role = serializers.CharField(max_length=16)
-    
-    # Legacy flow: justification field (now optional for backward compatibility)
-    justification = serializers.CharField(
-        min_length=10,
-        max_length=2000,
-        allow_blank=False,
-        required=False,
-    )
-    
-    # New flow: document upload (Student ID or COR)
+
+    # Students only (the view rejects it for faculty as an unknown field).
     document = serializers.FileField(required=False)
 
     def validate_email(self, value: str) -> str:
         normalised = value.strip().lower()
-        # Document-upload flow: require strict student-number format.
-        # Legacy justification flow: accept any institutional email.
-        # We check which flow based on the presence of the 'document' field
-        # in initial_data (serializer not yet fully validated at this point).
-        has_document = bool(self.initial_data.get('document'))
-        if has_document:
-            if not is_student_number_email(normalised):
-                raise serializers.ValidationError(
-                    'Use your PampangaStateU institutional email in the format '
-                    'studentnumber@pampangastateu.edu.ph '
-                    '(e.g. 2023123456@pampangastateu.edu.ph).',
-                    code=INVALID_EMAIL_DOMAIN,
-                )
-        else:
+        # Field validators run before validate(), so read the role from the
+        # raw input; an invalid role fails on its own field.
+        if self.initial_data.get('requested_role') == 'faculty':
             if not is_institutional_email(normalised):
                 raise serializers.ValidationError(
-                    'Institutional email is required (must end with pampangastateu.edu.ph).',
+                    'Use your PampangaStateU email '
+                    '(e.g. firstname.lastname@pampangastateu.edu.ph).',
                     code=INVALID_EMAIL_DOMAIN,
                 )
+            if is_student_number_email(normalised):
+                raise serializers.ValidationError(
+                    'This looks like a student email. Request access as a Student instead.',
+                    code='FACULTY_EMAIL_LOOKS_LIKE_STUDENT',
+                )
+        elif not is_student_number_email(normalised):
+            raise serializers.ValidationError(
+                'Use your PampangaStateU institutional email in the format '
+                'studentnumber@pampangastateu.edu.ph '
+                '(e.g. 2024000000@pampangastateu.edu.ph).',
+                code=INVALID_EMAIL_DOMAIN,
+            )
         return normalised
 
     def validate_requested_role(self, value: str) -> str:
@@ -115,24 +111,13 @@ class RequestAccessSerializer(serializers.Serializer):
         return value
     
     def validate(self, attrs):
-        """Cross-field validation: require either justification OR document."""
-        justification = attrs.get('justification')
-        document = attrs.get('document')
-        
-        # Must provide either justification (legacy) or document (new)
-        if not justification and not document:
+        if attrs['requested_role'] == 'student' and not attrs.get('document'):
             raise serializers.ValidationError(
-                'Either justification or document must be provided.',
-                code='MISSING_REQUIRED_FIELD',
+                {'document': serializers.ErrorDetail(
+                    'Please upload your PampangaStateU Student ID or COR.',
+                    code='DOCUMENT_REQUIRED',
+                )},
             )
-        
-        # Cannot provide both
-        if justification and document:
-            raise serializers.ValidationError(
-                'Cannot provide both justification and document. Use document upload for new requests.',
-                code='CONFLICTING_FIELDS',
-            )
-        
         return attrs
 
 
