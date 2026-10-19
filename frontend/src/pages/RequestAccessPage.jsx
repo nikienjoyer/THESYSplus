@@ -25,6 +25,7 @@ import { CheckCircle2, ChevronLeft, Mail, Search, TriangleAlert, ClipboardList }
 import client from '../api/client';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
 import RolePicker from '../components/auth/RolePicker';
+import FacultyRequestForm, { FACULTY_DOMAIN_MSG } from '../components/auth/FacultyRequestForm';
 import SetPasswordForm from '../components/auth/SetPasswordForm';
 import LegalModal from '../components/legal/LegalModal';
 import AuthBranding from '../components/brand/AuthBranding';
@@ -70,11 +71,15 @@ function clearStoredClaim() {
   }
 }
 
-function mapError(err) {
+function mapError(err, role) {
   const code = err?.response?.data?.error?.code;
   const msg  = err?.response?.data?.error?.message;
   const map = {
-    INVALID_EMAIL_DOMAIN:      'Use your PampangaStateU student-number email (e.g. 2023123456@pampangastateu.edu.ph).',
+    INVALID_EMAIL_DOMAIN:      role === 'faculty'
+      ? FACULTY_DOMAIN_MSG
+      : 'Use your PampangaStateU student-number email (e.g. 2024000000@pampangastateu.edu.ph).',
+    FACULTY_EMAIL_LOOKS_LIKE_STUDENT: 'This looks like a student email. Request access as a Student instead.',
+    DOCUMENT_REQUIRED:         'Please upload your PampangaStateU Student ID or COR.',
     EMAIL_ALREADY_REGISTERED:  'An account already exists for this email.',
     DUPLICATE_REQUEST_PENDING: 'A request for this email is already pending.',
     INVALID_REQUESTED_ROLE:    'Please choose Student or Faculty.',
@@ -164,15 +169,18 @@ const STEP_TO_NODE = {
   [STEP_ACCOUNT_READY]: 3,
 };
 
-function ProgressStepper({ step }) {
+function ProgressStepper({ step, role }) {
   if (step === STEP_REJECTED) return null; // no stepper for rejected
 
   const isManualReview = step === STEP_MANUAL_REVIEW;
   const isProcessing = step === STEP_PROCESSING;
 
   // Manual review replaces "Verify Email" — no email was sent, so waiting for
-  // one would be a lie. Pre-existing behaviour, preserved.
-  const displaySteps = isManualReview
+  // one would be a lie. Faculty always go to an administrator, so they see
+  // "Admin Review" from the moment their form opens.
+  const displaySteps = role === 'faculty'
+    ? ['Submit Request', 'Admin Review', 'Set Password', 'Account Ready']
+    : isManualReview
     ? ['Submit Request', 'Manual Review', 'Set Password', 'Account Ready']
     : isProcessing
       ? ['Submit Request', 'Checking Document', 'Set Password', 'Account Ready']
@@ -271,6 +279,13 @@ export default function RequestAccessPage() {
   const [claimExpiresAt, setClaimExpiresAt] = useState(
     () => readStoredClaim()?.claim_expires_at ?? '',
   );
+  // Who submitted, kept with the claim so a reload shows the right copy even
+  // if ?role= is gone. A stored claim wins over the URL.
+  const [submitted, setSubmitted] = useState(() => {
+    const stored = readStoredClaim();
+    return stored?.role ? { role: stored.role, email: stored.email ?? '' } : null;
+  });
+  const activeRole = submitted?.role ?? role;
 
   // 'polling' | 'verified' | 'approved' | 'account_ready' | 'already_active' | 'expired'
   const [claimState, setClaimState] = useState('polling');
@@ -278,11 +293,15 @@ export default function RequestAccessPage() {
   // Deliberately component state, never storage — short-lived and single-use.
   const [setupToken, setSetupToken] = useState('');
 
-  const handleSubmit = async (formData) => {
+  // Students send FormData (with the ID document); faculty send plain JSON.
+  const handleSubmit = async (payload) => {
     setIsLoading(true);
     setError('');
+    const isFaculty = !(payload instanceof FormData);
+    const submittedRole = isFaculty ? 'faculty' : 'student';
+    const submittedEmail = isFaculty ? payload.email : payload.get('email');
     try {
-      const res = await client.post('/auth/request-access/', formData, {
+      const res = await client.post('/auth/request-access/', payload, isFaculty ? undefined : {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       // Legacy branch answers 201, document-upload branch 202 — both carry the
@@ -295,13 +314,16 @@ export default function RequestAccessPage() {
       setClaim(nextClaim);
       setClaimExpiresAt(nextExpiry);
       setClaimState('polling');
+      setSubmitted({ role: submittedRole, email: submittedEmail });
       writeStoredClaim({
         decision: nextDecision,
         claim: nextClaim,
         claim_expires_at: nextExpiry,
+        role: submittedRole,
+        email: submittedEmail,
       });
     } catch (err) {
-      setError(mapError(err));
+      setError(mapError(err, submittedRole));
     } finally {
       setIsLoading(false);
     }
@@ -309,6 +331,7 @@ export default function RequestAccessPage() {
 
   const handleTryAgain = () => {
     clearStoredClaim();
+    setSubmitted(null);
     setDecision(null);
     setClaim('');
     setClaimExpiresAt('');
@@ -465,7 +488,13 @@ export default function RequestAccessPage() {
     };
   }, [shouldPoll, claim, claimExpiresAt, decision, isManualReview]);
 
-  const decisionInfo = decision ? (DECISIONS[decision] || {
+  const facultyWaiting = decision === 'pending_manual_review' && activeRole === 'faculty';
+  const decisionInfo = facultyWaiting ? {
+    ...DECISIONS.pending_manual_review,
+    title: 'Waiting for an administrator',
+    body: `Your faculty request${submitted?.email ? ` for ${submitted.email}` : ''} was received. An administrator will review it.`,
+    note: 'When it is approved, we email you a link to set your password. This page also updates on its own.',
+  } : decision ? (DECISIONS[decision] || {
     Icon: ClipboardList,
     iconColor: 'text-blue-600',
     title: 'Request Submitted',
@@ -515,7 +544,7 @@ export default function RequestAccessPage() {
         <AuthBranding subtitle={subtitle} />
 
         {/* Progress stepper — on the forms and after submit, not on the picker */}
-        {(decision || showPanel || role) && <ProgressStepper step={stepperStep} />}
+        {(decision || showPanel || role) && <ProgressStepper step={stepperStep} role={activeRole} />}
 
         <div>
           {showPanel ? (
@@ -677,6 +706,25 @@ export default function RequestAccessPage() {
             /* ── Picker, then the chosen role's form ── */
             !role ? (
               <RolePicker onPick={setRole} />
+            ) : role === 'faculty' ? (
+            <>
+              <button type="button" onClick={() => setRole(null)}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-md text-[13px] font-medium text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                Change role
+              </button>
+              <h2 className="text-lg font-bold mb-2 text-ink">Request faculty access</h2>
+              <p className="text-sm text-body mb-5">
+                An administrator reviews faculty requests. Once approved, we email you a link to set your password.
+              </p>
+              <FacultyRequestForm
+                onSubmit={handleSubmit}
+                error={error}
+                isLoading={isLoading}
+                onOpenLegal={setLegalModal}
+                onSwitchToStudent={() => setRole('student')}
+              />
+            </>
             ) : (
             <>
               <button type="button" onClick={() => setRole(null)}
