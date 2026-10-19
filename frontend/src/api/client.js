@@ -15,6 +15,7 @@
  */
 
 import axios from 'axios';
+import { signInRedirect } from '../components/auth/signInHelpers';
 
 // Keep the usual local API setting, but rewrite loopback hosts to the host
 // used to open the frontend. This lets LAN clients reach the same backend
@@ -163,9 +164,10 @@ client.interceptors.response.use(
           // Clear auth state and redirect to sign-in
           onRefreshFailure();
           
-          // Redirect to sign-in with session_expired reason
+          // Back to sign-in, saying the session expired (the landing card on
+          // desktop, the /sign-in page on narrower screens).
           if (typeof window !== 'undefined') {
-            window.location.href = '/sign-in?reason=session_expired';
+            window.location.href = signInRedirect({ expired: true });
           }
         }
 

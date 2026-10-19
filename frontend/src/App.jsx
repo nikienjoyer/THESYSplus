@@ -6,8 +6,8 @@
  *
  * ProtectedRoute wraps every authenticated page. It renders a full-screen
  * spinner while AuthContext is still initialising (silent token refresh
- * in flight), then redirects to /sign-in?reason=session_expired if the
- * user is not authenticated. This centralises auth-guarding in one place
+ * in flight), then sends a signed-out user to sign in (signInRedirect: the
+ * landing hero card on desktop, /sign-in on narrower screens). This centralises auth-guarding in one place
  * so individual pages do not need their own useEffect + navigate guards.
  *
  * Requirements: 12 (Landing page), 25 (folder structure).
@@ -23,6 +23,7 @@ import AuthLayout from './components/layout/AuthLayout';
 import ThesysLogo from './components/brand/ThesysLogo';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
+import { signInRedirect } from './components/auth/signInHelpers';
 import { UploadModalProvider } from './context/UploadModalContext';
 import UploadThesisModal from './components/upload/UploadThesisModal';
 
@@ -80,7 +81,10 @@ function ProtectedRoute() {
 
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
-      navigate('/sign-in?reason=session_expired', { replace: true });
+      // Not signed in (never, or the session could not be restored): the
+      // landing card on desktop, /sign-in on narrower screens. No "expired"
+      // line here; a first-time visitor's session never expired.
+      navigate(signInRedirect(), { replace: true });
     }
   }, [isInitializing, isAuthenticated, navigate]);
 

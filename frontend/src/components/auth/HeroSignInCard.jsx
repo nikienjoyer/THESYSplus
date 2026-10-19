@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { m, useReducedMotion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { Clock, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { EASE_OUT } from '../../lib/motion';
 import Spinner from '../ui/Spinner';
@@ -31,7 +31,7 @@ const cardMotionReduced = {
   exit:    { opacity: 0, transition: { duration: 0.12 } },
 };
 
-export default function HeroSignInCard({ isDark, onClose, autoFocus = false }) {
+export default function HeroSignInCard({ isDark, onClose, autoFocus = false, notice }) {
   const { signIn } = useAuth();
   const reduceMotion = useReducedMotion();
   const [email, setEmail] = useState('');
@@ -88,7 +88,14 @@ export default function HeroSignInCard({ isDark, onClose, autoFocus = false }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className={`text-xl font-bold tracking-tight ${heading}`}>Sign in</h2>
-          <p className={`mt-1 text-[13px] ${sub}`}>Use your PampangaStateU email.</p>
+          {notice ? (
+            <p role="status" className={`mt-1 flex items-center gap-1.5 text-[13px] ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+              <Clock className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+              {notice}
+            </p>
+          ) : (
+            <p className={`mt-1 text-[13px] ${sub}`}>Use your PampangaStateU email.</p>
+          )}
         </div>
         {onClose && (
           <button type="button" onClick={onClose} aria-label="Close sign in"

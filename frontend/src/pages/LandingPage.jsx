@@ -20,7 +20,7 @@
  * doesn't adapt to a light background.
  */
 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
@@ -128,7 +128,15 @@ export default function LandingPage() {
 
   // ── Hero sign-in card (desktop, logged out) ────────────────────────────
   // The navbar Sign In toggles the card (layout C, the one the team picked).
-  const [signInOpen, setSignInOpen] = useState(false);
+  // ?signin=1 (a protected page while signed out) or ?signin=expired (the
+  // session ran out) arrives with the card already open; see signInRedirect.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const signInParam = searchParams.get('signin');
+  const [signInOpen, setSignInOpen] = useState(() => signInParam !== null);
+  const [sessionExpired] = useState(() => signInParam === 'expired');
+  useEffect(() => {
+    if (signInParam !== null) setSearchParams({}, { replace: true });
+  }, [signInParam, setSearchParams]);
   const [cardBox, setCardBox] = useState(null);
   const heroRef = useRef(null);
   const heroTextRef = useRef(null);
@@ -504,6 +512,7 @@ export default function LandingPage() {
                   key="hero-sign-in"
                   isDark={isDark}
                   onClose={closeSignIn}
+                  notice={sessionExpired ? 'Your session expired. Sign in again.' : undefined}
                   autoFocus
                 />
               )}
