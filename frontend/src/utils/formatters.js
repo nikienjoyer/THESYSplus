@@ -152,3 +152,49 @@ export function formatFullAuthorList(authors) {
     })
     .join(', ');
 }
+
+const CITE_PUBLISHER = 'Pampanga State University';
+
+// "Juan Miguel" -> "J. M."
+function dottedInitials(given) {
+  return given.split(/\s+/).map(initialForGivenToken).filter(Boolean).map((i) => `${i}.`).join(' ');
+}
+
+function joinWith(names, last) {
+  if (names.length <= 1) return names.join('');
+  if (names.length === 2) return `${names[0]} ${last} ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, ${last} ${names[names.length - 1]}`;
+}
+
+/**
+ * Plain-text reference for one thesis, for the Cite popover's Copy button.
+ * Copying never touches "Cited by"; that count comes from uploaded references.
+ *
+ * @param {{authors: string[]|string, title: string, year: number|string}} thesis
+ * @param {'apa'|'ieee'|'mla'} style
+ * @returns {string}
+ */
+export function formatCitation(thesis, style) {
+  const people = authorArray(thesis.authors).map(splitAuthorName);
+  const title = collapseWhitespace(thesis.title);
+  const year = thesis.year;
+
+  if (style === 'ieee') {
+    const names = people.map(({ given, surname }) => [dottedInitials(given), surname].filter(Boolean).join(' '));
+    const list = names.length > 6 ? `${names[0]} et al.` : joinWith(names, 'and');
+    return `${list}, "${title}," Undergraduate thesis, ${CITE_PUBLISHER}, ${year}.`;
+  }
+
+  if (style === 'mla') {
+    const [first, second] = people;
+    const lead = first ? [first.surname, first.given].filter(Boolean).join(', ') : '';
+    let list = lead;
+    if (people.length === 2) list = `${lead}, and ${[second.given, second.surname].filter(Boolean).join(' ')}`;
+    else if (people.length > 2) list = `${lead}, et al`;
+    return `${list}. ${title}. ${CITE_PUBLISHER}, ${year}. Undergraduate thesis.`;
+  }
+
+  const names = people.map(({ given, surname }) => [surname, dottedInitials(given)].filter(Boolean).join(', '));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')}, & ${names[names.length - 1]}` : names.join('');
+  return `${list} (${year}). ${title} [Undergraduate thesis, ${CITE_PUBLISHER}]. THESYS+.`;
+}

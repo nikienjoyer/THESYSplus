@@ -24,6 +24,7 @@ import AppNavbar from '../components/layout/AppNavbar';
 import PageShell from '../components/layout/PageShell';
 import { getUserData, setUserData } from '../utils/userStorage';
 import { collapseWhitespace, formatFullAuthorList } from '../utils/formatters';
+import CiteButton from '../components/ui/CiteButton';
 
 /**
  * Same distinction PdfPreviewPage's describePreviewError draws, reused here
@@ -162,6 +163,15 @@ export default function ThesisDetailPage() {
       .catch(() => { if (alive) setCitedBy({ id, count: 0, cited_by: [] }); });
     return () => { alive = false; };
   }, [id]);
+
+  // "Cited by N" on a Repository card links here with #cited-by; the section
+  // only exists once both requests land, so scroll then.
+  const citedByReady = Boolean(thesis) && citedBy?.id === id;
+  useEffect(() => {
+    if (citedByReady && location.hash === '#cited-by') {
+      document.getElementById('cited-by')?.scrollIntoView({ block: 'start' });
+    }
+  }, [citedByReady, location.hash]);
 
   const saveSubject = async () => {
     if (!selectedSubject || savingSubject) return;
@@ -455,7 +465,7 @@ export default function ThesisDetailPage() {
                 Preview is reachable without scrolling past the abstract.
                 sm and up: an inline row under the authors. Preview is the one
                 filled button; it is what most visits come for. */}
-            <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[2.75rem_1fr_1fr] gap-2 border-t border-border-default bg-surface-elevated px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]
+            <div className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-[2.75rem_2.75rem_1fr_1fr] gap-2 border-t border-border-default bg-surface-elevated px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]
               sm:static sm:z-auto sm:mt-5 sm:flex sm:flex-wrap sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0">
               <button
                 type="button"
@@ -473,6 +483,7 @@ export default function ThesisDetailPage() {
                 <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">{saved ? 'Saved' : 'Save'}</span>
               </button>
+              <CiteButton thesis={thesis} />
               <button
                 type="button"
                 onClick={handleDownload}
@@ -570,7 +581,7 @@ export default function ThesisDetailPage() {
             </div>
 
             {citedBy?.id === id && (
-              <section className="mb-6" aria-labelledby="cited-by-heading">
+              <section id="cited-by" className="mb-6 scroll-mt-24" aria-labelledby="cited-by-heading">
                 <h2 id="cited-by-heading" className={`text-sm font-semibold uppercase tracking-wider mb-2 text-body`}>
                   Cited by {citedBy.count}
                 </h2>

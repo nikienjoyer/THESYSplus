@@ -28,6 +28,7 @@ import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
 import SimilaritySlider from '../components/ui/SimilaritySlider';
 import { Badge } from '../components/shadcn/badge';
+import CiteButton from '../components/ui/CiteButton';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../components/shadcn/tooltip';
 import SearchSuggestions from '../components/search/SearchSuggestions';
 
@@ -214,7 +215,9 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
   const activeNormalised = collapseWhitespace(activeKeyword).toLowerCase();
 
   return (
-    <div className="thesys-card thesys-card-lift p-5">
+    // While its Cite popover is open the card sits above the cards below it;
+    // the hover lift (a transform) would otherwise trap the popover underneath.
+    <div className="thesys-card thesys-card-lift p-5 relative has-[[role=dialog]]:z-20">
       <Link to={`/repository/${thesis.id}`} className="block">
       <div className="flex items-start justify-between gap-3 mb-2">
         <h3
@@ -255,7 +258,6 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
 
       <div className={`text-xs mb-3 text-muted`}>
         {thesis.program} · {thesis.year}
-        {thesis.cited_by_count > 0 && <> · Cited by {thesis.cited_by_count}</>}
       </div>
 
       <div className={`text-sm mb-3 text-body`}>
@@ -297,6 +299,20 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
             +{keywords.length - 4} more
           </Badge>
         )}
+      </div>
+
+      {/* Scholar-style row. Siblings of the card link, like the keywords, so
+          they never open the thesis by accident. */}
+      <div className="mt-4 pt-3 border-t border-border-default flex items-center gap-5 text-sm">
+        {thesis.cited_by_count > 0 ? (
+          <Link to={`/repository/${thesis.id}#cited-by`}
+            className="rounded font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            Cited by {thesis.cited_by_count}
+          </Link>
+        ) : (
+          <span className="text-muted">Cited by 0</span>
+        )}
+        <CiteButton thesis={thesis} compact />
       </div>
     </div>
   );
