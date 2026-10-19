@@ -552,6 +552,8 @@ export default function RequestAccessPage() {
             <div className={`rounded-2xl border p-7 sm:p-9 ${cardBg}`}>
               {claimState === 'verified' && (
                 <SetPasswordForm
+                  // An administrator approved it; no email was verified.
+                  title={decision === 'pending_manual_review' ? 'Request approved' : undefined}
                   setupToken={setupToken}
                   onSuccess={handlePasswordSet}
                   idPrefix="ra"

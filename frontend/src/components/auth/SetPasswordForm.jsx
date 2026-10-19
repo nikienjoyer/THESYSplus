@@ -56,6 +56,7 @@ export default function SetPasswordForm({
   setupToken,
   onSuccess,
   idPrefix = 'sp',
+  title = 'Email Verified',
 }) {
   const [newPw, setNewPw]               = useState('');
   const [confirmPw, setConfirmPw]       = useState('');
@@ -135,7 +136,7 @@ export default function SetPasswordForm({
       <div className="flex items-center gap-2 mb-1">
         <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" aria-hidden="true" />
         <h2 className={`text-xl font-bold text-ink`}>
-          Email Verified
+          {title}
         </h2>
       </div>
       <p className={`text-sm mb-5 text-body`}>
