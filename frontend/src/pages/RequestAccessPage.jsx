@@ -20,10 +20,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, ChevronLeft, Mail, Search, TriangleAlert, ClipboardList } from 'lucide-react';
 import client from '../api/client';
 import RequestAccessForm from '../components/auth/RequestAccessForm';
+import RolePicker from '../components/auth/RolePicker';
 import SetPasswordForm from '../components/auth/SetPasswordForm';
 import LegalModal from '../components/legal/LegalModal';
 import AuthBranding from '../components/brand/AuthBranding';
@@ -244,8 +245,19 @@ function ProgressStepper({ step }) {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
+const ROLES = ['student', 'faculty'];
+
 export default function RequestAccessPage() {
   const navigate = useNavigate();
+
+  // The role lives in the URL so Back and reload keep the chosen form. Any
+  // other value (or none) shows the picker.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const role = ROLES.includes(searchParams.get('role')) ? searchParams.get('role') : null;
+  const setRole = (next) => {
+    setError('');
+    setSearchParams(next ? { role: next } : {});
+  };
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]         = useState('');
@@ -502,8 +514,8 @@ export default function RequestAccessPage() {
         {/* Branding */}
         <AuthBranding subtitle={subtitle} />
 
-        {/* Progress stepper */}
-        <ProgressStepper step={stepperStep} />
+        {/* Progress stepper — on the forms and after submit, not on the picker */}
+        {(decision || showPanel || role) && <ProgressStepper step={stepperStep} />}
 
         <div>
           {showPanel ? (
@@ -662,10 +674,18 @@ export default function RequestAccessPage() {
               );
             })()
           ) : (
-            /* ── Form ── */
+            /* ── Picker, then the chosen role's form ── */
+            !role ? (
+              <RolePicker onPick={setRole} />
+            ) : (
             <>
+              <button type="button" onClick={() => setRole(null)}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-md text-[13px] font-medium text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                Change role
+              </button>
               <h2 className={`text-lg font-bold mb-2 text-ink`}>
-                Request Account Access
+                Request student access
               </h2>
               <RequestAccessForm
                 onSubmit={handleSubmit}
@@ -674,6 +694,7 @@ export default function RequestAccessPage() {
                 onOpenLegal={setLegalModal}
               />
             </>
+            )
           )}
         </div>
 

@@ -42,7 +42,6 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLe
   const [firstName, setFirstName]     = useState('');
   const [lastName, setLastName]       = useState('');
   const [email, setEmail]             = useState('');
-  const [role, setRole]               = useState('student');
   const [doc, setDoc]                 = useState(null);
   const [agreed, setAgreed]           = useState(false);
   const [emailErr, setEmailErr]       = useState('');
@@ -51,7 +50,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLe
 
   const onEmailBlur = () => {
     if (email && !isStudentEmail(email))
-      setEmailErr('Use the format: 2023123456@pampangastateu.edu.ph');
+      setEmailErr('Use the format: 2024000000@pampangastateu.edu.ph');
     else
       setEmailErr('');
   };
@@ -73,7 +72,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLe
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!isStudentEmail(email)) {
-      setEmailErr('Use the format: 2023123456@pampangastateu.edu.ph');
+      setEmailErr('Use the format: 2024000000@pampangastateu.edu.ph');
       return;
     }
     if (!doc) { setDocErr('Please upload your PampangaStateU Student ID or COR.'); return; }
@@ -87,7 +86,7 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLe
     fd.append('first_name', firstName.trim());
     fd.append('last_name', lastName.trim());
     fd.append('email', email.trim().toLowerCase());
-    fd.append('requested_role', role);
+    fd.append('requested_role', 'student');
     fd.append('document', doc);
     onSubmit(fd);
   };
@@ -133,31 +132,12 @@ export default function RequestAccessForm({ onSubmit, error, isLoading, onOpenLe
           id="req-email" type="email" value={email} required
           onChange={e => { setEmail(e.target.value); if (emailErr) setEmailErr(''); }}
           onBlur={onEmailBlur}
-          placeholder="2023123456@pampangastateu.edu.ph"
+          placeholder="2024000000@pampangastateu.edu.ph"
           disabled={isLoading}
           aria-invalid={!!emailErr}
           className={`${inputCls} ${emailErr ? ('border-danger') : ''}`}
         />
         {emailErr && <p className={errCls}>{emailErr}</p>}
-      </div>
-
-      {/* Role */}
-      <div>
-        <span className={labelCls}>Requested Role</span>
-        <div className="flex gap-5 mt-1">
-          {['student', 'faculty'].map(r => (
-            <label key={r} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio" name="req-role" value={r}
-                checked={role === r}
-                onChange={() => setRole(r)}
-                disabled={isLoading}
-                className="accent-blue-600"
-              />
-              <span className={`text-sm capitalize text-body`}>{r}</span>
-            </label>
-          ))}
-        </div>
       </div>
 
       {/* Document upload */}
