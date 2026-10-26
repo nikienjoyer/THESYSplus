@@ -47,6 +47,13 @@ PDF_TEXT_FALLBACK_THRESHOLD = 200
 # even when a caller asks for more.
 OCR_MAX_PAGES = 50
 
+# Longest page side, in PDF points, rendered at the full requested dpi. 14 in
+# covers letter, A4, long bond and legal, so ordinary scans are unchanged.
+# Phone scanners (iPhone Notes) declare one point per camera pixel, giving
+# ~24x35 in pages: at 200 dpi that is ~34 MP per page and OCR ran ~10x slower
+# for no accuracy gain. Larger pages render as if they were 14 in long.
+OCR_MAX_PAGE_POINTS = 1008
+
 # Pages that reliably contain a thesis' title page and its immediate
 # surroundings. Enough for title / authors / program / year, all of which sit
 # on page one. Callers doing title-only detection pass this as ``max_pages``.
@@ -402,6 +409,28 @@ def _repair_ocr_author_name_tokens(
     return tuple(repaired)
 
 
+def _render_page(path, page_number: int, dpi: float, *, timeout: int):
+    """Rasterise one page for OCR, capping the dpi on oversized pages.
+
+    Returns the PIL image, or None past the last page. An unreadable page box
+    keeps the requested dpi; pdf2image then reports any real problem.
+    """
+    from pdf2image import convert_from_path
+
+    try:
+        from pypdf import PdfReader
+
+        box = PdfReader(str(path)).pages[page_number - 1].mediabox
+        dpi *= min(1.0, OCR_MAX_PAGE_POINTS / max(float(box.width), float(box.height)))
+    except Exception:
+        pass
+    images = convert_from_path(
+        str(path), dpi=dpi, first_page=page_number, last_page=page_number,
+        timeout=timeout,
+    )
+    return images[0] if images else None
+
+
 @dataclass(frozen=True)
 class ExtractionResult:
     """Result of a thesis text extraction.
@@ -657,7 +686,6 @@ class ThesisTextExtractor:
     @timed('author_ocr')
     def _ocr_first_page_author_lines(self, path: Path) -> tuple[str, ...]:
         """Return positioned OCR rows from only page one for author detection."""
-        from pdf2image import convert_from_path
         from identity_verification.services.ocr_extractor import (
             _configure_tesseract_path,
             OCRExtractor,
@@ -667,17 +695,19 @@ class ThesisTextExtractor:
             _configure_tesseract_path()
             OCRExtractor._tesseract_configured = True
 
-        images = convert_from_path(
-            str(path), dpi=200, first_page=1, last_page=1,
-        )
-        return _extract_ocr_visual_page_lines(images[0]) if images else ()
+        image = _render_page(path, 1, 200, timeout=30)
+        if image is None:
+            return ()
+        try:
+            return _extract_ocr_visual_page_lines(image)
+        finally:
+            image.close()
 
     def ocr_abstract_page(self, path: Path, page_number: int) -> str:
         """OCR exactly one preview page; never affect document-wide extraction."""
         if not 1 <= page_number <= KEYWORD_FALLBACK_PAGES:
             return ''
         import pytesseract
-        from pdf2image import convert_from_path
         from identity_verification.services.ocr_extractor import (
             _configure_tesseract_path,
             OCRExtractor,
@@ -686,15 +716,13 @@ class ThesisTextExtractor:
         if not OCRExtractor._tesseract_configured:
             _configure_tesseract_path()
             OCRExtractor._tesseract_configured = True
-        images = convert_from_path(
-            str(path), dpi=250, first_page=page_number, last_page=page_number,
-            timeout=15,
-        )
+        image = _render_page(path, page_number, 250, timeout=15)
+        if image is None:
+            return ''
         try:
-            return pytesseract.image_to_string(images[0], timeout=20) if images else ''
+            return pytesseract.image_to_string(image, timeout=20)
         finally:
-            for image in images:
-                image.close()
+            image.close()
 
     # ── DOCX ────────────────────────────────────────────────────────────
 

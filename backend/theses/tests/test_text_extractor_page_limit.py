@@ -280,6 +280,46 @@ class TestOcrPageCeiling:
         assert OCR_MAX_PAGES == 50
 
 
+class TestOcrRenderCap:
+    """iPhone Notes declares 1 pt per camera pixel (~24x35 in pages), so a
+    fixed 200 dpi rendered ~34 MP per page and OCR ran ~10x slower."""
+
+    @pytest.mark.parametrize('height_pt, expected_dpi', [
+        (792, 200),                                  # letter: unchanged
+        (1008, 200),                                 # legal: unchanged
+        (2528, 200 * 1008 / 2528),                    # iPhone Notes page
+    ])
+    def test_dpi_capped_by_page_size(self, monkeypatch, tmp_path, height_pt, expected_dpi):
+        import pdf2image
+        from pypdf import PdfWriter
+
+        writer = PdfWriter()
+        writer.add_blank_page(width=height_pt * 0.7, height=height_pt)
+        target = tmp_path / 'page.pdf'
+        writer.write(target)
+        calls: list[dict] = []
+        monkeypatch.setattr(
+            pdf2image, 'convert_from_path', lambda path, **kw: calls.append(kw) or ['img'],
+        )
+
+        assert te._render_page(target, 1, 200, timeout=30) == 'img'
+        assert calls[0]['dpi'] == pytest.approx(expected_dpi)
+        assert calls[0]['first_page'] == calls[0]['last_page'] == 1
+
+    def test_unreadable_pdf_keeps_requested_dpi(self, monkeypatch, tmp_path):
+        import pdf2image
+
+        target = tmp_path / 'broken.pdf'
+        target.write_bytes(b'%PDF-1.4\n%%EOF\n')
+        calls: list[dict] = []
+        monkeypatch.setattr(
+            pdf2image, 'convert_from_path', lambda path, **kw: calls.append(kw) or [],
+        )
+
+        assert te._render_page(target, 1, 250, timeout=15) is None
+        assert calls[0]['dpi'] == 250
+
+
 # ---------------------------------------------------------------------------
 # The upload pipeline still asks for the full document
 # ---------------------------------------------------------------------------
