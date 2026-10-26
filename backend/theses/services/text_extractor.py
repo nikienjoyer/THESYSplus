@@ -47,12 +47,14 @@ PDF_TEXT_FALLBACK_THRESHOLD = 200
 # even when a caller asks for more.
 OCR_MAX_PAGES = 50
 
-# Longest page side, in PDF points, rendered at the full requested dpi. 14 in
+# Longest page side, in PDF points, rendered at the full requested dpi. ~19 in
 # covers letter, A4, long bond and legal, so ordinary scans are unchanged.
 # Phone scanners (iPhone Notes) declare one point per camera pixel, giving
-# ~24x35 in pages: at 200 dpi that is ~34 MP per page and OCR ran ~10x slower
-# for no accuracy gain. Larger pages render as if they were 14 in long.
-OCR_MAX_PAGE_POINTS = 1008
+# ~24x35 in pages: at 200 dpi that is ~34 MP per page and OCR ran ~10x slower.
+# Larger pages render as if they were ~19 in long, about 100 dpi for a phone
+# scan. Do not lower it: at ~72 dpi (native camera pixels) Tesseract misread
+# 'Keywords:' as 'Keywords;' on a real iPhone scan and the field was lost.
+OCR_MAX_PAGE_POINTS = 1400
 
 # Pages that reliably contain a thesis' title page and its immediate
 # surroundings. Enough for title / authors / program / year, all of which sit

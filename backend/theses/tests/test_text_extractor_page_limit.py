@@ -317,7 +317,8 @@ class TestOcrRenderCap:
     @pytest.mark.parametrize('height_pt, expected_dpi', [
         (792, 200),                                  # letter: unchanged
         (1008, 200),                                 # legal: unchanged
-        (2528, 200 * 1008 / 2528),                    # iPhone Notes page
+        (1400, 200),                                 # cap boundary
+        (2528, 200 * 1400 / 2528),                    # iPhone Notes page
     ])
     def test_dpi_capped_by_page_size(self, monkeypatch, tmp_path, height_pt, expected_dpi):
         import pdf2image
