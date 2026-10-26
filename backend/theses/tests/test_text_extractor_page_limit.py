@@ -290,6 +290,22 @@ class TestOcrPageCeiling:
         assert all(c['dpi'] == 200 for c in calls)
         assert fake_ocr['open'] == 0
 
+    def test_author_ocr_reuses_page_one_render(self, fake_ocr, monkeypatch, tmp_path):
+        import pytesseract
+        monkeypatch.setattr(
+            pytesseract, 'image_to_data', lambda image, **kw: {'text': []},
+        )
+        fake_ocr['pages'] = 3
+        target = tmp_path / 'scanned.pdf'
+        target.write_bytes(b'%PDF-1.4\n%%EOF\n')
+
+        result = ThesisTextExtractor().extract(target, max_pages=FRONT_MATTER_PAGES)
+
+        assert result.method == 'ocr_tesseract'
+        page_one_renders = [c for c in fake_ocr['calls'] if c['first_page'] == 1]
+        assert len(page_one_renders) == 1
+        assert fake_ocr['open'] == 0
+
     def test_ocr_ceiling_is_fifty(self):
         assert OCR_MAX_PAGES == 50
 

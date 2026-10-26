@@ -597,13 +597,19 @@ class ThesisTextExtractor:
             pypdf_method = 'pypdf'
 
         # Step 2: OCR fallback for scanned PDFs
+        first_page: list = []
         try:
-            ocr_text = self._ocr_pdf(path, max_pages=max_pages)
+            ocr_text = self._ocr_pdf(
+                path, max_pages=max_pages,
+                keep_first_page=first_page if include_ocr_author_lines else None,
+            )
             if ocr_text.strip():
                 ocr_author_lines: tuple[str, ...] = ()
                 if include_ocr_author_lines:
                     try:
-                        ocr_author_lines = self._ocr_first_page_author_lines(path)
+                        ocr_author_lines = self._ocr_first_page_author_lines(
+                            path, first_page.pop() if first_page else None,
+                        )
                     except Exception as author_ocr_err:  # pragma: no cover - defensive
                         logger.info(
                             'Author-only OCR rows unavailable for %s: %s',
@@ -644,9 +650,15 @@ class ThesisTextExtractor:
                 success=False,
                 error=f'PDF extraction failed: {exc}',
             )
+        finally:
+            for image in first_page:  # kept but not handed to the author pass
+                image.close()
 
     @timed('pdf_ocr')
-    def _ocr_pdf(self, path: Path, *, max_pages: int | None = None) -> str:
+    def _ocr_pdf(
+        self, path: Path, *, max_pages: int | None = None,
+        keep_first_page: list | None = None,
+    ) -> str:
         """OCR the leading pages of a scanned PDF using Tesseract.
 
         Reuses the existing identity-verification OCR setup so Tesseract
@@ -656,6 +668,10 @@ class ThesisTextExtractor:
         atypical and capping protects against runaway OCR jobs. A caller's
         ``max_pages`` can only lower it, never raise it — so passing
         ``max_pages=None`` reproduces the previous behaviour exactly.
+
+        When ``keep_first_page`` is a list, page one's image is appended to it
+        instead of being closed, so the author pass need not render it again.
+        The caller then owns closing it.
         """
         # Late imports keep this module lightweight when OCR isn't needed.
         import pytesseract
@@ -685,12 +701,19 @@ class ThesisTextExtractor:
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning('Tesseract failed on PDF page: %s', exc)
             finally:
-                img.close()
+                if page_number == 1 and keep_first_page is not None:
+                    keep_first_page.append(img)
+                else:
+                    img.close()
         return '\n\n'.join(t.strip() for t in page_texts if t and t.strip())
 
     @timed('author_ocr')
-    def _ocr_first_page_author_lines(self, path: Path) -> tuple[str, ...]:
-        """Return positioned OCR rows from only page one for author detection."""
+    def _ocr_first_page_author_lines(self, path: Path, image=None) -> tuple[str, ...]:
+        """Return positioned OCR rows from only page one for author detection.
+
+        ``image`` is page one already rendered by ``_ocr_pdf``; it is closed
+        here either way.
+        """
         from identity_verification.services.ocr_extractor import (
             _configure_tesseract_path,
             OCRExtractor,
@@ -700,7 +723,8 @@ class ThesisTextExtractor:
             _configure_tesseract_path()
             OCRExtractor._tesseract_configured = True
 
-        image = _render_page(path, 1, 200, timeout=30)
+        if image is None:
+            image = _render_page(path, 1, 200, timeout=30)
         if image is None:
             return ()
         try:
