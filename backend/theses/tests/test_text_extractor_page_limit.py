@@ -290,6 +290,46 @@ class TestOcrPageCeiling:
         assert all(c['dpi'] == 200 for c in calls)
         assert fake_ocr['open'] == 0
 
+    @staticmethod
+    def _blank_pdf(path, pages):
+        from pypdf import PdfWriter
+        writer = PdfWriter()
+        for _ in range(pages):
+            writer.add_blank_page(width=612, height=792)
+        writer.write(path)
+        return path
+
+    def test_failed_page_render_keeps_other_pages(self, fake_ocr, monkeypatch, tmp_path):
+        import pdf2image
+        original = pdf2image.convert_from_path
+
+        def flaky(path, **kwargs):
+            if kwargs['first_page'] == 2:
+                raise RuntimeError('pdftoppm timed out')
+            return original(path, **kwargs)
+
+        monkeypatch.setattr(pdf2image, 'convert_from_path', flaky)
+        target = self._blank_pdf(tmp_path / 'scan.pdf', 3)
+
+        text = ThesisTextExtractor()._ocr_pdf(target)
+
+        assert text.count('page') == 2
+        assert fake_ocr['open'] == 0
+
+    def test_empty_middle_page_does_not_end_the_document(self, fake_ocr, monkeypatch, tmp_path):
+        import pdf2image
+        original = pdf2image.convert_from_path
+        monkeypatch.setattr(
+            pdf2image, 'convert_from_path',
+            lambda path, **kw: [] if kw['first_page'] == 2 else original(path, **kw),
+        )
+        target = self._blank_pdf(tmp_path / 'scan.pdf', 3)
+
+        text = ThesisTextExtractor()._ocr_pdf(target)
+
+        assert text.count('page') == 2
+        assert [c['first_page'] for c in fake_ocr['calls']] == [1, 3]
+
     def test_author_ocr_reuses_page_one_render(self, fake_ocr, monkeypatch, tmp_path):
         import pytesseract
         monkeypatch.setattr(
@@ -336,6 +376,26 @@ class TestOcrRenderCap:
         assert te._render_page(target, 1, 200, timeout=30) == 'img'
         assert calls[0]['dpi'] == pytest.approx(expected_dpi)
         assert calls[0]['first_page'] == calls[0]['last_page'] == 1
+
+    def test_reversed_mediabox_still_caps(self, monkeypatch, tmp_path):
+        """The PDF spec allows corners in either order; width can be negative."""
+        import pdf2image
+        from pypdf import PdfWriter
+        from pypdf.generic import RectangleObject
+
+        writer = PdfWriter()
+        page = writer.add_blank_page(width=1762, height=2528)
+        page.mediabox = RectangleObject([1762, 2528, 0, 0])
+        target = tmp_path / 'reversed.pdf'
+        writer.write(target)
+        calls: list[dict] = []
+        monkeypatch.setattr(
+            pdf2image, 'convert_from_path', lambda path, **kw: calls.append(kw) or ['img'],
+        )
+
+        te._render_page(target, 1, 200, timeout=30)
+
+        assert calls[0]['dpi'] == pytest.approx(200 * 1400 / 2528)
 
     def test_unreadable_pdf_keeps_requested_dpi(self, monkeypatch, tmp_path):
         import pdf2image

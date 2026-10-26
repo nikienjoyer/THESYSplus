@@ -411,19 +411,24 @@ def _repair_ocr_author_name_tokens(
     return tuple(repaired)
 
 
-def _render_page(path, page_number: int, dpi: float, *, timeout: int):
+def _render_page(path, page_number: int, dpi: float, *, timeout: int, reader=None):
     """Rasterise one page for OCR, capping the dpi on oversized pages.
 
-    Returns the PIL image, or None past the last page. An unreadable page box
-    keeps the requested dpi; pdf2image then reports any real problem.
+    Returns the PIL image, or None when pdf2image renders nothing (past the
+    last page, or a damaged page). An unreadable page box keeps the requested
+    dpi; pdf2image then reports any real problem. Pass an open ``reader`` to
+    avoid re-parsing the PDF for every page.
     """
     from pdf2image import convert_from_path
 
     try:
-        from pypdf import PdfReader
-
-        box = PdfReader(str(path)).pages[page_number - 1].mediabox
-        dpi *= min(1.0, OCR_MAX_PAGE_POINTS / max(float(box.width), float(box.height)))
+        if reader is None:
+            from pypdf import PdfReader
+            reader = PdfReader(str(path))
+        box = reader.pages[page_number - 1].mediabox
+        # abs(): the spec allows corners in either order, so width can be negative.
+        longest = max(abs(float(box.width)), abs(float(box.height)))
+        dpi *= min(1.0, OCR_MAX_PAGE_POINTS / longest)
     except Exception:
         pass
     images = convert_from_path(
@@ -693,10 +698,27 @@ class ThesisTextExtractor:
         )
         # One page in memory at a time: rendering every page up front held
         # all of them at once (hundreds of MB, GBs for phone scans).
+        # A known page count lets one bad page be skipped; without it, the
+        # first empty render is taken as the end of the document.
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(str(path))
+            last_page = min(last_page, len(reader.pages))
+            page_count_known = True
+        except Exception:
+            reader = None
+            page_count_known = False
+
         page_texts: list[str] = []
         for page_number in range(1, last_page + 1):
-            img = _render_page(path, page_number, 200, timeout=30)
+            try:
+                img = _render_page(path, page_number, 200, timeout=30, reader=reader)
+            except Exception as exc:
+                logger.warning('PDF page %s failed to render for OCR: %s', page_number, exc)
+                continue
             if img is None:
+                if page_count_known:
+                    continue  # damaged page; keep reading the rest
                 break  # past the last page
             try:
                 page_texts.append(pytesseract.image_to_string(img, timeout=30))
