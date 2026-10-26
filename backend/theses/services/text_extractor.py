@@ -659,7 +659,6 @@ class ThesisTextExtractor:
         """
         # Late imports keep this module lightweight when OCR isn't needed.
         import pytesseract
-        from pdf2image import convert_from_path
         from identity_verification.services.ocr_extractor import (
             _configure_tesseract_path,
             OCRExtractor,
@@ -674,13 +673,19 @@ class ThesisTextExtractor:
             OCR_MAX_PAGES if max_pages is None
             else min(max_pages, OCR_MAX_PAGES)
         )
-        images = convert_from_path(str(path), dpi=200, first_page=1, last_page=last_page)
+        # One page in memory at a time: rendering every page up front held
+        # all of them at once (hundreds of MB, GBs for phone scans).
         page_texts: list[str] = []
-        for img in images:
+        for page_number in range(1, last_page + 1):
+            img = _render_page(path, page_number, 200, timeout=30)
+            if img is None:
+                break  # past the last page
             try:
                 page_texts.append(pytesseract.image_to_string(img, timeout=30))
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning('Tesseract failed on PDF page: %s', exc)
+            finally:
+                img.close()
         return '\n\n'.join(t.strip() for t in page_texts if t and t.strip())
 
     @timed('author_ocr')

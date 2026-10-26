@@ -242,39 +242,53 @@ class TestOcrPageCeiling:
     """
 
     @pytest.fixture
-    def captured(self, monkeypatch):
-        calls: list[dict] = []
+    def fake_ocr(self, monkeypatch):
+        """Pages render one at a time; every rendered image must be closed."""
+        state = {'pages': 80, 'calls': [], 'open': 0}
+
+        class FakeImage:
+            def __init__(self):
+                state['open'] += 1
+
+            def close(self):
+                state['open'] -= 1
 
         def fake_convert_from_path(path, **kwargs):
-            calls.append(kwargs)
-            return []
+            state['calls'].append(kwargs)
+            return [FakeImage()] if kwargs['first_page'] <= state['pages'] else []
 
         import pdf2image
+        import pytesseract
         monkeypatch.setattr(pdf2image, 'convert_from_path', fake_convert_from_path)
+        monkeypatch.setattr(pytesseract, 'image_to_string', lambda image, **kw: 'page')
 
         import identity_verification.services.ocr_extractor as ocr_mod
         monkeypatch.setattr(ocr_mod.OCRExtractor, '_tesseract_configured', True)
-        return calls
+        return state
 
-    @pytest.mark.parametrize('max_pages, expected_last_page', [
-        (None, OCR_MAX_PAGES),          # unchanged legacy behaviour
-        (FRONT_MATTER_PAGES, 5),        # front-matter callers
-        (1, 1),
-        (OCR_MAX_PAGES + 150, OCR_MAX_PAGES),   # ceiling cannot be raised
+    @pytest.mark.parametrize('max_pages, total_pages, expected_renders, expected_text_pages', [
+        (None, 80, OCR_MAX_PAGES, OCR_MAX_PAGES),       # unchanged legacy ceiling
+        (FRONT_MATTER_PAGES, 80, 5, 5),                 # front-matter callers
+        (1, 80, 1, 1),
+        (OCR_MAX_PAGES + 150, 80, OCR_MAX_PAGES, OCR_MAX_PAGES),  # ceiling cannot be raised
+        (None, 3, 4, 3),                                # stops at the first page past the end
     ])
-    def test_last_page_passed_to_pdf2image(
-        self, captured, tmp_path, max_pages, expected_last_page,
+    def test_renders_one_page_at_a_time(
+        self, fake_ocr, tmp_path, max_pages, total_pages, expected_renders, expected_text_pages,
     ):
+        fake_ocr['pages'] = total_pages
         target = tmp_path / 'scanned.pdf'
         target.write_bytes(b'%PDF-1.4\n%%EOF\n')
 
         text = ThesisTextExtractor()._ocr_pdf(target, max_pages=max_pages)
 
-        assert text == ''
-        assert len(captured) == 1
-        assert captured[0]['last_page'] == expected_last_page
-        assert captured[0]['first_page'] == 1
-        assert captured[0]['dpi'] == 200
+        calls = fake_ocr['calls']
+        assert text.count('page') == expected_text_pages
+        assert len(calls) == expected_renders
+        assert [c['first_page'] for c in calls] == list(range(1, expected_renders + 1))
+        assert all(c['first_page'] == c['last_page'] for c in calls)
+        assert all(c['dpi'] == 200 for c in calls)
+        assert fake_ocr['open'] == 0
 
     def test_ocr_ceiling_is_fifty(self):
         assert OCR_MAX_PAGES == 50
