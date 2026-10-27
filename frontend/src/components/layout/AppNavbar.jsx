@@ -224,7 +224,9 @@ export default function AppNavbar({ activePage = '' }) {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/sign-in');
+    // Landing page with the sign-in card open (no card on phones, so they
+    // just see the landing page).
+    navigate('/?signin=1', { replace: true });
   };
 
   useEffect(() => {
