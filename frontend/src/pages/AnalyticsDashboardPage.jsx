@@ -463,7 +463,7 @@ export default function AnalyticsDashboardPage() {
                   : 'Derived from exploratory groups of theses with similar meaning. Labels compare relative thesis counts, not growth over time. '}
                 <Link
                   to={data.reviewed_subject_summary?.main_view_enabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
-                  className="underline text-primary hover:opacity-80"
+                  className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center underline text-primary hover:opacity-80"
                 >
                   {data.reviewed_subject_summary?.main_view_enabled ? 'View Reviewed Subjects →' : 'View full Trend Analysis →'}
                 </Link>
