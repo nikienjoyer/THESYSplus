@@ -108,7 +108,7 @@ function Sidebar({ user, stats }) {
 
       <Link
         to="/settings"
-        className={`w-full py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
+        className={`w-full py-2 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
       >
         Edit Profile
       </Link>
@@ -328,7 +328,7 @@ export default function ProfilePage() {
                 Saved Theses
                 {savedTheses.length > 0 && (
                   <span
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info-text`}
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-info-bg text-info-text`}
                   >
                     {savedTheses.length}
                   </span>
@@ -401,10 +401,10 @@ export default function ProfilePage() {
                     <ul className="space-y-2">
                       {myUploads.map((t) => (
                         <li key={t.id} className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
+                          <div className="relative min-w-0">
                             <Link
                               to={`/repository/${t.id}`}
-                              className="text-sm hover:underline line-clamp-1 text-primary"
+                              className="text-sm hover:underline line-clamp-1 text-primary max-sm:before:absolute max-sm:before:inset-x-0 max-sm:before:-inset-y-0.5 max-sm:before:content-['']"
                             >
                               {t.title}
                             </Link>

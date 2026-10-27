@@ -57,7 +57,7 @@ export default function AuthLayout() {
         {/* Logo — internal navigation, no full page reload */}
         <Link
           to="/"
-          className="flex items-center select-none"
+          className="flex items-center max-sm:min-h-10 select-none"
           aria-label="THESYS+ home"
         >
           <ThesysLogo variant="wordmark" size={28} />
@@ -68,7 +68,7 @@ export default function AuthLayout() {
           type="button"
           onClick={toggleTheme}
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+          className="w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
         >
           {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
         </button>

@@ -98,7 +98,7 @@ export default function SetPasswordForm({
   const inputCls = (hasErr) => `w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors pr-11 ${
     `thesys-input ${hasErr ? 'border-danger' : ''}`
   }`;
-  const eyeCls = `absolute right-3 top-1/2 -translate-y-1/2 transition-colors focus:outline-none text-muted hover:text-body`;
+  const eyeCls = `absolute right-3 max-sm:right-0.5 max-sm:p-2.5 top-1/2 -translate-y-1/2 transition-colors focus:outline-none text-muted hover:text-body`;
   const labelCls = `block text-sm font-medium mb-1.5 text-body`;
   const errCls   = `text-xs mt-1 text-danger`;
   const hintCls  = `text-xs mt-1 text-subtle`;

@@ -90,7 +90,7 @@ export function AvatarDropdown({ user, onSignOut }) {
           onClick={() => setDropOpen((o) => !o)}
           aria-label="Profile menu"
           aria-expanded={dropOpen}
-          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full transition-opacity hover:opacity-90 flex-shrink-0"
+          className="max-sm:size-10 max-sm:flex max-sm:items-center max-sm:justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full transition-opacity hover:opacity-90 flex-shrink-0"
         >
           <Avatar className="w-8 h-8">
             {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile" />}
@@ -109,7 +109,7 @@ export function AvatarDropdown({ user, onSignOut }) {
               <p className="text-xs font-semibold truncate text-ink">
                 {user ? `${user.first_name} ${user.last_name}`.trim() : 'User'}
               </p>
-              <p className="text-[11px] truncate text-gray-500 dark:text-gray-400">
+              <p className="text-xs truncate text-gray-500 dark:text-gray-400">
                 {user?.role?.charAt(0).toUpperCase()}{user?.role?.slice(1)}
               </p>
             </div>
@@ -248,13 +248,13 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
-              className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex-shrink-0 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex-shrink-0 text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </button>
-            <Link to="/" className="flex items-center gap-2 select-none">
+            <Link to="/" className="flex items-center gap-2 max-sm:min-h-10 select-none">
               <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
@@ -264,7 +264,7 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={toggleTheme}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
@@ -295,7 +295,7 @@ export default function AppNavbar({ activePage = '' }) {
                   >
                     {label}
                     {soon && (
-                      <span className="ml-1 text-[11px] uppercase tracking-wider align-middle text-subtle">soon</span>
+                      <span className="ml-1 text-xs uppercase tracking-wider align-middle text-subtle">soon</span>
                     )}
                   </Link>
                 </li>
@@ -317,7 +317,7 @@ export default function AppNavbar({ activePage = '' }) {
               type="button"
               onClick={toggleTheme}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
+              className="w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-[var(--color-icon-btn-hover-bg)]"
             >
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
@@ -382,7 +382,7 @@ export default function AppNavbar({ activePage = '' }) {
                       >
                         {label}
                         {soon && (
-                          <span className="ml-1.5 text-[11px] uppercase tracking-wider text-subtle">soon</span>
+                          <span className="ml-1.5 text-xs uppercase tracking-wider text-subtle">soon</span>
                         )}
                       </Link>
                     </li>

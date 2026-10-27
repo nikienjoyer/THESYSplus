@@ -179,7 +179,7 @@ export default function SettingsPage() {
                   {/* Hover overlay — fades in on hover */}
                   <div className="absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     <Camera className="w-5 h-5 text-white" aria-hidden="true" />
-                    <span className="text-[11px] font-semibold text-white leading-tight text-center px-1">
+                    <span className="text-xs font-semibold text-white leading-tight text-center px-1">
                       Change Photo
                     </span>
                   </div>
@@ -321,7 +321,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-6">
             <Link
               to="/profile"
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
+              className={`px-4 py-2 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
             >
               Cancel
             </Link>
@@ -334,7 +334,7 @@ export default function SettingsPage() {
               )}
               <button
                 type="submit"
-                className="px-5 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
+                className="px-5 py-2 max-sm:min-h-10 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
                 Save Changes
               </button>

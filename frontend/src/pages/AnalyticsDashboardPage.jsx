@@ -130,7 +130,7 @@ function YearBarChart({ data }) {
         const heightPct = Math.max((d.count / maxVal) * 100, 4);
         return (
           <div key={d.year} className="flex flex-col items-center flex-1 min-w-0 h-full">
-            <span className={`text-[11px] mb-0.5 font-semibold text-body`}>
+            <span className={`text-xs mb-0.5 font-semibold text-body`}>
               {d.count}
             </span>
             {/* Bar track — flex-1 gives the percentage-height bar a real basis */}
@@ -142,7 +142,7 @@ function YearBarChart({ data }) {
                 title={`${d.year}: ${d.count}`}
               />
             </div>
-            <span className={`text-[11px] mt-1 truncate w-full text-center text-muted`}>
+            <span className={`text-xs mt-1 truncate w-full text-center text-muted`}>
               {String(d.year).slice(2)}
             </span>
           </div>
@@ -463,7 +463,7 @@ export default function AnalyticsDashboardPage() {
                   : 'Derived from exploratory groups of theses with similar meaning. Labels compare relative thesis counts, not growth over time. '}
                 <Link
                   to={data.reviewed_subject_summary?.main_view_enabled ? '/trend-analysis?view=subjects' : '/trend-analysis'}
-                  className="underline text-primary hover:opacity-80"
+                  className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center underline text-primary hover:opacity-80"
                 >
                   {data.reviewed_subject_summary?.main_view_enabled ? 'View Reviewed Subjects →' : 'View full Trend Analysis →'}
                 </Link>

@@ -94,7 +94,7 @@ export default function SignInPage() {
             </Link>
           </p>
           <Link to="/forgot-password"
-            className={`text-sm hover:underline text-muted hover:text-body`}>
+            className={`max-sm:min-h-10 max-sm:inline-flex max-sm:items-center text-sm hover:underline text-muted hover:text-body`}>
             Forgot your password?
           </Link>
         </div>

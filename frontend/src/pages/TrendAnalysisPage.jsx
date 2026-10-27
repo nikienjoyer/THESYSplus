@@ -579,7 +579,7 @@ function ClusterThesisRow({ thesis, tags = [] }) {
           {tags.map((tag) => (
             <span
               key={tag}
-              className={`text-[11px] px-1.5 py-0.5 rounded bg-success-bg text-success-text`}
+              className={`text-xs px-1.5 py-0.5 rounded bg-success-bg text-success-text`}
             >
               {tag}
             </span>
@@ -895,11 +895,11 @@ export default function TrendAnalysisPage() {
         {reviewedEnabled && showOverviewChrome && (
           <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
             <Link to="/trend-analysis" aria-current={!reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
+              className={`rounded-lg px-4 py-2 max-sm:min-h-10 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
               Explore topic groups
             </Link>
             <Link to="/trend-analysis?view=subjects" aria-current={reviewed ? 'page' : undefined}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
+              className={`rounded-lg px-4 py-2 max-sm:min-h-10 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
               Reviewed subjects
             </Link>
           </nav>

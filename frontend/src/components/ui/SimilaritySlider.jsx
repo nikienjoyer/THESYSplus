@@ -78,7 +78,7 @@ export default function SimilaritySlider({ value, onChange, disabled, helperText
             {value}%
           </span>
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${pillClass}`}
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${pillClass}`}
           >
             {zoneLabel}
           </span>
@@ -104,12 +104,12 @@ export default function SimilaritySlider({ value, onChange, disabled, helperText
 
       {/* Tick labels */}
       <div className="flex justify-between">
-        <span className="text-[11px] text-muted">{MIN}% Broad</span>
-        <span className="text-[11px] text-muted">{MAX}% Strict</span>
+        <span className="text-xs text-muted">{MIN}% Broad</span>
+        <span className="text-xs text-muted">{MAX}% Strict</span>
       </div>
 
       {/* Helper text */}
-      <p className="text-[11px] leading-snug text-body">
+      <p className="text-xs leading-snug text-body">
         {helperText ?? 'Lower thresholds show broader related studies. Higher thresholds show stricter semantic matches.'}
       </p>
     </div>

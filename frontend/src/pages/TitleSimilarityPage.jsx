@@ -63,7 +63,7 @@ function ConfidenceHint({ confidence }) {
   if (!ui) return null; // high confidence, or nothing detected yet
 
   return (
-    <span className={`ml-2 text-[11px] font-medium normal-case tracking-normal ${ui.tone}`}>
+    <span className={`ml-2 text-xs font-medium normal-case tracking-normal ${ui.tone}`}>
       {ui.label}
     </span>
   );
@@ -493,7 +493,7 @@ export default function TitleSimilarityPage() {
                         tabIndex={selected ? 0 : -1}
                         onClick={() => setMode(key)}
                         onKeyDown={handleTabKeyDown}
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`px-4 py-1.5 max-sm:min-h-10 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
                             ? 'bg-primary-solid text-white'
                             : 'text-muted hover:text-ink'
@@ -610,7 +610,7 @@ export default function TitleSimilarityPage() {
                               {autoDetected ? (
                                 <>
                                   Detected title
-                                  <span className={`ml-2 text-[11px] font-medium normal-case text-info-text`}>
+                                  <span className={`ml-2 text-xs font-medium normal-case text-info-text`}>
                                     Auto-detected
                                   </span>
                                   <ConfidenceHint confidence={extractConf} />
@@ -701,7 +701,7 @@ export default function TitleSimilarityPage() {
                       <span><strong>No meaningful match</strong> — &lt; {MEANINGFUL_PCT}%</span>
                     </li>
                   </ul>
-                  <p className={`mt-3 pt-3 border-t text-[11px] flex items-center gap-1.5 border-border-subtle text-muted`}>
+                  <p className={`mt-3 pt-3 border-t text-xs flex items-center gap-1.5 border-border-subtle text-muted`}>
                     <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                     </svg>
@@ -720,7 +720,7 @@ export default function TitleSimilarityPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <RiskDot tone="neutral" className="w-3 h-3" />
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider mb-0.5 text-muted">Result</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-0.5 text-muted">Result</p>
                       <h2 className={`text-lg font-bold leading-none text-ink`}>No meaningful match found</h2>
                     </div>
                   </div>
@@ -737,7 +737,7 @@ export default function TitleSimilarityPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <RiskDot tone={visuals.tone} className="w-3 h-3" />
                     <div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-0.5 ${tone.text} opacity-70`}>Risk level</p>
+                      <p className={`text-xs font-semibold uppercase tracking-wider mb-0.5 ${tone.text} opacity-70`}>Risk level</p>
                       <h2 className={`text-lg font-bold leading-none text-ink`}>{visuals.label}</h2>
                     </div>
                     <div className="ml-auto">
@@ -747,7 +747,7 @@ export default function TitleSimilarityPage() {
                     </div>
                   </div>
                   <div className={`pt-3 border-t border-border-subtle`}>
-                    <div className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${tone.text} opacity-70`}>Recommendation</div>
+                    <div className={`text-xs font-semibold uppercase tracking-wider mb-1 ${tone.text} opacity-70`}>Recommendation</div>
                     <p className={`text-sm leading-relaxed ${tone.text}`}>{result.recommendation}</p>
                   </div>
                 </div>
@@ -804,24 +804,24 @@ export default function TitleSimilarityPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {commonTerms.length > 0 && (
                       <div>
-                        <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
                           Shared terms
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {commonTerms.map((t) => (
-                            <span key={t} className={`text-[11px] px-2 py-0.5 rounded-md bg-warning-bg text-warning-text border border-warning-border`}>{t}</span>
+                            <span key={t} className={`text-xs px-2 py-0.5 rounded-md bg-warning-bg text-warning-text border border-warning-border`}>{t}</span>
                           ))}
                         </div>
                       </div>
                     )}
                     {distinctiveTerms.length > 0 && (
                       <div>
-                        <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
+                        <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
                           Distinctive terms
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {distinctiveTerms.map((t) => (
-                            <span key={t} className={`text-[11px] px-2 py-0.5 rounded-md bg-info-bg text-info-text border border-info-border`}>{t}</span>
+                            <span key={t} className={`text-xs px-2 py-0.5 rounded-md bg-info-bg text-info-text border border-info-border`}>{t}</span>
                           ))}
                         </div>
                       </div>

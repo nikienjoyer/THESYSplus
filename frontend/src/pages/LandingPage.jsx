@@ -295,12 +295,12 @@ export default function LandingPage() {
         <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation menu"
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
+              className={`w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </button>
-            <Link to="/" className="flex items-center gap-2 select-none">
+            <Link to="/" className="flex items-center gap-2 max-sm:min-h-10 select-none">
               <ThesysLogo variant="wordmark" size={28} />
             </Link>
           </div>
@@ -309,12 +309,12 @@ export default function LandingPage() {
               <AvatarDropdown user={user} onSignOut={async () => { await signOut(); navigate('/'); }} />
             )}
             {!isInitializing && !isAuthenticated && (
-              <Link to="/sign-in" className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <Link to="/sign-in" className="px-3 py-1.5 max-sm:min-h-10 max-sm:inline-flex max-sm:items-center rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Sign In
               </Link>
             )}
             <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
+              className={`w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
@@ -355,7 +355,7 @@ export default function LandingPage() {
               </button>
             )}
             <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
+              className={`w-9 h-9 max-sm:size-10 flex items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted hover:text-ink hover:bg-icon-btn-hover`}>
               {isDark ? <Sun className="h-5 w-5 text-primary" /> : <Moon className="h-5 w-5 text-primary" />}
             </button>
           </div>
@@ -468,7 +468,7 @@ export default function LandingPage() {
           {/* Text container */}
           <m.div
             ref={heroTextRef}
-            className="relative z-10 max-w-2xl lg:max-w-none px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
+            className="relative z-10 max-w-2xl lg:max-w-none px-5 sm:px-8 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
             style={stackedOpen ? { marginBottom: cardReserve } : undefined}
             initial="hidden"
             animate="visible"

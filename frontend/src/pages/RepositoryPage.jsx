@@ -41,7 +41,10 @@ import SearchSuggestions from '../components/search/SearchSuggestions';
 // ring and underline appear for keyboard users only.
 function keywordChipClass(isDark, isActive) {
   const base = 'inline-flex items-center rounded-full border text-xs font-semibold'
-    + ' px-2 py-0.5 max-sm:py-1 h-auto transition-colors cursor-pointer'
+    + ' relative px-2 py-0.5 max-sm:py-1 h-auto transition-colors cursor-pointer'
+    // Phones: an invisible 40px tap area around the 26px chip; the row gap
+    // on the keyword row (gap-y-4) keeps neighbouring tap areas from overlapping.
+    + " max-sm:before:absolute max-sm:before:inset-x-0 max-sm:before:-inset-y-2 max-sm:before:content-['']"
     // The adviser's explicit requirement: keywords underline on hover to
     // signal they are clickable. focus-visible mirrors it, because a hover
     // affordance alone serves mouse users and leaves keyboard users guessing.
@@ -267,7 +270,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
       </Link>
 
       {/* Keyword row — a SIBLING of the link above, never a descendant. */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 max-sm:gap-y-4">
         {keywords.slice(0, 4).map((kw) => {
           // Display-only trim so a stored tag like "Solar -Powered Water Pump"
           // renders cleanly. The RAW value is what gets sent as the filter,
@@ -306,7 +309,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
       <div className="mt-4 pt-3 border-t border-border-default flex items-center gap-5 text-sm">
         {thesis.cited_by_count > 0 ? (
           <Link to={`/repository/${thesis.id}#cited-by`}
-            className="rounded font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center rounded font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             Cited by {thesis.cited_by_count}
           </Link>
         ) : (
@@ -589,9 +592,9 @@ export default function RepositoryPage() {
         {canReviewSubjects && (
           <div className="mb-5 flex flex-wrap items-center gap-3 text-sm">
             {awaitingSubjectReview ? (
-              <Link to="/repository" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Show all theses</Link>
+              <Link to="/repository" className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Show all theses</Link>
             ) : (
-              <Link to="/repository?subject_review=pending" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Awaiting subject review</Link>
+              <Link to="/repository?subject_review=pending" className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Awaiting subject review</Link>
             )}
           </div>
         )}
@@ -886,7 +889,7 @@ export default function RepositoryPage() {
                   type="button"
                   disabled={page <= 1}
                   onClick={() => updateSearchParams({ page: page - 1 > 1 ? page - 1 : '' })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
+                  className={`px-3 py-1.5 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Previous
                 </button>
@@ -897,7 +900,7 @@ export default function RepositoryPage() {
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => updateSearchParams({ page: Math.min(totalPages, page + 1) })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
+                  className={`px-3 py-1.5 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Next
                 </button>
