@@ -99,7 +99,7 @@ export default function SearchSuggestions({
           {items.map((item, i) => (
             <li key={`${item.group}-${item.text}-${i}`} role="presentation">
               {(i === 0 || items[i - 1].group !== item.group) && (
-                <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted">
                   {GROUPS.find((g) => g.key === item.group).label}
                 </p>
               )}

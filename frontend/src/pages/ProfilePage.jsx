@@ -328,7 +328,7 @@ export default function ProfilePage() {
                 Saved Theses
                 {savedTheses.length > 0 && (
                   <span
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info-text`}
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-info-bg text-info-text`}
                   >
                     {savedTheses.length}
                   </span>

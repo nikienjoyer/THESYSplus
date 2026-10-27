@@ -179,7 +179,7 @@ export default function SettingsPage() {
                   {/* Hover overlay — fades in on hover */}
                   <div className="absolute inset-0 rounded-full bg-black/50 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                     <Camera className="w-5 h-5 text-white" aria-hidden="true" />
-                    <span className="text-[11px] font-semibold text-white leading-tight text-center px-1">
+                    <span className="text-xs font-semibold text-white leading-tight text-center px-1">
                       Change Photo
                     </span>
                   </div>

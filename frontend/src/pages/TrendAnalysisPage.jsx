@@ -579,7 +579,7 @@ function ClusterThesisRow({ thesis, tags = [] }) {
           {tags.map((tag) => (
             <span
               key={tag}
-              className={`text-[11px] px-1.5 py-0.5 rounded bg-success-bg text-success-text`}
+              className={`text-xs px-1.5 py-0.5 rounded bg-success-bg text-success-text`}
             >
               {tag}
             </span>

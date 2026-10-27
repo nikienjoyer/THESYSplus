@@ -75,7 +75,7 @@ function ConfidenceHint({ confidence }) {
   if (!ui) return null; // high confidence, or nothing was extracted for this field
 
   return (
-    <span className={`ml-2 text-[11px] font-medium normal-case tracking-normal ${ui.tone}`}>
+    <span className={`ml-2 text-xs font-medium normal-case tracking-normal ${ui.tone}`}>
       {ui.label}
     </span>
   );
@@ -1151,7 +1151,7 @@ function UploadThesisModalContent() {
 
               <div id="upload-confirm-body" className="mt-3 space-y-3">
                 <div>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider text-muted`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wider text-muted`}>
                     Title
                   </p>
                   <p className={`text-sm text-ink`}>
@@ -1159,7 +1159,7 @@ function UploadThesisModalContent() {
                   </p>
                 </div>
                 <div>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider text-muted`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wider text-muted`}>
                     File
                   </p>
                   <p

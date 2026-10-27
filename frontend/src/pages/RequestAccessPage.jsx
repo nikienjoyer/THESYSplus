@@ -223,7 +223,7 @@ function ProgressStepper({ step, role }) {
                     i + 1
                   )}
                 </div>
-                <span className={`text-[11px] mt-1 text-center leading-tight max-w-[52px] ${
+                <span className={`text-xs mt-1 text-center leading-tight max-w-[52px] ${
                   isComplete
                     ? 'text-success'
                     : isActive
