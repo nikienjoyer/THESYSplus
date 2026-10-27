@@ -127,7 +127,7 @@ export default function ResetPasswordForm({ onSubmit, error, isLoading }) {
             <button
               type="button"
               onClick={() => setShowNewPassword(!showNewPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+              className="absolute right-3 max-sm:right-0.5 max-sm:p-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
               aria-label={showNewPassword ? 'Hide password' : 'Show password'}
               disabled={isLoading}
             >
@@ -173,7 +173,7 @@ export default function ResetPasswordForm({ onSubmit, error, isLoading }) {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+              className="absolute right-3 max-sm:right-0.5 max-sm:p-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
               disabled={isLoading}
             >

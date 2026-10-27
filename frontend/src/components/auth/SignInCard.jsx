@@ -118,7 +118,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink focus:outline-none"
+              className="absolute right-3 max-sm:right-0.5 max-sm:p-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink focus:outline-none"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               disabled={isLoading}
             >
@@ -157,7 +157,7 @@ export default function SignInCard({ onSubmit, error, isLoading }) {
         {/* Submit button */}
         <Button
           type="submit"
-          className="w-full"
+          className="w-full max-sm:h-10"
           disabled={isLoading || !!emailError}
         >
           {isLoading ? (

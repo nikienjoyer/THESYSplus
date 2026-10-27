@@ -139,7 +139,7 @@ export default function HeroSignInCard({ isDark, onClose, autoFocus = false, not
           />
           <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none ${isDark ? 'text-slate-300 hover:text-white' : 'text-muted hover:text-ink'}`}>
+            className={`absolute right-3 max-sm:right-0.5 max-sm:p-2.5 top-1/2 -translate-y-1/2 focus:outline-none ${isDark ? 'text-slate-300 hover:text-white' : 'text-muted hover:text-ink'}`}>
             {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
           </button>
         </div>
