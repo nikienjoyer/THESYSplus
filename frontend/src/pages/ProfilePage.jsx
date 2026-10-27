@@ -401,10 +401,10 @@ export default function ProfilePage() {
                     <ul className="space-y-2">
                       {myUploads.map((t) => (
                         <li key={t.id} className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
+                          <div className="relative min-w-0">
                             <Link
                               to={`/repository/${t.id}`}
-                              className="text-sm hover:underline line-clamp-1 text-primary"
+                              className="text-sm hover:underline line-clamp-1 text-primary max-sm:before:absolute max-sm:before:inset-x-0 max-sm:before:-inset-y-0.5 max-sm:before:content-['']"
                             >
                               {t.title}
                             </Link>
