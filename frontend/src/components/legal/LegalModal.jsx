@@ -324,7 +324,7 @@ function getContent(type) {
 
           <h4 className="text-sm font-semibold mt-4 mb-2">What is the similarity threshold?</h4>
           <p className="text-sm leading-relaxed mb-4">
-            The similarity threshold controls how strict search results are. A higher threshold (e.g., 0.7) returns only very similar theses, while a lower threshold (e.g., 0.3) returns more loosely related results. Adjust the slider before searching to set your preferred strictness.
+            The similarity threshold controls how strict search results are. A higher threshold (e.g., 70%) returns only very similar theses, while a lower threshold (e.g., 30%) returns more loosely related results. Adjust the slider before searching to set your preferred strictness.
           </p>
 
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I save theses?</h4>
