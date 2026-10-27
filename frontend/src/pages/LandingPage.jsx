@@ -176,7 +176,8 @@ export default function LandingPage() {
   // two read as one band. Tall screens crop the pillars off, so the card
   // stacks ('stacked'): under the CTA, left-aligned with the text, and the
   // text keeps `reserve` below it so the hero centres text + card as a group.
-  // Re-measured on open/close because the reserve moves the text.
+  // Re-measured on open/close and on a mode flip, because the reserve moves
+  // the text without resizing anything the ResizeObserver watches.
   useLayoutEffect(() => {
     const hero = heroRef.current;
     const text = heroTextRef.current;
@@ -195,9 +196,10 @@ export default function LandingPage() {
     ro.observe(hero);
     ro.observe(text);
     return () => ro.disconnect();
-  }, [showHeroSignIn]);
+  }, [showHeroSignIn, cardBox?.mode]);
   const { mode: cardMode, reserve: cardReserve, ...cardStyle } = cardBox ?? {};
-  const stackedOpen = showHeroSignIn && cardMode === 'stacked';
+  // lg only: below it there is no card (sign-out still lands on /?signin=1).
+  const stackedOpen = showHeroSignIn && cardMode === 'stacked' && window.matchMedia('(min-width: 1024px)').matches;
 
   // Escape puts the card away (layout C only — A/B have nothing to close).
   useEffect(() => {
