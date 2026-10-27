@@ -493,7 +493,7 @@ export default function TitleSimilarityPage() {
                         tabIndex={selected ? 0 : -1}
                         onClick={() => setMode(key)}
                         onKeyDown={handleTabKeyDown}
-                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`px-4 py-1.5 max-sm:min-h-10 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
                             ? 'bg-primary-solid text-white'
                             : 'text-muted hover:text-ink'
