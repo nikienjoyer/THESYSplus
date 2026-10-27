@@ -49,7 +49,7 @@ export default function CiteButton({ thesis, compact = false }) {
   };
 
   const trigger = compact
-    ? 'inline-flex items-center gap-1 rounded text-sm font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+    ? 'inline-flex items-center max-sm:min-h-10 gap-1 rounded text-sm font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
     : `w-full min-h-11 sm:min-h-0 px-0 sm:px-3 py-2 rounded-lg text-sm font-semibold border transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary border-border-strong text-body hover:bg-surface-secondary ${open ? 'bg-surface-secondary' : ''}`;
 
   // The action-row popover floats above the phone's bottom bar; the card

@@ -306,7 +306,7 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
       <div className="mt-4 pt-3 border-t border-border-default flex items-center gap-5 text-sm">
         {thesis.cited_by_count > 0 ? (
           <Link to={`/repository/${thesis.id}#cited-by`}
-            className="rounded font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center rounded font-medium text-[color:var(--color-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             Cited by {thesis.cited_by_count}
           </Link>
         ) : (
@@ -589,9 +589,9 @@ export default function RepositoryPage() {
         {canReviewSubjects && (
           <div className="mb-5 flex flex-wrap items-center gap-3 text-sm">
             {awaitingSubjectReview ? (
-              <Link to="/repository" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Show all theses</Link>
+              <Link to="/repository" className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Show all theses</Link>
             ) : (
-              <Link to="/repository?subject_review=pending" className="font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Awaiting subject review</Link>
+              <Link to="/repository?subject_review=pending" className="max-sm:min-h-10 max-sm:inline-flex max-sm:items-center font-medium text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Awaiting subject review</Link>
             )}
           </div>
         )}
@@ -886,7 +886,7 @@ export default function RepositoryPage() {
                   type="button"
                   disabled={page <= 1}
                   onClick={() => updateSearchParams({ page: page - 1 > 1 ? page - 1 : '' })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
+                  className={`px-3 py-1.5 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Previous
                 </button>
@@ -897,7 +897,7 @@ export default function RepositoryPage() {
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => updateSearchParams({ page: Math.min(totalPages, page + 1) })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
+                  className={`px-3 py-1.5 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-border-strong text-body hover:bg-surface-secondary`}
                 >
                   Next
                 </button>
