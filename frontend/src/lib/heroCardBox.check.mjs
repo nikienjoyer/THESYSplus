@@ -26,5 +26,6 @@ for (const [w, h] of [[1080, 1920], [1024, 1366], [1280, 1024]]) {
   assert.ok(box.left + box.width <= w - 16, `${w}x${h} fits`);
   assert.ok(box.top > inp.textBottom, `${w}x${h} below text`);
   assert.equal(box.height, undefined);
-  assert.ok(box.minHeroHeight > box.top);
+  assert.ok(box.reserve > 32);
+  assert.equal(box.minHeroHeight, undefined);
 }

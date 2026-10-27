@@ -37,6 +37,7 @@ import ThesysLogo from '../components/brand/ThesysLogo';
 import useFocusTrap from '../hooks/useFocusTrap';
 import usePresence from '../hooks/usePresence';
 import { useMotionVariants } from '../lib/motion';
+import { heroCardBox } from '../lib/heroCardBox';
 import SearchSuggestions from '../components/search/SearchSuggestions';
 import HeroSignInCard from '../components/auth/HeroSignInCard';
 
@@ -68,15 +69,6 @@ const HERO_SCRIM_MOBILE =
 // Mobile has no light variant — the mobile scrim stays dark in both themes.
 const HERO_SCRIM_DESKTOP_LIGHT =
   'linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 32%, rgba(255,255,255,0.62) 58%, rgba(255,255,255,0.12) 74%, transparent 88%)';
-
-// Hero sign-in card geometry (lg+). The card spans the entrance's two brick
-// pillars on the landscape photo, plus a little overhang each side. Fractions
-// are of the photo's width (ccsdesktop: 2730×1536, cropped object-cover,
-// centred horizontally), so the card stays on the pillars at any window size.
-const HERO_PHOTO_ASPECT = 2730 / 1536;
-const PILLAR_LEFT  = 0.6265;
-const PILLAR_RIGHT = 0.896;
-const CARD_OVERHANG = 20;
 
 // One container for every band below the hero, so all left edges line up.
 const CONTAINER = 'max-w-7xl 2xl:max-w-[90rem] mx-auto px-5 sm:px-8 lg:px-14';
@@ -179,32 +171,33 @@ export default function LandingPage() {
     navSignInRef.current?.focus();
   };
 
-  // Horizontal: pillar to pillar on the object-cover photo. Vertical: the
-  // card keeps its natural height, centred on the text block (eyebrow top to
-  // Check Title Similarity bottom), so the two read as one band.
+  // Landscape ('pillars'): pillar to pillar on the object-cover photo, centred
+  // on the text block (eyebrow top to Check Title Similarity bottom), so the
+  // two read as one band. Tall screens crop the pillars off, so the card
+  // stacks ('stacked'): under the CTA, left-aligned with the text, and the
+  // text keeps `reserve` below it so the hero centres text + card as a group.
+  // Re-measured on open/close because the reserve moves the text.
   useLayoutEffect(() => {
     const hero = heroRef.current;
     const text = heroTextRef.current;
     if (!hero || !text) return undefined;
-    const measure = () => {
-      const w = hero.clientWidth;
-      const photoW = Math.max(w, hero.clientHeight * HERO_PHOTO_ASPECT);
-      const photoLeft = (w - photoW) / 2;
-      const top = text.offsetTop + heroEyebrowRef.current.offsetTop;
-      const bottom = text.offsetTop + heroCtaRef.current.offsetTop + heroCtaRef.current.offsetHeight;
-      setCardBox({
-        left: photoLeft + photoW * PILLAR_LEFT - CARD_OVERHANG,
-        width: photoW * (PILLAR_RIGHT - PILLAR_LEFT) + CARD_OVERHANG * 2,
-        top,
-        height: bottom - top,
-      });
-    };
+    const measure = () => setCardBox(heroCardBox({
+      heroW: hero.clientWidth,
+      // Capped at the viewport: the stacked reserve grows the hero, and the
+      // grown height must not keep the card stacked after a resize back.
+      heroH: Math.min(hero.clientHeight, window.innerHeight),
+      textLeft: text.offsetLeft + heroEyebrowRef.current.offsetLeft,
+      textTop: text.offsetTop + heroEyebrowRef.current.offsetTop,
+      textBottom: text.offsetTop + heroCtaRef.current.offsetTop + heroCtaRef.current.offsetHeight,
+    }));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(hero);
     ro.observe(text);
     return () => ro.disconnect();
-  }, []);
+  }, [showHeroSignIn]);
+  const { mode: cardMode, reserve: cardReserve, ...cardStyle } = cardBox ?? {};
+  const stackedOpen = showHeroSignIn && cardMode === 'stacked';
 
   // Escape puts the card away (layout C only — A/B have nothing to close).
   useEffect(() => {
@@ -474,6 +467,7 @@ export default function LandingPage() {
           <m.div
             ref={heroTextRef}
             className="relative z-10 max-w-2xl lg:max-w-none px-8 sm:px-12 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
+            style={stackedOpen ? { marginBottom: cardReserve } : undefined}
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
@@ -533,8 +527,8 @@ export default function LandingPage() {
             </m.div>
           </m.div>
 
-          <div id="hero-sign-in" style={cardBox ?? undefined}
-            className="absolute z-20 hidden lg:flex items-center pointer-events-none">
+          <div id="hero-sign-in" style={cardStyle}
+            className={`absolute z-20 hidden lg:flex ${cardMode === 'stacked' ? 'items-start' : 'items-center'} pointer-events-none`}>
             <AnimatePresence>
               {showHeroSignIn && cardBox && (
                 <HeroSignInCard

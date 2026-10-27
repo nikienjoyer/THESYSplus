@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portrait Sign-In Mockup</title>
+<style>
+  body{margin:0;padding:24px;background:#e5e7eb;font-family:system-ui,sans-serif;display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+  figure{margin:0}
+  figcaption{font:600 14px system-ui;margin-bottom:8px;color:#111}
+  .clip{width:432px;height:768px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+  .hero{width:1080px;height:1920px;transform:scale(.4);transform-origin:0 0;position:relative;overflow:hidden;
+        background:url(../../../../frontend/public/ccsdesktop.webp) center/cover}
+  .scrim{position:absolute;inset:0}
+  .light .scrim{background:linear-gradient(100deg,rgba(255,255,255,.95) 0%,rgba(255,255,255,.88) 32%,rgba(255,255,255,.62) 58%,rgba(255,255,255,.12) 74%,transparent 88%)}
+  .dark .scrim{background:linear-gradient(100deg,rgba(2,6,23,.92) 0%,rgba(2,6,23,.80) 28%,rgba(2,6,23,.58) 52%,rgba(2,6,23,.15) 76%,transparent 90%)}
+  .hero{display:flex;align-items:center}
+  .text{position:relative;z-index:1;padding:64px;margin-bottom:552px}
+  .eyebrow{font-size:12px;margin:0 0 16px}
+  h1{font-size:30px;line-height:1.25;margin:0 0 16px}
+  .para{font-size:16px;line-height:1.6;max-width:512px;margin:0 0 28px}
+  .search{display:flex;gap:8px;max-width:576px;margin-bottom:16px}
+  .search div{flex:1;height:42px;border-radius:8px;border:1px solid}
+  .btn{height:42px;padding:0 20px;border-radius:8px;background:#1d4ed8;color:#fff;font:600 14px system-ui;display:flex;align-items:center}
+  .outline{display:inline-flex;height:42px;padding:0 20px;border-radius:8px;border:1px solid;font:600 14px system-ui;align-items:center}
+  .card{position:absolute;left:64px;top:1062px;width:448px;box-sizing:border-box;border-radius:14px;border:1px solid;padding:20px 24px 16px;
+        backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 18px 40px -12px rgba(2,6,23,.6);outline:3px dashed #f59e0b;outline-offset:6px}
+  .card h2{margin:0;font-size:20px}.card .sub{margin:4px 0 16px;font-size:13px}
+  .f{height:42px;border-radius:9px;border:1px solid;margin-bottom:10px}
+  .row{display:flex;justify-content:space-between;font-size:12.5px;margin:4px 0 16px}
+  .primary{height:42px;border-radius:9px;background:#1d4ed8;color:#fff;font:600 14px system-ui;display:flex;align-items:center;justify-content:center}
+  .foot{text-align:center;font-size:12.5px;margin:12px 0 0}
+  .light{color:#0f172a}.light .search div{background:#fff;border-color:#d1d5db}.light .outline{border-color:#cbd5e1}
+  .light .card{background:rgba(255,255,255,.6);border-color:rgba(255,255,255,.8)}.light .f{background:#fff;border-color:#d1d5db}
+  .light .accent{color:#1e40af}
+  .dark{color:#fff}.dark .eyebrow{color:#cbd5e1}.dark .para{color:#e2e8f0}.dark .search div{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
+  .dark .outline{border-color:rgba(255,255,255,.2);color:#f3f4f6}.dark .card{background:rgba(10,16,40,.55);border-color:rgba(255,255,255,.2)}
+  .dark .f{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}.dark .sub,.dark .foot{color:#cbd5e1}.dark .accent{color:#60a5fa}.dark .card .accent{color:#bfdbfe}
+  .note{position:absolute;left:530px;top:1080px;font:600 22px system-ui;color:#f59e0b;max-width:420px}
+</style></head><body>
+<script>
+const hero = cls => `
+<figure><figcaption>1080×1920 portrait — ${cls} mode (shown at 40%)</figcaption><div class="clip"><div class="hero ${cls}"><div class="scrim"></div>
+<div class="text"><p class="eyebrow">Pampanga State University • College of Computing Studies</p>
+<h1>Explore, validate, and discover<br><span class="accent" style="font-weight:800">undergraduate research</span><br>within PampangaStateU CCS.</h1>
+<p class="para">Search previous studies by meaning, check title similarity, and compare research areas by thesis count.</p>
+<div class="search"><div></div><span class="btn">Search Theses</span></div><span class="outline">Check Title Similarity</span></div>
+<div class="card"><h2>Sign in</h2><p class="sub">Use your PampangaStateU email.</p><div class="f"></div><div class="f"></div>
+<div class="row"><span>☐ Remember me</span><span class="accent">Forgot password?</span></div><div class="primary">Sign in</div>
+<p class="foot">No account? <b class="accent">Request Access</b></p></div>
+<div class="note">← stacked: text + card centred as one group; card left = text left (64px), 32px under the CTA, 448px wide</div>
+</div></div></figure>`;
+document.body.innerHTML = hero("light") + hero("dark");
+document.querySelectorAll(".hero").forEach(h => { const t = h.querySelector(".text"); const top = t.offsetTop + t.offsetHeight - 64 + 32; h.querySelector(".card").style.top = top + "px"; h.querySelector(".note").style.top = (top + 20) + "px"; });
+</script>
+</body></html>

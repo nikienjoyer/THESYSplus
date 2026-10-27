@@ -13,7 +13,9 @@ const STACKED_CARD_ROOM = 520;
 // All values are px relative to the hero section. textTop/textBottom are the
 // eyebrow top and CTA bottom. On a tall screen the object-cover photo is
 // cropped hard and the pillars land off screen, so the card stacks under the
-// hero text instead, and the hero grows to minHeroHeight if it needs room.
+// hero text instead. `reserve` is the space to keep under the text block so
+// the hero's flex centring places text + card as one group (and grows the
+// hero when they don't fit).
 export function heroCardBox({ heroW, heroH, textLeft, textTop, textBottom }) {
   const photoW = Math.max(heroW, heroH * HERO_PHOTO_ASPECT);
   const photoLeft = (heroW - photoW) / 2;
@@ -22,12 +24,11 @@ export function heroCardBox({ heroW, heroH, textLeft, textTop, textBottom }) {
   if (left + width <= heroW - 16) {
     return { mode: 'pillars', left, top: textTop, width, height: textBottom - textTop };
   }
-  const top = textBottom + 32;
   return {
     mode: 'stacked',
     left: textLeft,
-    top,
+    top: textBottom + 32,
     width: Math.min(448, heroW - 2 * textLeft),
-    minHeroHeight: top + STACKED_CARD_ROOM,
+    reserve: 32 + STACKED_CARD_ROOM,
   };
 }
