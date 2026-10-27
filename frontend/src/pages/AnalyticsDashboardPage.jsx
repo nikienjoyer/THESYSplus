@@ -384,11 +384,11 @@ export default function AnalyticsDashboardPage() {
                 sublabel="all statuses"
               />
               <StatCard
-                label="Semantic Ready"
+                label="Searchable"
                 value={data.semantic_ready}
-                sublabel="indexed for AI search"
+                sublabel="processed for search"
                 accent="var(--color-primary)"
-                tooltipText="Theses with generated SBERT embeddings that are available for semantic retrieval. A thesis becomes Semantic Ready after its embedding vector is computed."
+                tooltipText="Theses the search can match by meaning, not just exact words. New uploads appear here after processing."
               />
               <StatCard
                 label="Most Active Program"
@@ -456,7 +456,7 @@ export default function AnalyticsDashboardPage() {
 
             {/* ── Section 5: Trend summary ── */}
             <section>
-              <h2 className={sectionHeader}>{data.reviewed_subject_summary?.main_view_enabled ? 'Reviewed subject summary' : 'Exploratory cluster summary'}</h2>
+              <h2 className={sectionHeader}>{data.reviewed_subject_summary?.main_view_enabled ? 'Research subjects summary' : 'Topic groups summary'}</h2>
               <p className={`text-xs mb-4 text-muted`}>
                 {data.reviewed_subject_summary?.main_view_enabled
                   ? `Based on ${data.reviewed_subject_summary.reviewed_count} confirmed subjects among ${data.reviewed_subject_summary.approved_count} approved theses. Labels compare relative thesis counts, not growth over time. `

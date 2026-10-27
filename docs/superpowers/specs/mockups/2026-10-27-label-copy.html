@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Label copy changes</title>
+<style>
+  :root { --bg:#fafaf9; --ink:#1c1917; --muted:#78716c; --line:#e7e5e4; --old:#fef2f2; --oldink:#991b1b; --new:#f0fdf4; --newink:#166534; --chip:#eef2ff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --ink:#f5f5f4; --muted:#a8a29e; --line:#44403c; --old:#3b1515; --oldink:#fca5a5; --new:#12301d; --newink:#86efac; --chip:#272a3d; } }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--ink); font:14px/1.5 system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:32px 0 8px; }
+  h3 { font-size:13px; margin:20px 0 6px; }
+  p.note { color:var(--muted); margin:0 0 16px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:720px; }
+  .pair figure { margin:0; }
+  .pair img { width:100%; border:1px solid var(--line); border-radius:8px; display:block; }
+  .pair figcaption { font-size:12px; color:var(--muted); margin-top:4px; }
+  .pair figure:first-child figcaption { color:var(--oldink); }
+  .pair figure:last-child figcaption { color:var(--newink); }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  th, td { text-align:left; vertical-align:top; padding:8px; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+  th { font-size:12px; color:var(--muted); font-weight:600; }
+  th:nth-child(1) { width:20%; } th:nth-child(2) { width:18%; }
+  td.old { background:var(--old); color:var(--oldink); }
+  td.new { background:var(--new); color:var(--newink); }
+  code { font-size:12px; background:var(--chip); padding:1px 4px; border-radius:4px; }
+  .tag { font-size:11px; color:var(--muted); }
+  @media (max-width:640px) { th:nth-child(2), td:nth-child(2) { display:none; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Plain-language labels: before / after</h1>
+<p class="note">Plan C, 2026-10-27. Screenshots are the signed-in app at 375px on the 5174/8001 test pair; "after" is the live page with the new text swapped in. Red = now, green = proposed. Critique fixes 1–3 (approved) are applied. Off-limits strings (trend chips, Top Keywords, Similarity Threshold, Repository slider helper/tooltip) are untouched.</p>
+
+<h2>In context, 375px</h2>
+<h3>Repository: result badge</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/repo-badge-before.jpg" alt="Result card with a long '59.6% Semantic Match' badge squeezing the title to 'VEN S…'"><figcaption>Now: badge squeezes the title to "VEN S…"</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/repo-badge-after.png" alt="Result card with a short '59.6% match' badge; title reads 'VENDRICE: Solar-…'"><figcaption>New: "59.6% match", title gets room back</figcaption></figure>
+</div>
+<h3>Repository: results header and button</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/repo-header-before.jpg" alt="Header reading 'Semantic search results for' and 'Semantic Search Enabled', button 'Semantic Search'"><figcaption>Now</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/repo-header-after.png" alt="Header reading 'Results for' and 'Searches by meaning', button 'Search'"><figcaption>New</figcaption></figure>
+</div>
+<h3>Analytics: stat cards</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/analytics-stats-before.jpg" alt="Stat card 'Semantic ready, indexed for AI search'"><figcaption>Now</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/analytics-stats-after.png" alt="Stat card 'Searchable, processed for search'"><figcaption>New: "Searchable" / "processed for search", one line each</figcaption></figure>
+</div>
+<h3>Analytics: summary heading</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/analytics-summary-before.jpg" alt="Heading 'Reviewed subject summary'"><figcaption>Now</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/analytics-summary-after.jpg" alt="Heading 'Research subjects summary'"><figcaption>New</figcaption></figure>
+</div>
+<h3>Landing: snapshot and Repository card</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/landing-before.jpg" alt="Snapshot labels 'Undergraduate Theses Indexed', 'Corpus Coverage'; card mentions SBERT sentence embeddings"><figcaption>Now</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/landing-after.jpg" alt="Snapshot labels 'Undergraduate theses', 'Years covered'; card without SBERT"><figcaption>New</figcaption></figure>
+</div>
+<h3>Title Similarity: empty result</h3>
+<div class="pair">
+  <figure><img src="2026-10-27-label-copy/title-before.jpg" alt="Empty panel 'Awaiting validation'"><figcaption>Now (subtitle change below is not swapped in this shot)</figcaption></figure>
+  <figure><img src="2026-10-27-label-copy/title-after.jpg" alt="Empty panel 'Enter a title to check'"><figcaption>New</figcaption></figure>
+</div>
+<p class="note">Not shot: Trend Analysis cluster strings (this database is in reviewed-subjects mode, so they don't render), Thesis detail notices (only show when a thesis failed processing), Upload ⓘ name (screen-reader only), Help modal.</p>
+
+<h2>Every change</h2>
+<table>
+<tr><th>Where</th><th>Context</th><th>Now</th><th>New</th></tr>
+<tr><td><code>LandingPage.jsx:93</code></td><td>Repository feature card</td><td class="old">Find related theses by meaning, not just matching keywords, using SBERT sentence embeddings.</td><td class="new">Find related theses by meaning, not just matching keywords.</td></tr>
+<tr><td><code>LandingPage.jsx:566</code></td><td>Snapshot stat</td><td class="old">Undergraduate Theses Indexed</td><td class="new">Undergraduate theses</td></tr>
+<tr><td><code>LandingPage.jsx:567</code></td><td>Snapshot stat</td><td class="old">Corpus Coverage</td><td class="new">Years covered</td></tr>
+<tr><td><code>AnalyticsDashboardPage.jsx:387</code></td><td>Stat card label</td><td class="old">Semantic Ready</td><td class="new">Searchable <span class="tag">(critique 1)</span></td></tr>
+<tr><td><code>AnalyticsDashboardPage.jsx:389</code></td><td>Stat card sublabel</td><td class="old">indexed for AI search</td><td class="new">processed for search <span class="tag">(critique 1)</span></td></tr>
+<tr><td><code>AnalyticsDashboardPage.jsx:391</code></td><td>Stat card tooltip</td><td class="old">Theses with generated SBERT embeddings that are available for semantic retrieval…</td><td class="new">Theses the search can match by meaning, not just exact words. New uploads appear here after processing.</td></tr>
+<tr><td><code>AnalyticsDashboardPage.jsx:459</code></td><td>Section heading</td><td class="old">Exploratory cluster summary / Reviewed subject summary</td><td class="new">Topic groups summary <span class="tag">(critique 2)</span> / Research subjects summary</td></tr>
+<tr><td><code>RepositoryPage.jsx:242</code></td><td>Result badge</td><td class="old">59.6% Semantic Match</td><td class="new">59.6% match</td></tr>
+<tr><td><code>RepositoryPage.jsx:246</code></td><td>Badge tooltip</td><td class="old">Cosine similarity score: 0.596</td><td class="new">Matches your search by meaning: 59.6% <span class="tag">(critique 3)</span></td></tr>
+<tr><td><code>RepositoryPage.jsx:553</code></td><td>Results header</td><td class="old">Semantic search results for:</td><td class="new">Results for:</td></tr>
+<tr><td><code>RepositoryPage.jsx:566</code></td><td>Results header count</td><td class="old">182 indexed</td><td class="new">182 theses</td></tr>
+<tr><td><code>RepositoryPage.jsx:574</code></td><td>Results header marker</td><td class="old">Semantic Search Enabled</td><td class="new">Searches by meaning</td></tr>
+<tr><td><code>RepositoryPage.jsx:654</code></td><td>Search button</td><td class="old">Semantic Search (when typed) / Search</td><td class="new">Search (always)</td></tr>
+<tr><td><code>RepositoryPage.jsx:685</code></td><td>Example chips intro</td><td class="old">Try a semantic search:</td><td class="new">Try a search:</td></tr>
+<tr><td><code>RepositoryPage.jsx:741</code></td><td>Loading state</td><td class="old">Searching semantically…</td><td class="new">Searching…</td></tr>
+<tr><td><code>RepositoryPage.jsx:831</code></td><td>Empty repository</td><td class="old">…Approved theses become "Semantic Ready" and are indexed for AI-assisted search.</td><td class="new">…Approved theses become searchable by meaning.</td></tr>
+<tr><td><code>RepositoryPage.jsx:857</code></td><td>Below-threshold summary</td><td class="old">1 title or keyword match found below 60% semantic similarity</td><td class="new">1 title or keyword match found below 60% similarity</td></tr>
+<tr><td><code>ThesisDetailPage.jsx:218</code></td><td>Staff approve toast</td><td class="old">Approved, but this thesis could not be indexed for semantic search. Check the server logs.</td><td class="new">Approved, but this thesis isn't searchable by meaning yet. Check the server logs.</td></tr>
+<tr><td><code>ThesisDetailPage.jsx:321</code></td><td>Staff notice title</td><td class="old">Semantic search unavailable for this thesis.</td><td class="new">Related theses aren't available for this one yet.</td></tr>
+<tr><td><code>ThesisDetailPage.jsx:323–324</code></td><td>Staff notice body</td><td class="old">This thesis will not appear in semantic search results or title similarity comparisons. To fix, re-upload the thesis or regenerate its embedding from Django Admin.</td><td class="new">This thesis won't appear in search results or title similarity checks. To fix, re-upload the thesis or regenerate its search data from Django Admin.</td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:462</code></td><td>Page subtitle</td><td class="old">Validate proposed thesis titles using AI-assisted semantic comparison.</td><td class="new">See how close your proposed title is to existing theses. <span class="tag">(matches the Landing card)</span></td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:681</code></td><td>How scoring works</td><td class="old">…compares your proposed title with existing thesis records using SBERT semantic similarity. Higher scores may indicate topic overlap…</td><td class="new">…compares your proposed title with existing theses by meaning. A higher score means your topic may overlap with an existing study.</td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:708</code></td><td>How scoring works footer</td><td class="old">Powered by SBERT semantic comparison</td><td class="new">Compares titles by meaning, not just exact words</td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:757</code></td><td>Empty result panel</td><td class="old">Awaiting validation</td><td class="new">Enter a title to check</td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:771</code></td><td>Loading state</td><td class="old">Comparing title embeddings against the thesis corpus…</td><td class="new">Comparing your title with existing theses…</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:363, 697, 722</code></td><td>Group counts</td><td class="old">…theses in this cluster</td><td class="new">…theses in this group</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:369</code></td><td>Group card</td><td class="old">Top keywords (TF-IDF)</td><td class="new">Top keywords</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:674</code></td><td>Back link</td><td class="old">Back to text clusters</td><td class="new">Back to topic groups</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:738, 743</code></td><td>Detail error / empty</td><td class="old">…for this cluster…</td><td class="new">…for this group…</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:899</code></td><td>View switch</td><td class="old">Explore text clusters</td><td class="new">Explore topic groups</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:914</code></td><td>Loading state</td><td class="old">Loading text clusters…</td><td class="new">Loading topic groups…</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:949</code></td><td>Empty state</td><td class="old">Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.</td><td class="new">Add more theses to form topic groups. At least a few approved theses are needed.</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:967</code></td><td>Stale-link notice</td><td class="old">That topic cluster is no longer available — clusters are recomputed as the repository changes…</td><td class="new">That topic group is no longer available — groups change as the repository changes…</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:982</code></td><td>Stat card sublabel</td><td class="old">Approved corpus</td><td class="new">Approved only</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:1029</code></td><td>Section heading</td><td class="old">Topic Clusters (8)</td><td class="new">Topic groups (8)</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:1052</code></td><td>How this works</td><td class="old">…similar meaning together, using Sentence-BERT vectors of their titles, keywords and abstracts. … Groups may change as the corpus changes.</td><td class="new">…similar meaning together by comparing their titles, keywords and abstracts. … Groups may change as new theses are added.</td></tr>
+<tr><td><code>TrendAnalysisPage.jsx:1055, 1057</code></td><td>Trend rule list</td><td class="old">…the average cluster count.</td><td class="new">…the average group count.</td></tr>
+<tr><td><code>UploadThesisModal.jsx:892</code></td><td>ⓘ button name (screen reader)</td><td class="old">About automatic metadata extraction</td><td class="new">How we fill in the details for you</td></tr>
+<tr><td><code>LegalModal.jsx:101</code></td><td>About: features</td><td class="old">Semantic search across the CCS undergraduate thesis repository using SBERT embeddings</td><td class="new">Search by meaning across the CCS undergraduate thesis repository</td></tr>
+<tr><td><code>LegalModal.jsx:102</code></td><td>About: features</td><td class="old">Title similarity validation against the full corpus using cosine similarity and TF-IDF</td><td class="new">Title similarity check against every thesis in the repository</td></tr>
+<tr><td><code>LegalModal.jsx:147, 232, 354</code></td><td>Privacy / Terms / Help</td><td class="old">Thesis metadata (title, abstract, …)</td><td class="new">Thesis details (title, abstract, …)</td></tr>
+<tr><td><code>LegalModal.jsx:162, 256</code></td><td>Privacy / Terms</td><td class="old">semantic search, title similarity validation, …</td><td class="new">search by meaning, title similarity checks, …</td></tr>
+<tr><td><code>LegalModal.jsx:322</code></td><td>Help: searching</td><td class="old">THESYS+ uses semantic search to find conceptually related theses…</td><td class="new">THESYS+ searches by meaning to find related theses…</td></tr>
+<tr><td><code>LegalModal.jsx:327</code></td><td>Help: threshold</td><td class="old">…how strict semantic search results are…</td><td class="new">…how strict search results are… <span class="tag">("similarity threshold" stays)</span></td></tr>
+</table>
+
+<h2>Kept on purpose</h2>
+<table>
+<tr><th>Where</th><th>Context</th><th>String</th><th>Why kept</th></tr>
+<tr><td><code>LegalModal.jsx:110</code></td><td>About</td><td>all-MiniLM-L6-v2 … cosine similarity … clustering</td><td>The one technical sentence for the panel</td></tr>
+<tr><td><code>LegalModal.jsx:96</code></td><td>About</td><td>"Semantic-Based Thesis Retrieval and Topic Trend Analysis System"</td><td>The system's official thesis title</td></tr>
+<tr><td><code>TitleSimilarityPage.jsx:740</code></td><td>Result panel</td><td>Risk level</td><td>Already clear; sits in a tiny caps label</td></tr>
+<tr><td><code>UploadThesisModal.jsx:1017</code></td><td>Keywords placeholder</td><td>AI, OCR, web system</td><td>Example keywords a student would type, not UI jargon</td></tr>
+<tr><td><code>SimilaritySlider.jsx:113</code></td><td>Default helper</td><td>…stricter semantic matches.</td><td>Never shown: the only caller passes its own (off-limits) helper</td></tr>
+</table>
+</main>
+</body>
+</html>

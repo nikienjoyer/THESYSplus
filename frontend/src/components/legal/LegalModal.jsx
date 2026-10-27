@@ -98,8 +98,8 @@ function getContent(type) {
 
           <h3 className="text-base font-semibold mt-6 mb-3">What THESYS+ Does</h3>
           <ul className="text-sm leading-relaxed mb-4 list-disc pl-5 space-y-1">
-            <li>Semantic search across the CCS undergraduate thesis repository using SBERT embeddings</li>
-            <li>Title similarity validation against the full corpus using cosine similarity and TF-IDF</li>
+            <li>Search by meaning across the CCS undergraduate thesis repository</li>
+            <li>Title similarity check against every thesis in the repository</li>
             <li>Topic trend analysis that surfaces saturated, emerging, and underexplored research areas</li>
             <li>A structured submission and faculty review workflow for new theses</li>
             <li>Departmental analytics on research output over time</li>
@@ -144,7 +144,7 @@ function getContent(type) {
             <li>Your name and PampangaStateU institutional email address</li>
             <li>Requested role (Student or Faculty)</li>
             <li>Uploaded verification documents (Student ID or Certificate of Registration)</li>
-            <li>Thesis metadata (title, abstract, authors, keywords, program, year, adviser)</li>
+            <li>Thesis details (title, abstract, authors, keywords, program, year, adviser)</li>
             <li>Thesis documents uploaded to the repository</li>
             <li>Profile details (bio, interests, profile picture)</li>
             <li>Saved theses and search history</li>
@@ -159,7 +159,7 @@ function getContent(type) {
             <li>Verifying your eligibility as a PampangaStateU CCS student or faculty member</li>
             <li>Managing your account and providing access to THESYS+ features</li>
             <li>Managing the thesis repository and reviewing uploaded theses</li>
-            <li>Enabling semantic search, title similarity validation, and topic trend analysis</li>
+            <li>Enabling search by meaning, title similarity checks, and topic trend analysis</li>
             <li>Generating analytics and insights about repository usage</li>
             <li>Improving system performance and user experience</li>
           </ul>
@@ -229,7 +229,7 @@ function getContent(type) {
           </p>
           <ul className="text-sm leading-relaxed mb-4 list-disc pl-5 space-y-1">
             <li>Upload only valid academic documents related to thesis research</li>
-            <li>Provide accurate thesis metadata (title, abstract, authors, keywords, etc.)</li>
+            <li>Provide accurate thesis details (title, abstract, authors, keywords, etc.)</li>
             <li>Respect intellectual property rights and academic integrity standards</li>
             <li>Use the system for legitimate academic and research purposes only</li>
           </ul>
@@ -253,7 +253,7 @@ function getContent(type) {
 
           <h3 className="text-base font-semibold mt-6 mb-3">AI-Assisted Features</h3>
           <p className="text-sm leading-relaxed mb-4">
-            THESYS+ provides AI-assisted features including semantic search, title similarity validation, and topic trend analysis. These features are decision-support tools and should not be treated as final academic approval or validation. Always consult with your adviser or faculty members for official guidance.
+            THESYS+ provides AI-assisted features including search by meaning, title similarity checks, and topic trend analysis. These features are decision-support tools and should not be treated as final academic approval or validation. Always consult with your adviser or faculty members for official guidance.
           </p>
 
           <h3 className="text-base font-semibold mt-6 mb-3">Account Restrictions</h3>
@@ -319,12 +319,12 @@ function getContent(type) {
 
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I search for theses?</h4>
           <p className="text-sm leading-relaxed mb-4">
-            Use the search bar on the Repository page to enter keywords, topics, or author names. THESYS+ uses semantic search to find conceptually related theses, not just exact keyword matches.
+            Use the search bar on the Repository page to enter keywords, topics, or author names. THESYS+ searches by meaning to find related theses, not just exact keyword matches.
           </p>
 
           <h4 className="text-sm font-semibold mt-4 mb-2">What is the similarity threshold?</h4>
           <p className="text-sm leading-relaxed mb-4">
-            The similarity threshold controls how strict semantic search results are. A higher threshold (e.g., 0.7) returns only very similar theses, while a lower threshold (e.g., 0.3) returns more loosely related results. Adjust the slider before searching to set your preferred strictness.
+            The similarity threshold controls how strict search results are. A higher threshold (e.g., 0.7) returns only very similar theses, while a lower threshold (e.g., 0.3) returns more loosely related results. Adjust the slider before searching to set your preferred strictness.
           </p>
 
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I save theses?</h4>
@@ -351,7 +351,7 @@ function getContent(type) {
           <h4 className="text-sm font-semibold mt-4 mb-2">How do I upload a thesis?</h4>
           <ol className="text-sm leading-relaxed mb-4 list-decimal pl-5 space-y-1">
             <li>Go to the Upload Thesis page</li>
-            <li>Fill in the thesis metadata (title, abstract, authors, keywords, program, year, adviser)</li>
+            <li>Fill in the thesis details (title, abstract, authors, keywords, program, year, adviser)</li>
             <li>Upload your thesis document (PDF or DOCX, max 10 MB)</li>
             <li>Click "Upload Thesis"</li>
           </ol>

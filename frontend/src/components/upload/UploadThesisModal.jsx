@@ -889,7 +889,7 @@ function UploadThesisModalContent() {
                   <details className="relative">
                     <summary className={`flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden text-muted hover:text-ink`}>
                       <Info className="h-4 w-4" aria-hidden="true" />
-                      <span className="sr-only">About automatic metadata extraction</span>
+                      <span className="sr-only">How we fill in the details for you</span>
                     </summary>
                     <div className={`absolute left-0 top-full z-30 mt-1 w-[min(18rem,calc(100vw-4rem))] rounded-lg border border-[var(--color-border)] bg-surface-elevated p-3 text-xs leading-relaxed shadow-lg text-body`}>
                       Auto-filled details are derived from your document. Typos, missing headings, unusual layouts, or reading errors can make fields incomplete or incorrect. Check every field before uploading.

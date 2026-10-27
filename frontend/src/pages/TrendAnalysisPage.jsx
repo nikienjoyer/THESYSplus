@@ -360,13 +360,13 @@ function ClusterCard({ cluster, isDark, paletteColor, reviewed = false }) {
           <strong className={'text-ink'}>
             {cluster.thesis_count}
           </strong>{' '}
-          thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
+          thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'group'}
         </div>
 
         {cluster.keywords && cluster.keywords.length > 0 && (
           <div className="mb-3">
             <div className={`text-xs font-semibold uppercase tracking-wider mb-1.5 text-muted`}>
-              Top keywords (TF-IDF)
+              Top keywords
             </div>
             <div className="flex flex-wrap gap-1.5">
               {cluster.keywords.map((kw) => (
@@ -671,7 +671,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Back to {reviewed ? 'reviewed subjects' : 'text clusters'}
+            Back to {reviewed ? 'reviewed subjects' : 'topic groups'}
           </Link>
         )}
 
@@ -694,7 +694,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
         </div>
 
         <p className={`text-sm mb-3 text-body`}>
-          {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'cluster'}
+          {cluster.thesis_count} thes{cluster.thesis_count === 1 ? 'is' : 'es'} in this {reviewed ? 'subject' : 'group'}
         </p>
 
         {cluster.keywords && cluster.keywords.length > 0 && (
@@ -719,7 +719,7 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
 
       {overflowCount > 0 && (
         <p className={`text-xs mb-3 text-warning-text`}>
-          Showing first 100 of {thesisIds.length} theses in this cluster.
+          Showing first 100 of {thesisIds.length} theses in this group.
         </p>
       )}
 
@@ -735,12 +735,12 @@ function ClusterDetailView({ cluster, isDark, paletteColor, reviewed = false, fr
         </div>
       ) : rowsError ? (
         <div className={`rounded-xl p-8 text-center bg-danger-bg text-danger-text`}>
-          Failed to load theses for this {reviewed ? 'subject' : 'cluster'}. Please try again.
+          Failed to load theses for this {reviewed ? 'subject' : 'group'}. Please try again.
         </div>
       ) : rows && rows.length === 0 ? (
         <div className="thesys-empty">
           <p className={`font-semibold text-ink`}>
-            No theses found for this {reviewed ? 'subject' : 'cluster'}.
+            No theses found for this {reviewed ? 'subject' : 'group'}.
           </p>
         </div>
       ) : rows ? (
@@ -896,7 +896,7 @@ export default function TrendAnalysisPage() {
           <nav aria-label="Topic analysis views" className="flex flex-wrap gap-2 mb-8">
             <Link to="/trend-analysis" aria-current={!reviewed ? 'page' : undefined}
               className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
-              Explore text clusters
+              Explore topic groups
             </Link>
             <Link to="/trend-analysis?view=subjects" aria-current={reviewed ? 'page' : undefined}
               className={`rounded-lg px-4 py-2 text-sm font-semibold border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${reviewed ? 'bg-primary-solid border-primary-solid text-white' : 'border-border-strong text-body hover:bg-surface-secondary'}`}>
@@ -911,7 +911,7 @@ export default function TrendAnalysisPage() {
         {loading ? (
           <div className="space-y-6">
             <p className={`text-xs mb-1 text-muted`}>
-              {subjectLoading ? 'Loading trend analysis…' : reviewed ? 'Loading reviewed subjects…' : 'Loading text clusters…'}
+              {subjectLoading ? 'Loading trend analysis…' : reviewed ? 'Loading reviewed subjects…' : 'Loading topic groups…'}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -946,7 +946,7 @@ export default function TrendAnalysisPage() {
               {reviewed ? 'No reviewed subjects yet.' : 'Not enough approved theses yet.'}
             </p>
             <p className={`text-sm max-w-sm text-muted`}>
-              {reviewed ? 'Approved theses remain in the repository while faculty or administrators review their subjects.' : 'Add more theses to generate meaningful topic clusters. At least a few approved theses are needed for clustering to work.'}
+              {reviewed ? 'Approved theses remain in the repository while faculty or administrators review their subjects.' : 'Add more theses to form topic groups. At least a few approved theses are needed.'}
             </p>
           </div>
         ) : data && resolvedCluster ? (
@@ -964,7 +964,7 @@ export default function TrendAnalysisPage() {
               <div className={`rounded-lg px-4 py-3 mb-6 text-sm bg-warning-bg text-warning-text border border-warning-border`}>
                 {reviewed
                   ? 'That reviewed subject is no longer available. Showing the current overview.'
-                  : 'That topic cluster is no longer available — clusters are recomputed as the repository changes. Showing the current overview instead.'}
+                  : 'That topic group is no longer available — groups change as the repository changes. Showing the current overview instead.'}
               </div>
             )}
 
@@ -979,7 +979,7 @@ export default function TrendAnalysisPage() {
                 </>
               ) : (
                 <>
-                  <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved corpus" />
+                  <StatCard label="Total Theses" value={data.total_theses} sublabel="Approved only" />
                   <StatCard label="Total Topics" value={data.total_topics} sublabel="Groups by meaning" />
                   <StatCard label="Saturated" value={data.saturated_count} sublabel="High relative volume" accent="var(--color-danger)" />
                   <StatCard label="Underexplored" value={data.underexplored_count} sublabel="Low relative volume" accent="var(--color-success)" />
@@ -1026,7 +1026,7 @@ export default function TrendAnalysisPage() {
               <h2
                 className={`text-sm font-semibold uppercase tracking-wider mb-3 text-body`}
               >
-                {reviewed ? 'Reviewed subjects' : 'Topic Clusters'} ({data.clusters.length})
+                {reviewed ? 'Reviewed subjects' : 'Topic groups'} ({data.clusters.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {data.clusters.map((c, idx) => (
@@ -1049,12 +1049,12 @@ export default function TrendAnalysisPage() {
               <p className={`text-sm leading-relaxed mb-3 text-body`}>
                 {reviewed
                   ? 'Faculty and administrators confirm one primary research subject for each thesis. Only approved theses with a confirmed subject appear in these charts. Theses awaiting subject review remain published in the repository.'
-                  : 'Exploratory groups put approved theses with similar meaning together, using Sentence-BERT vectors of their titles, keywords and abstracts. Each group is named after its members’ confirmed research subjects; technology tags such as IoT or AI appear only when a thesis actually uses that technology. Groups may change as the corpus changes.'}
+                  : 'Exploratory groups put approved theses with similar meaning together by comparing their titles, keywords and abstracts. Each group is named after its members’ confirmed research subjects; technology tags such as IoT or AI appear only when a thesis actually uses that technology. Groups may change as new theses are added.'}
               </p>
               <ul className={`text-xs space-y-1 text-muted`}>
-                <li><strong>Saturated</strong> — at least 1.5 times the average {reviewed ? 'subject' : 'cluster'} count.</li>
+                <li><strong>Saturated</strong> — at least 1.5 times the average {reviewed ? 'subject' : 'group'} count.</li>
                 <li><strong>Emerging</strong> — between the high- and low-count thresholds.</li>
-                <li><strong>Underexplored</strong> — at most half the average {reviewed ? 'subject' : 'cluster'} count.</li>
+                <li><strong>Underexplored</strong> — at most half the average {reviewed ? 'subject' : 'group'} count.</li>
               </ul>
               <p className={`text-xs italic mt-2 text-muted`}>
                 These labels compare relative thesis counts. They do not measure growth over time.

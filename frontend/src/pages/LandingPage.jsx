@@ -90,7 +90,7 @@ const FEATURES = [
   {
     icon: Search,
     title: 'Repository',
-    desc:  'Find related theses by meaning, not just matching keywords, using SBERT sentence embeddings.',
+    desc:  'Find related theses by meaning, not just matching keywords.',
     to:    '/repository',
   },
   {
@@ -563,8 +563,8 @@ export default function LandingPage() {
             </h2>
             <dl className="mt-6 grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border-default">
               {[
-                { label: 'Undergraduate Theses Indexed', value: thesisCount ?? '—' },
-                { label: 'Corpus Coverage',              value: '2021–2025' },
+                { label: 'Undergraduate theses',         value: thesisCount ?? '—' },
+                { label: 'Years covered',                value: '2021–2025' },
                 { label: 'Programs',                     value: 'BSIS • BSIT • BSCS' },
               ].map(({ label, value }) => (
                 <div key={label} className="flex flex-col-reverse items-center gap-1.5 px-6 py-5 text-center">

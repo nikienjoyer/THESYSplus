@@ -215,7 +215,7 @@ export default function ThesisDetailPage() {
         ? 'Thesis approved. The student has been emailed.'
         : 'Thesis rejected. The student has been emailed your reason.');
       if (res.data.embedding_repair_failed) {
-        toast.error('Approved, but this thesis could not be indexed for semantic search. Check the server logs.');
+        toast.error("Approved, but this thesis isn't searchable by meaning yet. Check the server logs.");
       }
     } catch (err) {
       setReviewError(err?.response?.status === 409
@@ -318,10 +318,10 @@ export default function ThesisDetailPage() {
               }`}>
                 <TriangleAlert className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
-                  <strong>Semantic search unavailable for this thesis.</strong>
+                  <strong>Related theses aren't available for this one yet.</strong>
                   {' '}Embedding status: <code className="font-mono">{thesis.embedding_status}</code>.
-                  This thesis will not appear in semantic search results or title similarity comparisons.
-                  To fix, re-upload the thesis or regenerate its embedding from Django Admin.
+                  This thesis won't appear in search results or title similarity checks.
+                  To fix, re-upload the thesis or regenerate its search data from Django Admin.
                 </span>
               </div>
             )}

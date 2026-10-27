@@ -239,11 +239,11 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
                     style={{ backgroundColor: semanticDotColor(score) }}
                     aria-hidden="true"
                   />
-                  {pct}% Semantic Match
+                  {pct}% match
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="top">
-                Cosine similarity score: {score.toFixed(3)}
+                Matches your search by meaning: {pct}%
               </TooltipContent>
             </Tooltip>
           )}
@@ -550,7 +550,7 @@ export default function RepositoryPage() {
           <p className={`text-sm flex items-center gap-2 flex-wrap text-body`}>
             <span>
               {effectiveSearch
-                ? <>Semantic search results for: <strong className={'text-ink'}>{effectiveSearch}</strong></>
+                ? <>Results for: <strong className={'text-ink'}>{effectiveSearch}</strong></>
                 : activeKeyword
                   // Not "Browsing all approved theses" — the list is filtered,
                   // and the keyword header below names the filter.
@@ -563,7 +563,7 @@ export default function RepositoryPage() {
             {!effectiveSearch && !activeKeyword && (
               <>
                 <span className={'text-subtle'}>·</span>
-                <span className={'text-muted'}>{totalCount} indexed</span>
+                <span className={'text-muted'}>{totalCount} theses</span>
               </>
             )}
             <span className={'text-subtle'}>·</span>
@@ -571,7 +571,7 @@ export default function RepositoryPage() {
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
-              Semantic Search Enabled
+              Searches by meaning
             </span>
             {/* Soft-loading indicator — appears beside the heading during background refreshes */}
             {softLoading && (
@@ -651,7 +651,7 @@ export default function RepositoryPage() {
                 type="submit"
                 className="px-4 py-2.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
-                {searchInput.trim() ? 'Semantic Search' : 'Search'}
+                Search
               </button>
             </div>
 
@@ -682,7 +682,7 @@ export default function RepositoryPage() {
         {!search && !loading && !error && (
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <p className={`text-xs text-muted`}>
-              Try a semantic search:
+              Try a search:
             </p>
             <ExampleChips onSelect={runExampleQuery} />
           </div>
@@ -738,7 +738,7 @@ export default function RepositoryPage() {
         {loading ? (
           <>
             <p className={`text-xs mb-3 text-muted`}>
-              {search ? 'Searching semantically…' : 'Loading repository…'}
+              {search ? 'Searching…' : 'Loading repository…'}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -828,7 +828,7 @@ export default function RepositoryPage() {
                 No theses in repository yet.
               </p>
               <p className={`text-sm max-w-sm text-muted`}>
-                Upload and approve theses to populate the repository. Approved theses become "Semantic Ready" and are indexed for AI-assisted search.
+                Upload and approve theses to populate the repository. Approved theses become searchable by meaning.
               </p>
             </div>
           )
@@ -854,7 +854,7 @@ export default function RepositoryPage() {
                 summary = `${totalAbove} result${totalAbove !== 1 ? 's' : ''} above ${committedThreshold}% similarity`;
               } else if (totalAbove === 0) {
                 // All results are title-rescued (below threshold)
-                summary = `${totalBelow} title or keyword match${totalBelow !== 1 ? 'es' : ''} found below ${committedThreshold}% semantic similarity`;
+                summary = `${totalBelow} title or keyword match${totalBelow !== 1 ? 'es' : ''} found below ${committedThreshold}% similarity`;
               } else {
                 // Mixed: some semantic, some title-rescued
                 summary = `${totalAbove + totalBelow} result${totalAbove + totalBelow !== 1 ? 's' : ''} found: ${totalAbove} above ${committedThreshold}% similarity, ${totalBelow} title or keyword match${totalBelow !== 1 ? 'es' : ''} below threshold`;
