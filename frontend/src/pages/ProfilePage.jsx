@@ -108,7 +108,7 @@ function Sidebar({ user, stats }) {
 
       <Link
         to="/settings"
-        className={`w-full py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
+        className={`w-full py-2 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
       >
         Edit Profile
       </Link>
