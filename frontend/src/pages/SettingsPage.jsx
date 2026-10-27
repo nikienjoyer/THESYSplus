@@ -321,7 +321,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-6">
             <Link
               to="/profile"
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
+              className={`px-4 py-2 max-sm:min-h-10 rounded-lg text-sm font-medium border transition-colors border-border-strong text-body hover:bg-surface-secondary`}
             >
               Cancel
             </Link>
@@ -334,7 +334,7 @@ export default function SettingsPage() {
               )}
               <button
                 type="submit"
-                className="px-5 py-2 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
+                className="px-5 py-2 max-sm:min-h-10 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover transition-colors"
               >
                 Save Changes
               </button>
