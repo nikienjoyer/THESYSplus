@@ -70,8 +70,9 @@ const HERO_SCRIM_MOBILE =
 const HERO_SCRIM_DESKTOP_LIGHT =
   'linear-gradient(100deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 32%, rgba(255,255,255,0.62) 58%, rgba(255,255,255,0.12) 74%, transparent 88%)';
 
-// One container for every band below the hero, so all left edges line up.
-const CONTAINER = 'max-w-7xl 2xl:max-w-[90rem] mx-auto px-5 sm:px-8 lg:px-14';
+// One container for every band below the hero, so all left edges line up
+// with the navbar logo. No max width: the gutter stays fixed on wide screens.
+const CONTAINER = 'px-5 sm:px-8 lg:px-14';
 
 // Routes behind ProtectedRoute (App.jsx); a signed-out click on one of these
 // opens the hero sign-in card instead of navigating.
