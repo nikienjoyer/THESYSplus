@@ -469,7 +469,7 @@ export default function LandingPage() {
           {/* Text container */}
           <m.div
             ref={heroTextRef}
-            className="relative z-10 max-w-2xl lg:max-w-none px-5 sm:px-8 lg:px-16 xl:px-20 pb-20 pt-16 lg:py-16"
+            className="relative z-10 max-w-2xl lg:max-w-none px-5 sm:px-8 lg:px-14 pb-20 pt-16 lg:py-16"
             style={stackedOpen ? { marginBottom: cardReserve } : undefined}
             initial="hidden"
             animate="visible"
