@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 import uuid
 from pathlib import Path
@@ -25,7 +26,7 @@ from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
-from django.utils.text import slugify
+from django.utils.http import content_disposition_header
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.throttling import AnonRateThrottle
@@ -672,19 +673,24 @@ class ThesisSubjectSuggestionsView(APIView):
 def _preview_filename(thesis: Thesis, *, preview: bool = True) -> str:
     """Build the stable, institution-branded served filename.
 
-    Shape: ``THESYSplus_<YEAR>_<SLUG>_Preview.pdf`` for an inline preview, or
-    ``THESYSplus_<YEAR>_<SLUG>.pdf`` for an attachment download. The slug is
-    derived from the thesis title so the tab/save-as name is meaningful instead
-    of exposing the raw stored upload name.
+    Shape: ``<Title> (<YEAR>).pdf`` for an attachment download, or
+    ``<Title> (<YEAR>) (Preview).pdf`` for an inline preview. The title keeps
+    its own capitalization so the save-as name reads like the document, not
+    a URL; ``:`` becomes `` -`` and other characters Windows forbids are
+    dropped. Long titles are cut at a word boundary, never mid-word.
 
     Filename and watermark text are independent concerns: this helper knows
     nothing about which watermark was stamped, and the stamper knows nothing
     about the filename. Both happen to key off disposition, separately.
     """
-    slug = slugify(thesis.title or '')[:60].strip('-') or 'thesis'
-    year = thesis.year or 'undated'
-    suffix = '_Preview' if preview else ''
-    return f'THESYSplus_{year}_{slug}{suffix}.pdf'
+    title = (thesis.title or '').replace(':', ' -')
+    title = ' '.join(re.sub(r'[\\/*?"<>|\x00-\x1f]', '', title).split()).rstrip('. ')
+    if len(title) > 120:
+        title = title[:121].rsplit(' ', 1)[0].rstrip(' -,.')
+    title = title or 'Thesis'
+    year = f' ({thesis.year})' if thesis.year else ''
+    suffix = ' (Preview)' if preview else ''
+    return f'{title}{year}{suffix}.pdf'
 
 
 # Cached stamped artifacts live under their own prefix so they are never
@@ -971,7 +977,7 @@ class ThesisDownloadView(APIView):
             logger.warning('Thesis %s: DOCX-to-PDF conversion failed (%s)', thesis.id, exc)
             return _document_unavailable_response(thesis, 'docx_conversion_failed')
 
-        response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
+        response['Content-Disposition'] = content_disposition_header(disposition == 'attachment', filename)
         response['Cache-Control'] = 'private, no-store'
         logger.info(
             'thesis_download disposition=%s cache_hit=%s bytes=%s prepare_ms=%.0f',

@@ -513,22 +513,45 @@ class TestDownloadEndpointFilenames:
         disposition = _get(client, thesis, faculty_user)['Content-Disposition']
 
         assert disposition.startswith('inline;')
-        assert '_Preview.pdf' in disposition
+        assert '(Preview).pdf' in disposition
 
     def test_attachment_filename_omits_preview(self, client, faculty_user):
         thesis = _make_thesis(faculty_user)
         disposition = _get(client, thesis, faculty_user, 'attachment')['Content-Disposition']
 
         assert disposition.startswith('attachment;')
-        assert '_Preview' not in disposition
+        assert 'Preview' not in disposition
         assert disposition.endswith('.pdf"')
 
-    def test_filename_is_branded_and_slugged(self, client, faculty_user):
+    def test_filename_is_title_then_year(self, client, faculty_user):
         thesis = _make_thesis(faculty_user)
+        thesis.title = 'MyHealth: A Mobile-Based Application for Improving Mental Health'
+        thesis.year = 2022
+        thesis.save()
         disposition = _get(client, thesis, faculty_user, 'attachment')['Content-Disposition']
 
-        assert 'THESYSplus_2025_' in disposition
-        assert 'a-watermarked-thesis' in disposition
+        assert disposition == (
+            'attachment; filename="MyHealth - A Mobile-Based Application '
+            'for Improving Mental Health (2022).pdf"'
+        )
+
+
+class TestPreviewFilename:
+    def _name(self, title, year=2022, preview=False):
+        from types import SimpleNamespace
+        from theses.views import _preview_filename
+        return _preview_filename(SimpleNamespace(title=title, year=year), preview=preview)
+
+    def test_long_title_cuts_at_word_boundary(self):
+        name = self._name('Word ' * 40)
+        assert name.endswith('Word (2022).pdf')
+        assert len(name) <= 120 + len(' (2022).pdf')
+
+    def test_forbidden_characters_dropped(self):
+        assert self._name('A/B "Study"? <x>') == 'AB Study x (2022).pdf'
+
+    def test_missing_year_and_title(self):
+        assert self._name('', year=None, preview=True) == 'Thesis (Preview).pdf'
 
 
 @pytest.mark.django_db

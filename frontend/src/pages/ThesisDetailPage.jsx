@@ -42,8 +42,13 @@ function describeDownloadError(err) {
 /** Best-effort filename from Content-Disposition; falls back to a safe default. */
 function filenameFromDisposition(disposition, fallback) {
   if (!disposition) return fallback;
-  const match = /filename="([^"]+)"/.exec(disposition);
-  return match ? match[1] : fallback;
+  // Non-ASCII titles arrive only as RFC 5987 filename*=utf-8''<percent-encoded>.
+  const encoded = /filename\*=utf-8''([^;]+)/i.exec(disposition);
+  if (encoded) {
+    try { return decodeURIComponent(encoded[1]); } catch { /* fall through */ }
+  }
+  const match = /filename="((?:[^"\\]|\\.)+)"/.exec(disposition);
+  return match ? match[1].replace(/\\(.)/g, '$1') : fallback;
 }
 
 function isSaved(id, user) {
