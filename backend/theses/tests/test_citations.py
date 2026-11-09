@@ -87,6 +87,21 @@ def test_apa_and_ieee_reference_styles_match(uploader, make_thesis):
         assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)], refs
 
 
+def test_reference_without_the_stored_titles_trailing_words_matches(uploader, make_thesis):
+    """The stored title kept a cover-page line; the reference cites the real title."""
+    cited = make_thesis(uploader, 'DEVELOPMENT OF AN AI-POWERED STUDENT ACADEMIC PERFORMANCE '
+                                  'MONITORING SYSTEM A Sample Undergraduate Thesis Manuscript')
+    refs = ('REFERENCES\nReyes, M. A. (2026). Development of an AI-powered student academic '
+            'performance monitoring system [Unpublished sample thesis manuscript].')
+    assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
+
+
+def test_shared_first_eight_words_with_more_after_is_not_a_match(uploader, make_thesis):
+    make_thesis(uploader, 'Development of a Web-Based Student Information System for Lubao National High School')
+    refs = 'REFERENCES\nCruz (2020). Development of a web-based student information system for Guagua.'
+    assert find_cited_theses(refs) == []
+
+
 def test_ligatures_and_decomposed_accents_still_match(uploader, make_thesis):
     cited = make_thesis(uploader, 'Peñaflor Barangay Profiling and Identification System')
     refs = 'REFERENCES\nCruz (2022). Peñaflor barangay profiling and identiﬁcation system. PSU.'
