@@ -3,10 +3,9 @@
 One signal: the cited thesis's whole title (at least 4 words) appears in the
 references, ignoring case, punctuation, ligatures and accents, and it stands
 as a whole reference title: it starts after a year or closing quote (or at a
-line start) and ends at a full stop, comma, quote, bracket or line end. Only
-approved theses are candidates. Matches are saved without anyone confirming
-them, so the rule stays strict: a reference that drops a subtitle is missed
-rather than guessed.
+line start) and ends at a full stop, comma, quote, bracket or line end.
+Approved and pending theses are candidates; rejected ones never are. Matches
+are saved without anyone confirming them, so the rule stays strict.
 """
 
 from __future__ import annotations
@@ -65,8 +64,13 @@ def find_cited_theses(text: str, exclude_id=None) -> list[dict]:
     if not refs.strip():
         return []
 
-    # ponytail: scans every approved thesis per upload; fine at hundreds of theses.
-    candidates = Thesis.objects.filter(status=ThesisStatus.APPROVED).only('id', 'title', 'year')
+    # Pending theses count too: the citation is saved now and only shows under
+    # "Cited by" once both theses are approved. Rejected theses never count.
+    # ponytail: scans every candidate per upload; fine at hundreds of theses.
+    candidates = (
+        Thesis.objects.filter(status__in=[ThesisStatus.APPROVED, ThesisStatus.PENDING_REVIEW])
+        .only('id', 'title', 'year', 'status', 'uploaded_by_id')
+    )
     if exclude_id:
         candidates = candidates.exclude(id=exclude_id)
 
@@ -74,5 +78,9 @@ def find_cited_theses(text: str, exclude_id=None) -> list[dict]:
     for thesis in candidates.order_by('title'):
         words = _norm(thesis.title).split()
         if len(words) >= 4 and _title_pattern(words).search(refs):
-            found.append({'id': str(thesis.id), 'title': thesis.title, 'year': thesis.year})
+            found.append({
+                'id': str(thesis.id), 'title': thesis.title, 'year': thesis.year,
+                'under_review': thesis.status != ThesisStatus.APPROVED,
+                'uploaded_by_id': thesis.uploaded_by_id,
+            })
     return found

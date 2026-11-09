@@ -989,10 +989,13 @@ class ThesisPreviewPageView(APIView):
 # POST /theses/upload/  — upload PDF/DOCX, run extraction
 # ---------------------------------------------------------------------------
 
-def _save_citations(thesis, user) -> list[dict]:
+def _save_citations(thesis, user) -> dict:
     """Save the repository theses cited in ``thesis``'s reference list, without
-    confirmation, and return them. ignore_conflicts makes a worker retry safe.
-    Never raises: detection must not fail an upload."""
+    confirmation, and return ``{'cited': rows, 'cited_hidden': n}`` for the
+    success screen. A student never sees the title of another student's
+    pending thesis: it is saved but only counted in ``cited_hidden``.
+    ignore_conflicts makes a worker retry safe. Never raises: detection must
+    not fail an upload."""
     from .services import citations
 
     try:
@@ -1001,10 +1004,17 @@ def _save_citations(thesis, user) -> list[dict]:
             [ThesisCitation(citing=thesis, cited_id=c['id'], created_by=user) for c in cited],
             ignore_conflicts=True,
         )
-        return cited
     except Exception as exc:
         logger.warning('Thesis %s citation detection failed: %s', thesis.id, exc)
-        return []
+        return {'cited': [], 'cited_hidden': 0}
+
+    sees_pending = getattr(user, 'role', None) != Role.STUDENT
+    rows = [
+        {key: c[key] for key in ('id', 'title', 'year', 'under_review')}
+        for c in cited
+        if not c['under_review'] or sees_pending or c['uploaded_by_id'] == user.id
+    ]
+    return {'cited': rows, 'cited_hidden': len(cited) - len(rows)}
 
 
 class ThesisUploadView(APIView):
@@ -1085,7 +1095,7 @@ class ThesisUploadView(APIView):
         if existing is not None and getattr(request, 'processing_job_id', None) == existing.processing_job_id:
             # A worker retry of an attempt that already committed this thesis.
             data = ThesisDetailSerializer(existing).data
-            data['cited'] = _save_citations(existing, request.user)
+            data.update(_save_citations(existing, request.user))
             return Response(data, status=status.HTTP_201_CREATED)
         if existing is not None:
             return make_error_response(
@@ -1232,7 +1242,7 @@ class ThesisUploadView(APIView):
         # Step 8: save the repository theses this one cites and list them on
         # the success screen.
         data = ThesisDetailSerializer(thesis).data
-        data['cited'] = _save_citations(thesis, request.user)
+        data.update(_save_citations(thesis, request.user))
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
