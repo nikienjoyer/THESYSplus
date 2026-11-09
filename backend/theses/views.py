@@ -469,12 +469,9 @@ class ThesisDetailView(APIView):
 
 
 class ThesisCitationsView(APIView):
-    """``GET``: approved theses citing this one. ``POST {cited_ids, manual_ids}``: the uploader
-    (or an administrator) confirms which repository theses this one cites; ``manual_ids`` are
-    ones the uploader added by search (stored as source=manual)."""
+    """``GET``: approved theses citing this one. Citations are saved by the upload view."""
 
     permission_classes = [IsAuthenticated]
-    MAX_IDS = 50
 
     def get(self, request, id, *args, **kwargs):
         thesis = _resolve_thesis(id, request.user)
@@ -485,38 +482,6 @@ class ThesisCitationsView(APIView):
         )
         rows = [{'id': str(t.id), 'title': t.title, 'year': t.year} for t in citing]
         return Response({'count': len(rows), 'cited_by': rows})
-
-    def post(self, request, id, *args, **kwargs):
-        thesis = _resolve_thesis(id, request.user)
-        if thesis.uploaded_by_id != request.user.id and getattr(request.user, 'role', None) != Role.ADMINISTRATOR:
-            return make_error_response(
-                code='FORBIDDEN', message='Only the uploader can confirm citations.',
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        data = request.data if isinstance(request.data, dict) else {}
-        before = ThesisCitation.objects.filter(citing=thesis).count()
-        for key, source in (
-            ('cited_ids', ThesisCitation.Source.DETECTED),
-            ('manual_ids', ThesisCitation.Source.MANUAL),
-        ):
-            targets = (
-                Thesis.objects.filter(id__in=self._uuids(data.get(key)), status=ThesisStatus.APPROVED)
-                .exclude(id=thesis.id)
-            )
-            ThesisCitation.objects.bulk_create(
-                [ThesisCitation(citing=thesis, cited=t, source=source, created_by=request.user) for t in targets],
-                ignore_conflicts=True,
-            )
-        return Response({'count_saved': ThesisCitation.objects.filter(citing=thesis).count() - before})
-
-    def _uuids(self, raw):
-        ids = []
-        for value in (raw if isinstance(raw, list) else [])[:self.MAX_IDS]:
-            try:
-                ids.append(uuid.UUID(str(value)))
-            except ValueError:
-                continue
-        return ids
 
 
 class ResearchSubjectListView(APIView):

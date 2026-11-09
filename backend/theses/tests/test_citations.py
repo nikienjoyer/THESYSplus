@@ -122,45 +122,11 @@ def _auth(user):
     return {'HTTP_AUTHORIZATION': f'Bearer {_bearer(user)}'}
 
 
-@pytest.fixture
-def other(db):
-    return User.objects.create_user(
-        email='cite.other@pampangastateu.edu.ph', first_name='Ot', last_name='Her',
-        role=Role.STUDENT, password='Test12345!Test',
-    )
-
-
-def _post(client, user, thesis, ids):
-    return client.post(
-        reverse('thesis-citations', args=[thesis.id]), {'cited_ids': ids},
-        content_type='application/json', **_auth(user),
-    )
-
-
-def test_post_saves_valid_and_skips_bad_ids(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    good = make_thesis(uploader, 'Older approved thesis words')
-    pending = make_thesis(uploader, 'Pending thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    r = _post(client, uploader, mine, [str(good.id), str(mine.id), str(pending.id),
-                                       '00000000-0000-0000-0000-000000000000', 'not-a-uuid'])
-    assert r.status_code == 200
-    assert r.json() == {'count_saved': 1}
-    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(mine.id, good.id)]
-
-
-def test_post_is_idempotent(client, uploader, make_thesis):
+def test_post_citations_not_allowed(client, uploader, make_thesis):
     mine = make_thesis(uploader, 'My new thesis title words')
-    good = make_thesis(uploader, 'Older approved thesis words')
-    _post(client, uploader, mine, [str(good.id)])
-    r = _post(client, uploader, mine, [str(good.id)])
-    assert r.status_code == 200
-    assert ThesisCitation.objects.count() == 1
-
-
-def test_post_forbidden_for_other_student(client, uploader, other, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words')
-    good = make_thesis(uploader, 'Older approved thesis words')
-    assert _post(client, other, mine, [str(good.id)]).status_code == 403
+    r = client.post(reverse('thesis-citations', args=[mine.id]), {},
+                    content_type='application/json', **_auth(uploader))
+    assert r.status_code == 405
 
 
 def test_get_lists_approved_citing_only(client, uploader, make_thesis):
@@ -204,13 +170,6 @@ def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
 
     call_command('detect_citations', '--apply', stdout=StringIO())   # re-run is safe
     assert ThesisCitation.objects.count() == 1
-
-
-def test_post_with_list_body_saves_nothing(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    r = client.post(reverse('thesis-citations', args=[mine.id]), [str(mine.id)],
-                    content_type='application/json', **_auth(uploader))
-    assert r.status_code == 200 and r.json()['count_saved'] == 0
 
 
 @pytest.fixture
@@ -274,18 +233,3 @@ def test_upload_survives_detection_error(client, faculty, make_thesis, upload_en
     assert r.status_code == 201, r.content
     assert r.json()['cited'] == []
     assert ThesisCitation.objects.count() == 0
-
-
-def test_post_manual_ids_saved_as_manual(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    detected = make_thesis(uploader, 'Older approved thesis words')
-    manual = make_thesis(uploader, 'Another approved thesis words')
-    r = client.post(
-        reverse('thesis-citations', args=[mine.id]),
-        {'cited_ids': [str(detected.id)], 'manual_ids': [str(manual.id), str(mine.id)]},
-        content_type='application/json', **_auth(uploader),
-    )
-    assert r.status_code == 200
-    assert r.json() == {'count_saved': 2}
-    sources = dict(ThesisCitation.objects.values_list('cited_id', 'source'))
-    assert sources == {detected.id: 'detected', manual.id: 'manual'}

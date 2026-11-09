@@ -586,7 +586,6 @@ class ThesisAdmin(admin.ModelAdmin):
 
 @admin.register(ThesisCitation)
 class ThesisCitationAdmin(admin.ModelAdmin):
-    list_display = ('citing', 'cited', 'source', 'created_by', 'created_at')
-    list_filter = ('source',)
+    list_display = ('citing', 'cited', 'created_by', 'created_at')
     search_fields = ('citing__title', 'cited__title')
     raw_id_fields = ('citing', 'cited', 'created_by')
