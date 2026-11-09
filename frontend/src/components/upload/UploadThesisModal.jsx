@@ -190,7 +190,7 @@ function CitedList({ cited, approved }) {
         Repository theses cited in this paper
         {cited.length > 0 && (
           <span className="rounded-full border border-border-default bg-surface-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-body">
-            {cited.length}
+            {cited.length}<span className="sr-only"> found</span>
           </span>
         )}
       </h3>

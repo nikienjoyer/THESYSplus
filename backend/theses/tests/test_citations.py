@@ -71,6 +71,28 @@ def test_title_match_ignores_case_and_punctuation(uploader, make_thesis):
     assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
 
 
+def test_title_inside_a_longer_reference_title_is_not_a_match(uploader, make_thesis):
+    make_thesis(uploader, 'Library Management System for Schools')
+    refs = ('REFERENCES\n'
+            'Cruz, J. (2020). Online library management system for schools. PSU.\n'
+            'Reyes, A. (2021). Library management system for schools in Lubao. PSU.')
+    assert find_cited_theses(refs) == []
+
+
+def test_apa_and_ieee_reference_styles_match(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Library Management System for Schools')
+    for refs in ('REFERENCES\nCruz, J. (2020). Library management system for schools. PSU.',
+                 'REFERENCES\n[3] J. Cruz, "Library management system for schools," PSU, 2020.',
+                 'REFERENCES\nCruz, J. (2020).\nLibrary management system for schools [Undergraduate thesis].'):
+        assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)], refs
+
+
+def test_ligatures_and_decomposed_accents_still_match(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Peñaflor Barangay Profiling and Identification System')
+    refs = 'REFERENCES\nCruz (2022). Peñaflor barangay profiling and identiﬁcation system. PSU.'
+    assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
+
+
 def test_short_title_never_matches(uploader, make_thesis):
     make_thesis(uploader, 'Inventory System', authors=['Garcia, Liza'])
     assert find_cited_theses('REFERENCES\nGarcia (2022). Inventory system for a store.') == []
@@ -85,7 +107,7 @@ def test_excludes_self_and_unapproved(uploader, make_thesis):
 
 def test_no_heading_uses_tail(uploader, make_thesis):
     cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
-    text = ('body ' * 400) + 'Smart Parking Availability Detection Using Ultrasonic Sensors'
+    text = ('body ' * 400) + '\nSmart Parking Availability Detection Using Ultrasonic Sensors'
     assert [c['id'] for c in find_cited_theses(text)] == [str(cited.id)]
 
 

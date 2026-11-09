@@ -1,23 +1,42 @@
 """Find repository theses cited in a thesis's reference list.
 
 One signal: the cited thesis's whole title (at least 4 words) appears in the
-references text after normalising case and punctuation. Only approved theses
-are candidates. Matches are saved without anyone confirming them, so the rule
-stays strict: a reference that drops a subtitle is missed rather than guessed.
+references, ignoring case, punctuation, ligatures and accents, and it stands
+as a whole reference title: it starts after a year or closing quote (or at a
+line start) and ends at a full stop, comma, quote, bracket or line end. Only
+approved theses are candidates. Matches are saved without anyone confirming
+them, so the rule stays strict: a reference that drops a subtitle is missed
+rather than guessed.
 """
 
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from theses.models import Thesis, ThesisStatus
 
 _HEADING = re.compile(r'(?im)^\s*(references|bibliography|literature cited)\s*$')
 _NON_WORD = re.compile(r'[^a-z0-9 ]+')
+_QUOTES = '"\'“”‘’'
+
+
+def _fold(text: str) -> str:
+    """Lowercase, with ligatures split ('ﬁ' -> 'fi') and accents dropped."""
+    decomposed = unicodedata.normalize('NFKD', text or '')
+    return ''.join(ch for ch in decomposed if not unicodedata.combining(ch)).lower()
 
 
 def _norm(text: str) -> str:
-    return ' '.join(_NON_WORD.sub(' ', (text or '').lower()).split())
+    return ' '.join(_NON_WORD.sub(' ', _fold(text)).split())
+
+
+def _title_pattern(words: list[str]) -> re.Pattern:
+    # ponytail: a longer reference title that line-wraps exactly where a
+    # shorter repository title ends still matches; rare, tighten if seen.
+    start = rf'(?:^|[.){_QUOTES}])[^a-z0-9\n]*'
+    end = rf'(?=[ \t]*(?:[.?!,\[{_QUOTES}]|$))'
+    return re.compile(start + '[^a-z0-9]+'.join(map(re.escape, words)) + end, re.MULTILINE)
 
 
 def references_section(text: str) -> str:
@@ -31,10 +50,9 @@ def references_section(text: str) -> str:
 
 
 def find_cited_theses(text: str, exclude_id=None) -> list[dict]:
-    refs = references_section(text)
+    refs = _fold(references_section(text))
     if not refs.strip():
         return []
-    refs_norm = f' {_norm(refs)} '
 
     # ponytail: scans every approved thesis per upload; fine at hundreds of theses.
     candidates = Thesis.objects.filter(status=ThesisStatus.APPROVED).only('id', 'title', 'year')
@@ -44,6 +62,6 @@ def find_cited_theses(text: str, exclude_id=None) -> list[dict]:
     found = []
     for thesis in candidates.order_by('title'):
         words = _norm(thesis.title).split()
-        if len(words) >= 4 and f" {' '.join(words)} " in refs_norm:
+        if len(words) >= 4 and _title_pattern(words).search(refs):
             found.append({'id': str(thesis.id), 'title': thesis.title, 'year': thesis.year})
     return found
