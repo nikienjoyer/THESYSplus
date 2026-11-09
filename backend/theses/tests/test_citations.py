@@ -223,6 +223,40 @@ def test_student_upload_saves_but_does_not_count_yet(client, uploader, faculty, 
     assert {x['id']: x['cited_by_count'] for x in rows}[str(cited.id)] == 0
 
 
+def test_worker_retry_after_commit_still_saves_and_returns_citations(faculty, make_thesis, upload_env):
+    """A job attempt that committed the thesis then died is retried: the
+    retry takes the 'already created by this job' path and must still save
+    and return citations."""
+    import uuid
+    from types import SimpleNamespace
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
+    from theses.views import ThesisUploadView
+
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    pdf = _pdf_from_lines(THESIS_LINES + [cited.title])
+    job_id = uuid.uuid4()
+
+    def attempt():
+        return ThesisUploadView()._process_synchronous(SimpleNamespace(
+            FILES={'file': SimpleUploadedFile('t.pdf', pdf, content_type='application/pdf')},
+            data={
+                'title': 'A Mobile Health Records System For Rural Clinics',
+                'abstract': 'An abstract comfortably longer than twenty characters.',
+                'authors': '["Dela Cruz, Juan M."]', 'keywords': '["mobile health"]',
+                'program': 'BS Information Technology', 'year': '2025', 'adviser': '',
+            },
+            user=faculty, processing_job_id=job_id, storage_year=2025,
+        ))
+
+    assert attempt().status_code == 201
+    ThesisCitation.objects.all().delete()   # first attempt died before Step 8
+    retry = attempt()
+    assert retry.status_code == 201
+    assert retry.data['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert ThesisCitation.objects.filter(cited=cited).count() == 1
+
+
 def test_upload_survives_detection_error(client, faculty, make_thesis, upload_env, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError('detection broke')

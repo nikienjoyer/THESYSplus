@@ -989,6 +989,24 @@ class ThesisPreviewPageView(APIView):
 # POST /theses/upload/  — upload PDF/DOCX, run extraction
 # ---------------------------------------------------------------------------
 
+def _save_citations(thesis, user) -> list[dict]:
+    """Save the repository theses cited in ``thesis``'s reference list, without
+    confirmation, and return them. ignore_conflicts makes a worker retry safe.
+    Never raises: detection must not fail an upload."""
+    from .services import citations
+
+    try:
+        cited = citations.find_cited_theses(thesis.extracted_text, exclude_id=thesis.id)
+        ThesisCitation.objects.bulk_create(
+            [ThesisCitation(citing=thesis, cited_id=c['id'], created_by=user) for c in cited],
+            ignore_conflicts=True,
+        )
+        return cited
+    except Exception as exc:
+        logger.warning('Thesis %s citation detection failed: %s', thesis.id, exc)
+        return []
+
+
 class ThesisUploadView(APIView):
     """Upload a thesis. Students → pending_review; faculty/admin → approved."""
 
@@ -1065,7 +1083,10 @@ class ThesisUploadView(APIView):
 
         existing = Thesis.objects.filter(sha256=sha256).first()
         if existing is not None and getattr(request, 'processing_job_id', None) == existing.processing_job_id:
-            return Response(ThesisDetailSerializer(existing).data, status=status.HTTP_201_CREATED)
+            # A worker retry of an attempt that already committed this thesis.
+            data = ThesisDetailSerializer(existing).data
+            data['cited'] = _save_citations(existing, request.user)
+            return Response(data, status=status.HTTP_201_CREATED)
         if existing is not None:
             return make_error_response(
                 code='DUPLICATE_FILE',
@@ -1208,22 +1229,10 @@ class ThesisUploadView(APIView):
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Thesis %s title embedding generation failed: %s', thesis.id, exc)
 
-        # Step 8: save the repository theses this one cites (found in its
-        # reference list, no confirmation) and list them on the success screen.
-        # ignore_conflicts keeps a worker retry from storing a pair twice.
-        from .services import citations
-
+        # Step 8: save the repository theses this one cites and list them on
+        # the success screen.
         data = ThesisDetailSerializer(thesis).data
-        try:
-            cited = citations.find_cited_theses(thesis.extracted_text, exclude_id=thesis.id)
-            ThesisCitation.objects.bulk_create(
-                [ThesisCitation(citing=thesis, cited_id=c['id'], created_by=request.user) for c in cited],
-                ignore_conflicts=True,
-            )
-            data['cited'] = cited
-        except Exception as exc:  # detection must never fail an upload
-            logger.warning('Thesis %s citation detection failed: %s', thesis.id, exc)
-            data['cited'] = []
+        data['cited'] = _save_citations(thesis, request.user)
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
