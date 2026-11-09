@@ -158,7 +158,6 @@ registerCacheClearer(() => repoCache.clear());
 
 function statusVariantClass(status) {
   const map = {
-    approved: 'bg-success-bg text-success-text border-success-border',
     pending_review: 'bg-warning-bg text-warning-text border-warning-border',
     rejected: 'bg-danger-bg text-danger-text border-danger-border',
   };
@@ -250,12 +249,15 @@ function ThesisCard({ thesis, isDark, onKeywordClick, activeKeyword }) {
               </TooltipContent>
             </Tooltip>
           )}
-          <Badge
-            variant="outline"
-            className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${statusVariantClass(thesis.status)}`}
-          >
-            {thesis.status.replace('_', ' ')}
-          </Badge>
+          {/* Approved is the repository's default state, so only exceptions get a pill. */}
+          {thesis.status !== 'approved' && (
+            <Badge
+              variant="outline"
+              className={`text-xs px-2 py-0.5 h-auto uppercase tracking-wide ${statusVariantClass(thesis.status)}`}
+            >
+              {thesis.status.replace('_', ' ')}
+            </Badge>
+          )}
         </div>
       </div>
 
