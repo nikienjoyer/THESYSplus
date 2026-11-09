@@ -31,12 +31,23 @@ def _norm(text: str) -> str:
     return ' '.join(_NON_WORD.sub(' ', _fold(text)).split())
 
 
+PREFIX_WORDS = 8
+
+
 def _title_pattern(words: list[str]) -> re.Pattern:
+    """The whole title, or at least its first PREFIX_WORDS words when the
+    reference title ends right there (stored titles can keep a cover-page
+    line such as "A Sample Undergraduate Thesis Manuscript")."""
     # ponytail: a longer reference title that line-wraps exactly where a
     # shorter repository title ends still matches; rare, tighten if seen.
+    sep = '[^a-z0-9]+'
+    tail = ''
+    for word in reversed(words[PREFIX_WORDS:]):
+        tail = f'(?:{sep}{re.escape(word)}{tail})?'
+    head = sep.join(map(re.escape, words[:PREFIX_WORDS]))
     start = rf'(?:^|[.){_QUOTES}])[^a-z0-9\n]*'
     end = rf'(?=[ \t]*(?:[.?!,\[{_QUOTES}]|$))'
-    return re.compile(start + '[^a-z0-9]+'.join(map(re.escape, words)) + end, re.MULTILINE)
+    return re.compile(start + head + tail + end, re.MULTILINE)
 
 
 def references_section(text: str) -> str:
