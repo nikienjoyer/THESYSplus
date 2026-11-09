@@ -27,7 +27,6 @@ import useFocusTrap from '../../hooks/useFocusTrap';
 import useBodyScrollLock from '../../hooks/useBodyScrollLock';
 import Spinner from '../ui/Spinner';
 import FileDropzone from '../ui/FileDropzone';
-import SearchSuggestions from '../search/SearchSuggestions';
 import { MAX_UPLOAD_MB } from '../../lib/upload';
 import { useMotionVariants } from '../../lib/motion';
 
@@ -177,89 +176,39 @@ function UploadProgress({ phase, percent, canDismiss }) {
 }
 
 
-// Repository theses this upload appears to cite. Title matches start ticked;
-// author-year matches are weaker and start unticked. Nothing is stored until
-// the uploader presses Save. Uploaders can also add theses by search.
-function CitedChecklist({ thesisId, candidates }) {
-  const [items, setItems] = useState(candidates);
-  const [query, setQuery] = useState('');
-  const [dropped, setDropped] = useState(0);
-  const [picked, setPicked] = useState(
-    () => new Set(candidates.filter((c) => c.match === 'title').map((c) => c.id)),
-  );
-  const [state, setState] = useState('idle'); // idle | saving | saved | error
-
-  const addManual = (t) => {
-    if (t.id === thesisId) return;
-    setItems((prev) => (prev.some((c) => c.id === t.id) ? prev : [...prev, { ...t, match: 'manual' }]));
-    setPicked((prev) => new Set(prev).add(t.id));
-    setQuery('');
-  };
-
-  const toggle = (id) => setPicked((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-
-  const save = async () => {
-    setState('saving');
-    try {
-      const ticked = items.filter((c) => picked.has(c.id));
-      const res = await client.post(`/theses/${thesisId}/citations/`, {
-        cited_ids: ticked.filter((c) => c.match !== 'manual').map((c) => c.id),
-        manual_ids: ticked.filter((c) => c.match === 'manual').map((c) => c.id),
-      });
-      setDropped(ticked.length - (res.data?.count_saved ?? ticked.length));
-      setState('saved');
-    } catch {
-      setState('error');
-    }
-  };
+// Repository theses found in this upload's reference list. The server saved
+// them during the upload; this only shows what was stored.
+function CitedList({ cited, approved }) {
+  const one = cited.length === 1;
+  const help = approved
+    ? `Found in your reference list. ${one ? 'It now counts' : 'Each one now counts'} this thesis under "Cited by".`
+    : `Found in your reference list. ${one ? 'It counts' : 'They count'} under "Cited by" once your thesis is approved.`;
 
   return (
     <section className="mt-6 text-left border-t border-border-default pt-5" aria-labelledby="cited-heading">
-      <h3 id="cited-heading" className="text-sm font-semibold text-ink">Repository theses cited in this paper</h3>
-      <p className="text-xs text-muted mt-1 mb-3">
-        {candidates.length > 0
-          ? 'Found in your reference list. Untick any you did not cite.'
-          : 'Did you cite theses already in the repository? Add them below.'}
-      </p>
-      {state !== 'saved' && (
-        <SearchSuggestions
-          value={query}
-          onChange={setQuery}
-          onPick={setQuery}
-          onPickTitle={addManual}
-          wrapperClassName="mb-3"
-          inputClassName="w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors thesys-input"
-          placeholder="Add another thesis you cited…"
-          ariaLabel="Search for a repository thesis you cited"
-        />
-      )}
-      {items.length > 0 && (
-      <ul className="space-y-2 max-h-48 overflow-y-auto">
-        {items.map((c) => (
-          <li key={c.id}>
-            <label className="flex items-start gap-2.5 text-sm text-body cursor-pointer">
-              <input type="checkbox" className="mt-0.5 accent-blue-600" checked={picked.has(c.id)}
-                onChange={() => toggle(c.id)} disabled={state === 'saving' || state === 'saved'} />
-              <span>{c.title} <span className="text-muted tabular-nums">({c.year})</span></span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      )}
-      <div className="mt-3 flex items-center gap-3">
-        <button type="button" onClick={save} disabled={state === 'saving' || state === 'saved' || picked.size === 0}
-          className="px-3 py-1.5 rounded-lg bg-primary-solid text-white text-sm font-semibold hover:bg-primary-solid-hover disabled:opacity-60 transition-colors">
-          {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : 'Save citations'}
-        </button>
-        {state === 'error' && <span className="text-xs text-danger">Couldn't save. Try again.</span>}
-        {state === 'saved' && dropped > 0 && (
-          <span className="text-xs text-muted">{dropped} couldn't be saved — only approved theses can be cited.</span>
+      <h3 id="cited-heading" className="flex items-baseline gap-2 text-sm font-semibold text-ink">
+        Repository theses cited in this paper
+        {cited.length > 0 && (
+          <span className="rounded-full border border-border-default bg-surface-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-body">
+            {cited.length}<span className="sr-only"> found</span>
+          </span>
         )}
-      </div>
+      </h3>
+      {cited.length === 0 ? (
+        <p className="mt-1 text-sm text-muted">None of the repository's theses appear in your reference list.</p>
+      ) : (
+        <>
+          <p className="mt-1 mb-3 text-xs text-muted">{help}</p>
+          <ol className="rounded-lg border border-border-default divide-y divide-border-default">
+            {cited.map((c) => (
+              <li key={c.id} className="flex justify-between gap-4 px-3 py-2.5 text-sm text-ink">
+                <span className="min-w-0 break-words">{c.title}</span>
+                <span className="flex-none tabular-nums text-muted">{c.year}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
     </section>
   );
 }
@@ -854,7 +803,7 @@ function UploadThesisModalContent() {
               </button>
             </m.div>
             {success.id && (
-              <CitedChecklist thesisId={success.id} candidates={success.cited_candidates || []} />
+              <CitedList cited={success.cited || []} approved={success.status === 'approved'} />
             )}
           </m.div>
           </LazyMotion>

@@ -214,13 +214,8 @@ class ThesisCitation(models.Model):
     Only citations whose ``citing`` thesis is approved count toward a total.
     """
 
-    class Source(models.TextChoices):
-        DETECTED = 'detected', 'Detected from references'
-        MANUAL = 'manual', 'Added manually'
-
     citing = models.ForeignKey(Thesis, on_delete=models.CASCADE, related_name='citations_made')
     cited = models.ForeignKey(Thesis, on_delete=models.CASCADE, related_name='citations_received')
-    source = models.CharField(max_length=16, choices=Source.choices, default=Source.DETECTED)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
     )

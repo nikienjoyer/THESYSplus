@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from io import StringIO
+from uuid import UUID
 
 import pytest
 from django.core.files.base import ContentFile
@@ -55,24 +56,46 @@ def test_title_match(uploader, make_thesis):
     cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors',
                         authors=['Manalo, Paolo'], year=2021)
     out = find_cited_theses(REFS)
-    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021, 'match': 'title'}]
+    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
 
 
-def test_author_year_match(uploader, make_thesis):
-    cited = make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'], year=2022)
-    assert find_cited_theses(REFS) == [
-        {'id': str(cited.id), 'title': cited.title, 'year': 2022, 'match': 'author_year'},
-    ]
+def test_shared_eight_word_prefix_is_not_a_match(uploader, make_thesis):
+    make_thesis(uploader, 'Development of a Web-Based Student Information System for Lubao')
+    refs = 'REFERENCES\nCruz, J. (2020). Development of a web-based student information system for Guagua.'
+    assert find_cited_theses(refs) == []
 
 
-def test_author_year_needs_same_line(uploader, make_thesis):
-    make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'], year=2019)
-    assert find_cited_theses(REFS) == []
+def test_title_match_ignores_case_and_punctuation(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
+    refs = 'REFERENCES\nManalo (2021). SMART-PARKING availability detection: using ultrasonic\nsensors.'
+    assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
 
 
-def test_short_surname_ignored(uploader, make_thesis):
-    make_thesis(uploader, 'Some Other Thesis Title', authors=['Li, Wei'], year=2022)
-    assert find_cited_theses('REFERENCES\nLi, W. (2022). Unrelated.') == []
+def test_title_inside_a_longer_reference_title_is_not_a_match(uploader, make_thesis):
+    make_thesis(uploader, 'Library Management System for Schools')
+    refs = ('REFERENCES\n'
+            'Cruz, J. (2020). Online library management system for schools. PSU.\n'
+            'Reyes, A. (2021). Library management system for schools in Lubao. PSU.')
+    assert find_cited_theses(refs) == []
+
+
+def test_apa_and_ieee_reference_styles_match(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Library Management System for Schools')
+    for refs in ('REFERENCES\nCruz, J. (2020). Library management system for schools. PSU.',
+                 'REFERENCES\n[3] J. Cruz, "Library management system for schools," PSU, 2020.',
+                 'REFERENCES\nCruz, J. (2020).\nLibrary management system for schools [Undergraduate thesis].'):
+        assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)], refs
+
+
+def test_ligatures_and_decomposed_accents_still_match(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Peñaflor Barangay Profiling and Identification System')
+    refs = 'REFERENCES\nCruz (2022). Peñaflor barangay profiling and identiﬁcation system. PSU.'
+    assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
+
+
+def test_short_title_never_matches(uploader, make_thesis):
+    make_thesis(uploader, 'Inventory System', authors=['Garcia, Liza'])
+    assert find_cited_theses('REFERENCES\nGarcia (2022). Inventory system for a store.') == []
 
 
 def test_excludes_self_and_unapproved(uploader, make_thesis):
@@ -84,7 +107,7 @@ def test_excludes_self_and_unapproved(uploader, make_thesis):
 
 def test_no_heading_uses_tail(uploader, make_thesis):
     cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
-    text = ('body ' * 400) + 'Smart Parking Availability Detection Using Ultrasonic Sensors'
+    text = ('body ' * 400) + '\nSmart Parking Availability Detection Using Ultrasonic Sensors'
     assert [c['id'] for c in find_cited_theses(text)] == [str(cited.id)]
 
 
@@ -121,45 +144,11 @@ def _auth(user):
     return {'HTTP_AUTHORIZATION': f'Bearer {_bearer(user)}'}
 
 
-@pytest.fixture
-def other(db):
-    return User.objects.create_user(
-        email='cite.other@pampangastateu.edu.ph', first_name='Ot', last_name='Her',
-        role=Role.STUDENT, password='Test12345!Test',
-    )
-
-
-def _post(client, user, thesis, ids):
-    return client.post(
-        reverse('thesis-citations', args=[thesis.id]), {'cited_ids': ids},
-        content_type='application/json', **_auth(user),
-    )
-
-
-def test_post_saves_valid_and_skips_bad_ids(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    good = make_thesis(uploader, 'Older approved thesis words')
-    pending = make_thesis(uploader, 'Pending thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    r = _post(client, uploader, mine, [str(good.id), str(mine.id), str(pending.id),
-                                       '00000000-0000-0000-0000-000000000000', 'not-a-uuid'])
-    assert r.status_code == 200
-    assert r.json() == {'count_saved': 1}
-    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(mine.id, good.id)]
-
-
-def test_post_is_idempotent(client, uploader, make_thesis):
+def test_post_citations_not_allowed(client, uploader, make_thesis):
     mine = make_thesis(uploader, 'My new thesis title words')
-    good = make_thesis(uploader, 'Older approved thesis words')
-    _post(client, uploader, mine, [str(good.id)])
-    r = _post(client, uploader, mine, [str(good.id)])
-    assert r.status_code == 200
-    assert ThesisCitation.objects.count() == 1
-
-
-def test_post_forbidden_for_other_student(client, uploader, other, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words')
-    good = make_thesis(uploader, 'Older approved thesis words')
-    assert _post(client, other, mine, [str(good.id)]).status_code == 403
+    r = client.post(reverse('thesis-citations', args=[mine.id]), {},
+                    content_type='application/json', **_auth(uploader))
+    assert r.status_code == 405
 
 
 def test_get_lists_approved_citing_only(client, uploader, make_thesis):
@@ -196,7 +185,7 @@ def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
     out = StringIO()
     call_command('detect_citations', stdout=out)
     assert ThesisCitation.objects.count() == 0
-    assert 'title' in out.getvalue() and 'author_year' in out.getvalue()
+    assert cited.title[:50] in out.getvalue()
 
     call_command('detect_citations', '--apply', stdout=StringIO())
     assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(citing.id, cited.id)]
@@ -205,51 +194,98 @@ def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
     assert ThesisCitation.objects.count() == 1
 
 
-def test_post_with_list_body_saves_nothing(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    r = client.post(reverse('thesis-citations', args=[mine.id]), [str(mine.id)],
-                    content_type='application/json', **_auth(uploader))
-    assert r.status_code == 200 and r.json()['count_saved'] == 0
-
-
-def test_upload_response_carries_cited_candidates(client, make_thesis, settings, tmp_path):
-    """Real upload path (sync): the 201 body lists repository theses cited in REFERENCES."""
-    from django.core.files.uploadedfile import SimpleUploadedFile
-    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
-
-    settings.DOCUMENT_PROCESSING_ASYNC = False
-    settings.MEDIA_ROOT = str(tmp_path / 'media')
-    faculty = User.objects.create_user(
+@pytest.fixture
+def faculty(db):
+    return User.objects.create_user(
         email='cite.fac@pampangastateu.edu.ph', first_name='Fa', last_name='Culty',
         role=Role.FACULTY, password='Test12345!Test',
     )
-    cited = make_thesis(faculty, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
-    pdf = _pdf_from_lines(THESIS_LINES + [cited.title])
 
-    from auth_service.services import issue_token_pair
-    token = issue_token_pair(faculty, request=None, remember_me=False).access_token
-    r = client.post(reverse('thesis-upload'), data={
+
+@pytest.fixture
+def upload_env(settings, tmp_path):
+    settings.DOCUMENT_PROCESSING_ASYNC = False
+    settings.MEDIA_ROOT = str(tmp_path / 'media')
+
+
+def _upload(client, user, extra_lines):
+    """Real upload path (sync) with a PDF whose text ends with ``extra_lines``."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
+
+    pdf = _pdf_from_lines(THESIS_LINES + list(extra_lines))
+    return client.post(reverse('thesis-upload'), data={
         'title': 'A Mobile Health Records System For Rural Clinics',
         'abstract': 'An abstract comfortably longer than twenty characters.',
         'authors': '["Dela Cruz, Juan M."]', 'keywords': '["mobile health"]',
         'program': 'BS Information Technology', 'year': '2025', 'adviser': '',
         'file': SimpleUploadedFile('t.pdf', pdf, content_type='application/pdf'),
-    }, HTTP_AUTHORIZATION=f'Bearer {token}')
+    }, **_auth(user))
+
+
+SMART_PARKING = 'Smart Parking Availability Detection Using Ultrasonic Sensors'
+
+
+def test_upload_saves_cited_theses(client, faculty, make_thesis, upload_env):
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, faculty, [cited.title])
     assert r.status_code == 201, r.content
-    cands = r.json()['cited_candidates']
-    assert cands[0]['match'] == 'title' and cands[0]['id'] == str(cited.id)
+    assert r.json()['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id', 'created_by_id')) == [
+        (UUID(r.json()['id']), cited.id, faculty.id)]
 
 
-def test_post_manual_ids_saved_as_manual(client, uploader, make_thesis):
-    mine = make_thesis(uploader, 'My new thesis title words', status=ThesisStatus.PENDING_REVIEW)
-    detected = make_thesis(uploader, 'Older approved thesis words')
-    manual = make_thesis(uploader, 'Another approved thesis words')
-    r = client.post(
-        reverse('thesis-citations', args=[mine.id]),
-        {'cited_ids': [str(detected.id)], 'manual_ids': [str(manual.id), str(mine.id)]},
-        content_type='application/json', **_auth(uploader),
-    )
-    assert r.status_code == 200
-    assert r.json() == {'count_saved': 2}
-    sources = dict(ThesisCitation.objects.values_list('cited_id', 'source'))
-    assert sources == {detected.id: 'detected', manual.id: 'manual'}
+def test_student_upload_saves_but_does_not_count_yet(client, uploader, faculty, make_thesis, upload_env):
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, uploader, [cited.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'][0]['id'] == str(cited.id)
+    assert ThesisCitation.objects.count() == 1
+    rows = client.get(reverse('thesis-list'), **_auth(uploader)).json()['results']
+    assert {x['id']: x['cited_by_count'] for x in rows}[str(cited.id)] == 0
+
+
+def test_worker_retry_after_commit_still_saves_and_returns_citations(faculty, make_thesis, upload_env):
+    """A job attempt that committed the thesis then died is retried: the
+    retry takes the 'already created by this job' path and must still save
+    and return citations."""
+    import uuid
+    from types import SimpleNamespace
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
+    from theses.views import ThesisUploadView
+
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    pdf = _pdf_from_lines(THESIS_LINES + [cited.title])
+    job_id = uuid.uuid4()
+
+    def attempt():
+        return ThesisUploadView()._process_synchronous(SimpleNamespace(
+            FILES={'file': SimpleUploadedFile('t.pdf', pdf, content_type='application/pdf')},
+            data={
+                'title': 'A Mobile Health Records System For Rural Clinics',
+                'abstract': 'An abstract comfortably longer than twenty characters.',
+                'authors': '["Dela Cruz, Juan M."]', 'keywords': '["mobile health"]',
+                'program': 'BS Information Technology', 'year': '2025', 'adviser': '',
+            },
+            user=faculty, processing_job_id=job_id, storage_year=2025,
+        ))
+
+    assert attempt().status_code == 201
+    ThesisCitation.objects.all().delete()   # first attempt died before Step 8
+    retry = attempt()
+    assert retry.status_code == 201
+    assert retry.data['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert ThesisCitation.objects.filter(cited=cited).count() == 1
+
+
+def test_upload_survives_detection_error(client, faculty, make_thesis, upload_env, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError('detection broke')
+
+    monkeypatch.setattr('theses.services.citations.find_cited_theses', boom)
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, faculty, [cited.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'] == []
+    assert ThesisCitation.objects.count() == 0
