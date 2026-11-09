@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cited Under Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (:root and .dark). */
+  :root {
+    --primary:#1e40af; --solid:#1e40af;
+    --canvas:#f8fafc; --surface-2:#f1f5f9; --elevated:#ffffff;
+    --border:#e2e8f0; --border-strong:#cbd5e1;
+    --ink:#111827; --body:#475569; --muted:#6b7280;
+    --warn-bg:#fffbeb; --warn-border:#fcd34d; --warn-text:#b45309;
+    --ok-bg:#ecfdf5; --ok-text:#047857;
+  }
+  :root.dark {
+    --primary:#60a5fa; --solid:#2563eb;
+    --canvas:#080d24; --surface-2:rgba(255,255,255,.04); --elevated:#0f1a3a;
+    --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.16);
+    --ink:#f9fafb; --body:#d1d5db; --muted:#9ca3af;
+    --warn-bg:rgba(245,158,11,.15); --warn-border:rgba(245,158,11,.30); --warn-text:#fbbf24;
+    --ok-bg:rgba(16,185,129,.12); --ok-text:#34d399;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--canvas); color:var(--body); font-family:Inter, system-ui, sans-serif; font-size:14px; line-height:1.5; padding:24px 16px 64px; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  h1 { color:var(--ink); font-size:22px; font-weight:700; }
+  .lead { color:var(--muted); margin:4px 0 16px; max-width:78ch; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
+  .btn { font:inherit; font-size:13px; font-weight:600; border-radius:8px; padding:6px 12px; cursor:pointer; border:1px solid var(--border-strong); background:transparent; color:var(--body); }
+  .btn:hover { background:var(--surface-2); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap:24px; align-items:start; }
+  .cap { color:var(--ink); font-size:15px; font-weight:600; margin-bottom:8px; }
+  .cap small { display:block; color:var(--muted); font-weight:400; font-size:13px; }
+  .modal { position:relative; background:var(--elevated); border:1px solid var(--border); border-radius:16px; padding:32px; text-align:center; max-width:672px; }
+  .phone .modal { max-width:375px; padding:24px; }
+  .x { position:absolute; right:16px; top:16px; color:var(--muted); }
+  .icon { width:64px; height:64px; border-radius:999px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; }
+  .icon.ok { background:var(--ok-bg); color:var(--ok-text); }
+  .icon.wait { background:var(--warn-bg); color:var(--warn-text); }
+  .modal h2 { color:var(--ink); font-size:24px; font-weight:700; margin-bottom:8px; }
+  .modal .sub { font-size:14px; margin-bottom:24px; }
+  .acts { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
+  .phone .acts { flex-direction:column; }
+  .a { font-size:14px; font-weight:600; padding:8px 16px; border-radius:8px; border:1px solid var(--border-strong); color:var(--body); }
+  .a.p { background:var(--solid); border-color:var(--solid); color:#fff; }
+  .cited { margin-top:24px; padding-top:20px; border-top:1px solid var(--border); text-align:left; }
+  .cited h3 { color:var(--ink); font-size:14px; font-weight:600; display:flex; align-items:baseline; gap:8px; }
+  .count { font-size:12px; font-weight:600; color:var(--body); background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:2px 8px; font-variant-numeric:tabular-nums; }
+  .help { color:var(--muted); font-size:12px; margin:4px 0 12px; }
+  .cited ol { list-style:none; padding:0; border:1px solid var(--border); border-radius:8px; }
+  .cited li { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:10px 12px; border-top:1px solid var(--border); font-size:14px; color:var(--ink); }
+  .cited li:first-child { border-top:0; }
+  .t { min-width:0; }
+  .meta { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .yr { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .review { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; white-space:nowrap; color:var(--warn-text); background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:999px; padding:2px 8px; }
+  .hidden-row { color:var(--muted); }
+  .phone .cited li { flex-direction:column; gap:6px; }
+  .phone .meta { flex-direction:row; align-items:center; gap:8px; }
+  .tag { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; margin-left:6px; color:var(--ok-text); background:var(--ok-bg); }
+  .notes { margin-top:40px; max-width:80ch; }
+  .notes h2 { color:var(--ink); font-size:15px; margin-bottom:8px; }
+  .notes ul { padding-left:18px; display:grid; gap:4px; font-size:13px; }
+  .notes b { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cited theses that are still under review</h1>
+  <p class="lead">Citations to pending theses are found and saved at upload, marked "Under review", and only count under "Cited by" once both theses are approved. Another student's pending title is never shown.</p>
+  <div class="bar">
+    <button class="btn" id="theme" aria-pressed="false">Switch to dark</button>
+    <button class="btn" id="phone" aria-pressed="false">Show at phone width</button>
+  </div>
+
+  <div class="grid" id="g">
+    <section>
+      <p class="cap">1. Your test case <span class="tag">new</span><small>Student upload; both cited theses are the student's own pending uploads</small></p>
+      <div class="modal">
+        <span class="x" aria-hidden="true">✕</span>
+        <div class="icon wait"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <h2>Submitted for Review</h2>
+        <p class="sub">Your thesis has been submitted and is awaiting faculty review.</p>
+        <div class="acts"><span class="a p">View Thesis</span><span class="a">View Repository</span><span class="a">Upload Another Thesis</span></div>
+        <div class="cited">
+          <h3>Repository theses cited in this paper <span class="count">2</span></h3>
+          <p class="help">Found in your reference list. They count under "Cited by" once your thesis and the theses under review are approved.</p>
+          <ol>
+            <li><span class="t">DESIGN AND IMPLEMENTATION OF A WEB-BASED INVENTORY MANAGEMENT SYSTEM FOR SMALL BUSINESSES</span><span class="meta"><span class="yr">2026</span><span class="review">Under review</span></span></li>
+            <li><span class="t">DEVELOPMENT OF AN AI-POWERED STUDENT ACADEMIC PERFORMANCE MONITORING SYSTEM</span><span class="meta"><span class="yr">2026</span><span class="review">Under review</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <p class="cap">2. Mixed <span class="tag">new</span><small>Student upload; 1 approved, 1 own pending, 1 another student's pending</small></p>
+      <div class="modal">
+        <span class="x" aria-hidden="true">✕</span>
+        <div class="icon wait"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <h2>Submitted for Review</h2>
+        <p class="sub">Your thesis has been submitted and is awaiting faculty review.</p>
+        <div class="acts"><span class="a p">View Thesis</span><span class="a">View Repository</span><span class="a">Upload Another Thesis</span></div>
+        <div class="cited">
+          <h3>Repository theses cited in this paper <span class="count">3</span></h3>
+          <p class="help">Found in your reference list. They count under "Cited by" once your thesis and the theses under review are approved.</p>
+          <ol>
+            <li><span class="t">Smart Parking Availability Detection Using Ultrasonic Sensors</span><span class="meta"><span class="yr">2021</span></span></li>
+            <li><span class="t">DEVELOPMENT OF AN AI-POWERED STUDENT ACADEMIC PERFORMANCE MONITORING SYSTEM</span><span class="meta"><span class="yr">2026</span><span class="review">Under review</span></span></li>
+            <li class="hidden-row"><span class="t">1 more thesis that is still under review</span><span class="meta"><span class="review">Under review</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <p class="cap">3. Faculty or admin upload <span class="tag">new</span><small>Published now; 1 cited thesis approved, 1 still under review</small></p>
+      <div class="modal">
+        <span class="x" aria-hidden="true">✕</span>
+        <div class="icon ok"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h2>Thesis Approved &amp; Published</h2>
+        <p class="sub">Your thesis is now live in the repository.</p>
+        <div class="acts"><span class="a p">View Thesis</span><span class="a">View Repository</span><span class="a">Upload Another Thesis</span></div>
+        <div class="cited">
+          <h3>Repository theses cited in this paper <span class="count">2</span></h3>
+          <p class="help">Found in your reference list. Theses under review count under "Cited by" once they are approved.</p>
+          <ol>
+            <li><span class="t">DESIGN AND IMPLEMENTATION OF A WEB-BASED INVENTORY MANAGEMENT SYSTEM FOR SMALL BUSINESSES</span><span class="meta"><span class="yr">2026</span></span></li>
+            <li><span class="t">DEVELOPMENT OF AN AI-POWERED STUDENT ACADEMIC PERFORMANCE MONITORING SYSTEM</span><span class="meta"><span class="yr">2026</span><span class="review">Under review</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <h2>Rules behind the screen</h2>
+    <ul>
+      <li><b>Detected against</b> approved and pending theses. Rejected theses are never cited.</li>
+      <li><b>Saved at upload</b>, all of them. Nothing has to run again when a cited thesis is approved later.</li>
+      <li><b>"Cited by N"</b> counts a citation only when both the citing and the cited thesis are approved.</li>
+      <li><b>Under review tag</b> on any cited thesis that is still pending.</li>
+      <li><b>Privacy:</b> another student's pending title is never shown, only "1 more thesis that is still under review" (or "N more theses…"). Faculty and admins, who can already see pending theses, get the titles.</li>
+      <li><b>Unchanged:</b> when everything is already approved, the screen stays as today ("Each one now counts this thesis under "Cited by"").</li>
+    </ul>
+  </div>
+</div>
+<script>
+  const t = document.getElementById('theme'), p = document.getElementById('phone'), g = document.getElementById('g');
+  t.onclick = () => { const d = document.documentElement.classList.toggle('dark'); t.textContent = d ? 'Switch to light' : 'Switch to dark'; t.setAttribute('aria-pressed', d); };
+  p.onclick = () => { const on = g.classList.toggle('phone'); p.textContent = on ? 'Show at desktop width' : 'Show at phone width'; p.setAttribute('aria-pressed', on); };
+</script>
+</body>
+</html>

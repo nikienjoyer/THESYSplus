@@ -56,7 +56,16 @@ def test_title_match(uploader, make_thesis):
     cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors',
                         authors=['Manalo, Paolo'], year=2021)
     out = find_cited_theses(REFS)
-    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021,
+                    'under_review': False, 'uploaded_by_id': uploader.id}]
+
+
+def test_pending_theses_are_found_and_rejected_never(uploader, make_thesis):
+    pending = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors',
+                          status=ThesisStatus.PENDING_REVIEW)
+    make_thesis(uploader, 'A mobile app for something else entirely', status=ThesisStatus.REJECTED)
+    out = find_cited_theses(REFS)
+    assert [(c['id'], c['under_review']) for c in out] == [(str(pending.id), True)]
 
 
 def test_shared_eight_word_prefix_is_not_a_match(uploader, make_thesis):
@@ -113,10 +122,8 @@ def test_short_title_never_matches(uploader, make_thesis):
     assert find_cited_theses('REFERENCES\nGarcia (2022). Inventory system for a store.') == []
 
 
-def test_excludes_self_and_unapproved(uploader, make_thesis):
+def test_excludes_self(uploader, make_thesis):
     me = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
-    make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'],
-                year=2022, status=ThesisStatus.PENDING_REVIEW)
     assert find_cited_theses(REFS, exclude_id=me.id) == []
 
 
@@ -245,9 +252,48 @@ def test_upload_saves_cited_theses(client, faculty, make_thesis, upload_env):
     cited = make_thesis(faculty, SMART_PARKING, year=2021)
     r = _upload(client, faculty, [cited.title])
     assert r.status_code == 201, r.content
-    assert r.json()['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert r.json()['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021,
+                                  'under_review': False}]
+    assert r.json()['cited_hidden'] == 0
     assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id', 'created_by_id')) == [
         (UUID(r.json()['id']), cited.id, faculty.id)]
+
+
+@pytest.fixture
+def other_student(db):
+    return User.objects.create_user(
+        email='cite.other@pampangastateu.edu.ph', first_name='Ot', last_name='Her',
+        role=Role.STUDENT, password='Test12345!Test',
+    )
+
+
+def test_student_sees_own_pending_cited_thesis_as_under_review(client, uploader, make_thesis, upload_env):
+    mine = make_thesis(uploader, SMART_PARKING, status=ThesisStatus.PENDING_REVIEW)
+    r = _upload(client, uploader, [mine.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'] == [{'id': str(mine.id), 'title': mine.title, 'year': 2022,
+                                  'under_review': True}]
+    assert r.json()['cited_hidden'] == 0
+    assert ThesisCitation.objects.filter(cited=mine).count() == 1
+
+
+def test_student_never_sees_another_students_pending_title(client, uploader, other_student,
+                                                           make_thesis, upload_env):
+    theirs = make_thesis(other_student, SMART_PARKING, status=ThesisStatus.PENDING_REVIEW)
+    r = _upload(client, uploader, [theirs.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'] == []
+    assert r.json()['cited_hidden'] == 1
+    assert theirs.title not in r.content.decode()
+    assert ThesisCitation.objects.filter(cited=theirs).count() == 1
+
+
+def test_faculty_sees_pending_titles(client, faculty, other_student, make_thesis, upload_env):
+    theirs = make_thesis(other_student, SMART_PARKING, status=ThesisStatus.PENDING_REVIEW)
+    r = _upload(client, faculty, [theirs.title])
+    assert r.status_code == 201, r.content
+    assert [(c['id'], c['under_review']) for c in r.json()['cited']] == [(str(theirs.id), True)]
+    assert r.json()['cited_hidden'] == 0
 
 
 def test_student_upload_saves_but_does_not_count_yet(client, uploader, faculty, make_thesis, upload_env):
@@ -290,7 +336,8 @@ def test_worker_retry_after_commit_still_saves_and_returns_citations(faculty, ma
     ThesisCitation.objects.all().delete()   # first attempt died before Step 8
     retry = attempt()
     assert retry.status_code == 201
-    assert retry.data['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert retry.data['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021,
+                                    'under_review': False}]
     assert ThesisCitation.objects.filter(cited=cited).count() == 1
 
 

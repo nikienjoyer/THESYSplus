@@ -176,36 +176,65 @@ function UploadProgress({ phase, percent, canDismiss }) {
 }
 
 
+const UnderReview = () => (
+  <span className="whitespace-nowrap rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-xs font-semibold text-warning-text">
+    Under review
+  </span>
+);
+
 // Repository theses found in this upload's reference list. The server saved
-// them during the upload; this only shows what was stored.
-function CitedList({ cited, approved }) {
-  const one = cited.length === 1;
-  const help = approved
-    ? `Found in your reference list. ${one ? 'It now counts' : 'Each one now counts'} this thesis under "Cited by".`
-    : `Found in your reference list. ${one ? 'It counts' : 'They count'} under "Cited by" once your thesis is approved.`;
+// them during the upload; this only shows what was stored. `hidden` counts
+// other students' pending theses, whose titles a student must not see.
+function CitedList({ cited, hidden, approved }) {
+  const total = cited.length + hidden;
+  const one = total === 1;
+  const anyReview = hidden > 0 || cited.some((c) => c.under_review);
+  let help;
+  if (!anyReview) {
+    help = approved
+      ? `${one ? 'It now counts' : 'Each one now counts'} this thesis under "Cited by".`
+      : `${one ? 'It counts' : 'They count'} under "Cited by" once your thesis is approved.`;
+  } else if (approved) {
+    help = 'Theses under review count under "Cited by" once they are approved.';
+  } else {
+    help = one
+      ? 'It counts under "Cited by" once both theses are approved.'
+      : 'They count under "Cited by" once your thesis and the theses under review are approved.';
+  }
+  const row = 'flex flex-col gap-1.5 px-3 py-2.5 text-sm sm:flex-row sm:justify-between sm:gap-4';
+  const meta = 'flex flex-none items-center gap-2 sm:flex-col sm:items-end sm:gap-1';
 
   return (
     <section className="mt-6 text-left border-t border-border-default pt-5" aria-labelledby="cited-heading">
       <h3 id="cited-heading" className="flex items-baseline gap-2 text-sm font-semibold text-ink">
         Repository theses cited in this paper
-        {cited.length > 0 && (
+        {total > 0 && (
           <span className="rounded-full border border-border-default bg-surface-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-body">
-            {cited.length}<span className="sr-only"> found</span>
+            {total}<span className="sr-only"> found</span>
           </span>
         )}
       </h3>
-      {cited.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-1 text-sm text-muted">None of the repository's theses appear in your reference list.</p>
       ) : (
         <>
-          <p className="mt-1 mb-3 text-xs text-muted">{help}</p>
+          <p className="mt-1 mb-3 text-xs text-muted">Found in your reference list. {help}</p>
           <ol className="rounded-lg border border-border-default divide-y divide-border-default">
             {cited.map((c) => (
-              <li key={c.id} className="flex justify-between gap-4 px-3 py-2.5 text-sm text-ink">
+              <li key={c.id} className={`${row} text-ink`}>
                 <span className="min-w-0 break-words">{c.title}</span>
-                <span className="flex-none tabular-nums text-muted">{c.year}</span>
+                <span className={meta}>
+                  <span className="tabular-nums text-muted">{c.year}</span>
+                  {c.under_review && <UnderReview />}
+                </span>
               </li>
             ))}
+            {hidden > 0 && (
+              <li className={`${row} text-muted`}>
+                <span>{hidden} more {hidden === 1 ? 'thesis that is' : 'theses that are'} still under review</span>
+                <span className={meta}><UnderReview /></span>
+              </li>
+            )}
           </ol>
         </>
       )}
@@ -803,7 +832,7 @@ function UploadThesisModalContent() {
               </button>
             </m.div>
             {success.id && (
-              <CitedList cited={success.cited || []} approved={success.status === 'approved'} />
+              <CitedList cited={success.cited || []} hidden={success.cited_hidden || 0} approved={success.status === 'approved'} />
             )}
           </m.div>
           </LazyMotion>
