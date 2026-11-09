@@ -1243,16 +1243,22 @@ class ThesisUploadView(APIView):
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning('Thesis %s title embedding generation failed: %s', thesis.id, exc)
 
-        # Step 8: respond with the detail shape, plus repository theses this
-        # one appears to cite. The uploader confirms them on the success screen.
-        from .services.citations import find_cited_theses
+        # Step 8: save the repository theses this one cites (found in its
+        # reference list, no confirmation) and list them on the success screen.
+        # ignore_conflicts keeps a worker retry from storing a pair twice.
+        from .services import citations
 
         data = ThesisDetailSerializer(thesis).data
         try:
-            data['cited_candidates'] = find_cited_theses(thesis.extracted_text, exclude_id=thesis.id)
-        except Exception as exc:  # pragma: no cover - detection must never fail an upload
+            cited = citations.find_cited_theses(thesis.extracted_text, exclude_id=thesis.id)
+            ThesisCitation.objects.bulk_create(
+                [ThesisCitation(citing=thesis, cited_id=c['id'], created_by=request.user) for c in cited],
+                ignore_conflicts=True,
+            )
+            data['cited'] = cited
+        except Exception as exc:  # detection must never fail an upload
             logger.warning('Thesis %s citation detection failed: %s', thesis.id, exc)
-            data['cited_candidates'] = []
+            data['cited'] = []
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod

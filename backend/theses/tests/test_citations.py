@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from io import StringIO
+from uuid import UUID
 
 import pytest
 from django.core.files.base import ContentFile
@@ -212,32 +213,67 @@ def test_post_with_list_body_saves_nothing(client, uploader, make_thesis):
     assert r.status_code == 200 and r.json()['count_saved'] == 0
 
 
-def test_upload_response_carries_cited_candidates(client, make_thesis, settings, tmp_path):
-    """Real upload path (sync): the 201 body lists repository theses cited in REFERENCES."""
-    from django.core.files.uploadedfile import SimpleUploadedFile
-    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
-
-    settings.DOCUMENT_PROCESSING_ASYNC = False
-    settings.MEDIA_ROOT = str(tmp_path / 'media')
-    faculty = User.objects.create_user(
+@pytest.fixture
+def faculty(db):
+    return User.objects.create_user(
         email='cite.fac@pampangastateu.edu.ph', first_name='Fa', last_name='Culty',
         role=Role.FACULTY, password='Test12345!Test',
     )
-    cited = make_thesis(faculty, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
-    pdf = _pdf_from_lines(THESIS_LINES + [cited.title])
 
-    from auth_service.services import issue_token_pair
-    token = issue_token_pair(faculty, request=None, remember_me=False).access_token
-    r = client.post(reverse('thesis-upload'), data={
+
+@pytest.fixture
+def upload_env(settings, tmp_path):
+    settings.DOCUMENT_PROCESSING_ASYNC = False
+    settings.MEDIA_ROOT = str(tmp_path / 'media')
+
+
+def _upload(client, user, extra_lines):
+    """Real upload path (sync) with a PDF whose text ends with ``extra_lines``."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from theses.tests.test_thesis_gate_integration import THESIS_LINES, _pdf_from_lines
+
+    pdf = _pdf_from_lines(THESIS_LINES + list(extra_lines))
+    return client.post(reverse('thesis-upload'), data={
         'title': 'A Mobile Health Records System For Rural Clinics',
         'abstract': 'An abstract comfortably longer than twenty characters.',
         'authors': '["Dela Cruz, Juan M."]', 'keywords': '["mobile health"]',
         'program': 'BS Information Technology', 'year': '2025', 'adviser': '',
         'file': SimpleUploadedFile('t.pdf', pdf, content_type='application/pdf'),
-    }, HTTP_AUTHORIZATION=f'Bearer {token}')
+    }, **_auth(user))
+
+
+SMART_PARKING = 'Smart Parking Availability Detection Using Ultrasonic Sensors'
+
+
+def test_upload_saves_cited_theses(client, faculty, make_thesis, upload_env):
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, faculty, [cited.title])
     assert r.status_code == 201, r.content
-    cands = r.json()['cited_candidates']
-    assert cands[0]['id'] == str(cited.id)
+    assert r.json()['cited'] == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
+    assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id', 'created_by_id')) == [
+        (UUID(r.json()['id']), cited.id, faculty.id)]
+
+
+def test_student_upload_saves_but_does_not_count_yet(client, uploader, faculty, make_thesis, upload_env):
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, uploader, [cited.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'][0]['id'] == str(cited.id)
+    assert ThesisCitation.objects.count() == 1
+    rows = client.get(reverse('thesis-list'), **_auth(uploader)).json()['results']
+    assert {x['id']: x['cited_by_count'] for x in rows}[str(cited.id)] == 0
+
+
+def test_upload_survives_detection_error(client, faculty, make_thesis, upload_env, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError('detection broke')
+
+    monkeypatch.setattr('theses.services.citations.find_cited_theses', boom)
+    cited = make_thesis(faculty, SMART_PARKING, year=2021)
+    r = _upload(client, faculty, [cited.title])
+    assert r.status_code == 201, r.content
+    assert r.json()['cited'] == []
+    assert ThesisCitation.objects.count() == 0
 
 
 def test_post_manual_ids_saved_as_manual(client, uploader, make_thesis):
