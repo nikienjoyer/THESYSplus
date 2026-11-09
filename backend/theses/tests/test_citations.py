@@ -55,24 +55,24 @@ def test_title_match(uploader, make_thesis):
     cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors',
                         authors=['Manalo, Paolo'], year=2021)
     out = find_cited_theses(REFS)
-    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021, 'match': 'title'}]
+    assert out == [{'id': str(cited.id), 'title': cited.title, 'year': 2021}]
 
 
-def test_author_year_match(uploader, make_thesis):
-    cited = make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'], year=2022)
-    assert find_cited_theses(REFS) == [
-        {'id': str(cited.id), 'title': cited.title, 'year': 2022, 'match': 'author_year'},
-    ]
+def test_shared_eight_word_prefix_is_not_a_match(uploader, make_thesis):
+    make_thesis(uploader, 'Development of a Web-Based Student Information System for Lubao')
+    refs = 'REFERENCES\nCruz, J. (2020). Development of a web-based student information system for Guagua.'
+    assert find_cited_theses(refs) == []
 
 
-def test_author_year_needs_same_line(uploader, make_thesis):
-    make_thesis(uploader, 'Barangay Health Records Portal', authors=['Garcia, Liza'], year=2019)
-    assert find_cited_theses(REFS) == []
+def test_title_match_ignores_case_and_punctuation(uploader, make_thesis):
+    cited = make_thesis(uploader, 'Smart Parking Availability Detection Using Ultrasonic Sensors', year=2021)
+    refs = 'REFERENCES\nManalo (2021). SMART-PARKING availability detection: using ultrasonic\nsensors.'
+    assert [c['id'] for c in find_cited_theses(refs)] == [str(cited.id)]
 
 
-def test_short_surname_ignored(uploader, make_thesis):
-    make_thesis(uploader, 'Some Other Thesis Title', authors=['Li, Wei'], year=2022)
-    assert find_cited_theses('REFERENCES\nLi, W. (2022). Unrelated.') == []
+def test_short_title_never_matches(uploader, make_thesis):
+    make_thesis(uploader, 'Inventory System', authors=['Garcia, Liza'])
+    assert find_cited_theses('REFERENCES\nGarcia (2022). Inventory system for a store.') == []
 
 
 def test_excludes_self_and_unapproved(uploader, make_thesis):
@@ -196,7 +196,7 @@ def test_detect_citations_dry_run_and_apply(uploader, make_thesis):
     out = StringIO()
     call_command('detect_citations', stdout=out)
     assert ThesisCitation.objects.count() == 0
-    assert 'title' in out.getvalue() and 'author_year' in out.getvalue()
+    assert cited.title[:50] in out.getvalue()
 
     call_command('detect_citations', '--apply', stdout=StringIO())
     assert list(ThesisCitation.objects.values_list('citing_id', 'cited_id')) == [(citing.id, cited.id)]
@@ -237,7 +237,7 @@ def test_upload_response_carries_cited_candidates(client, make_thesis, settings,
     }, HTTP_AUTHORIZATION=f'Bearer {token}')
     assert r.status_code == 201, r.content
     cands = r.json()['cited_candidates']
-    assert cands[0]['match'] == 'title' and cands[0]['id'] == str(cited.id)
+    assert cands[0]['id'] == str(cited.id)
 
 
 def test_post_manual_ids_saved_as_manual(client, uploader, make_thesis):
